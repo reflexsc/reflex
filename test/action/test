@@ -1,0 +1,230 @@
+#!/app/local/bin/virtual-python
+#$#HEADER-START
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+#
+#     Reactor Configuration Event Engine
+#
+#     Copyright (C) 2016 Brandon Gillespie
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU Affero General Public License as published
+#     by the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU Affero General Public License for more details.
+#
+#     You should have received a copy of the GNU Affero General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+#$#HEADER-END
+
+# common includes
+import sys
+import os
+import argparse
+import doctest
+import subprocess
+from subprocess import *
+import hashlib
+import shutil
+import json
+import re
+import base64
+import time
+from io import StringIO as ioString
+
+# prep for where the reactor bits are at
+reactor_cmd  = os.path.basename(__file__)
+reactor_base = "../../"
+reactor_lib = reactor_base + "/src/reactor/"
+os.environ['REACTOR_BASE'] = reactor_base
+sys.path.append(reactor_base + '/src')
+
+import reactor
+from reactor.test import *
+from reactor.action import Action
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action='append')
+    parser.add_argument("--noclean", action='store_true')
+    parser.add_argument("--nounit", action='store_true')
+
+    if os.path.exists("test.log"):
+        os.unlink("test.log")
+    args = parser.parse_args()
+    base = reactor.Base(debug=args.debug).cfg_load()
+    base.notifyfd = ioString()
+    base.outputfd = ioString()
+
+    tap = TAP()
+
+    bpath = Action.action_dirs[0]
+
+    # constants
+    repo = 'deploy-manager'
+    depfile = 'deploy_stage.ops_test.1600.2020.tgz'
+
+    def rm(file):
+        try:
+            os.unlink(file)
+            return 1
+        except:
+            return 0
+
+    def clean():
+        if os.path.exists(bpath):
+            shutil.rmtree(bpath)
+        #s3 = boto3.client('s3')
+        #resp = s3.delete_object(Bucket=repo, Key=depfile)
+        #print(resp)
+        rm(depfile)
+        rm(".gitignore")
+        rm("test.log")
+
+    def store(fpath, content, mode=False):
+        based = os.path.dirname(fpath)
+        if based:
+            if not os.path.exists(based):
+                os.mkdir(based)
+        with open(fpath, 'wt') as outf:
+            outf.write(content)
+        if mode:
+            os.chmod(fpath, mode)
+
+    clean()
+    store(bpath + "/config.json", json.dumps({
+            "config": {
+                "active-copies": 1,
+                "archive-copies": 5,
+                "repo-copies": 30,
+                "product": "ops",
+                "module": "test",
+                "app-base": "/app",
+                "deploy-base": "/data",
+                "package-repo": "s3://" + repo
+            },
+            "setenv": {
+                "REACTOR_PATH_APP": "${app-base}",
+                "REACTOR_PATH_DEPLOY": "${deploy-base}",
+                "REACTOR_PKG_REPO": "${package-repo}",
+                "REACTOR_PRODUCT": "${product}",
+                "REACTOR_MODULE": "${module}"
+            },
+            "actions": {
+                "first": {
+                    "type": "system",
+                    "exec": ["echo", "first"]
+                },
+                "second": {
+                    "type": "system",
+                    "exec": ["echo", "second"]
+                },
+                "group": {
+                    "type": "group",
+                    "actions": ["first", "second"]
+                },
+                "build":{
+                    "type": "script",
+                    "target": "build",
+                    "onSuccess": "hibaby"
+                },
+                "input-run":{
+                    "type": "script",
+                    "target": "input-run",
+                    "config": "stdin"
+                },
+                "varsub": {
+                    "type": "system",
+                    "exec": ["echo", "VAR=${MYVAR}!"],
+                    "setenv": {
+                        "MYVAR": "a variable value"
+                    }
+                },
+                "hibaby": {
+                    "type": "system",
+                    "exec": ["echo", "HI BABY!"],
+                    "onSuccess": "test"
+                },
+                "test": {
+                    "type": "script",
+                    "target": "test",
+                },
+                "roll-package": {
+                    "type": "roll-package",
+                    "name": "deploy_stage.ops-test",
+                    "setenv": {
+                        "PKG_VERSION": "${BUILD_NUMBER}"
+                    },
+                    "include": "include.txt",
+                    "exclude": "exclude.txt",
+                    "gitignore": True
+                },
+                "store-package": {
+                    "type": "store-package-s3",
+                },
+            }
+        }))
+                    #"onSuccess": "store-package" # taken out of roll-package
+    store(bpath + "/build", """#!/bin/bash
+        echo "boring build"
+        exit 0
+        """, mode=0o755)
+    store(bpath + "/input-run", """#!/bin/bash
+        echo "with input: "
+        cat
+        exit 0
+        """, mode=0o755)
+    store(bpath + "/test", """#!/bin/bash
+        echo "booring test"
+        exit 0
+        """, mode=0o755)
+    store(bpath + "/include.txt", ".pkg\ntest\ninclude.txt\n")
+    store(bpath + "/exclude.txt", "include.txt\n.gitignore\n")
+    store(".gitignore", "*.json\n*.swp\n")
+
+    if not args.nounit:
+        tap.unit(reactor_lib, "action.py", exit_on_fail=True)
+        rm('test.log')
+
+    addargs = []
+    if args.debug:
+        for key in args.debug:
+            addargs += ['--debug=' + key]
+
+    os.environ['BUILD_NUMBER'] = '1600.2020'
+
+    tap.ok_run("action group", '17c342137e91c27336d714d5b5763503',
+               ["../../bin/action", "--notime", "--debug=test", "run", "group"] + addargs)
+
+    tap.ok_run("action build", '2ed756a79da8dfd86f3afd6ed796fbd8',
+               ["../../bin/action", "--notime", "--debug=test", "run", "build"] + addargs)
+
+    tap.ok_run("action input", '5957f58e7eb171e82761102e9b0ab00b',
+               ["../../bin/action", "--notime", "--debug=test", "run", "input-run", "--config=happy value"] + addargs)
+
+    tap.ok_run("action varsub", 'c46cbd78ac05c5a9c5c5b242eefe551a',
+               ["../../bin/action", "--notime", "--debug=test", "run", "varsub"] + addargs)
+
+	# with store-package this is the MD5
+    #tap.ok_run("action roll-package", '5aad32443c0ce586c6dc3ac41033e907',
+    tap.ok_run("action roll-package", 'fc3cbd90cac779f699123dc54228d6d0',
+               ["../../bin/action", "--notime", "--debug=test", "run", "roll-package"] + addargs)
+
+    tap.ok_run("verify package", 'ded41bf4bebb2e61e41c01d628eac82a',
+               'tar -tzf ' + depfile + '| sort -u', shell=True)
+
+    if not args.noclean and not tap._tap_bad:
+        clean()
+
+    tap.exit()
+
+################################################################################
+if __name__ == "__main__":
+    main()
+

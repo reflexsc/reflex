@@ -1,0 +1,4 @@
+#!/bin/bash
+        echo "boring build"
+        exit 0
+        

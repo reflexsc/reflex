@@ -1,0 +1,119 @@
+#!/app/local/bin/virtual-python
+#$#HEADER-START
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+#
+#     Reactor Configuration Event Engine
+#
+#     Copyright (C) 2016 Brandon Gillespie
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU Affero General Public License as published
+#     by the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU Affero General Public License for more details.
+#
+#     You should have received a copy of the GNU Affero General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#$#HEADER-END
+
+# common includes
+import sys
+import os
+import argparse
+import doctest
+import subprocess
+from subprocess import *
+import hashlib
+import shutil
+import json
+import re
+import base64
+try:
+    import StringIO as strio
+except:
+    import io as strio
+
+# prep for where the reactor bits are at
+#reactor_base = os.path.dirname(os.path.realpath(os.path.dirname(__file__)))
+reactor_cmd  = os.path.basename(__file__)
+reactor_base = "../../"
+reactor_lib = reactor_base + "/src/reactor/"
+os.environ['REACTOR_BASE'] = reactor_base
+sys.path.append(reactor_base + '/src')
+
+import reactor
+from reactor.test import *
+from reactor.launch import LaunchCli
+from reactor.backend import Core
+from reactor.action import Action
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action='append')
+    parser.add_argument("--noclean", action='store_true')
+    parser.add_argument("--nounit", action='store_true')
+
+    if os.path.exists("test.log"):
+        os.unlink("test.log")
+
+    args = parser.parse_args()
+    base = reactor.Base(debug=args.debug).cfg_load()
+    if not base.cfg.get('REACTOR_URL'):
+        print("Skipping Reactor Core tests: no configured REACTOR_URL")
+        sys.exit(0)
+
+    base.timestamp = False # so our output is not altered by timestamps
+    base.term_width = 80
+    base.notifyfd = strio.StringIO()
+    base.outputfd = strio.StringIO()
+
+    tap = TAP()
+
+    db = Core(base=base)
+    test_name = "_reactor-test_"
+    bpath = Action.action_dirs[0]
+
+    def clean():
+        rm("test.log")
+
+    def rm(file):
+        try:
+            os.unlink(file)
+            return 1
+        except:
+            return 0
+
+    if not args.nounit:
+        tap.unit(reactor_lib, "backend.py", exit_on_fail=True)
+
+    core_cmd = "../../bin/core"
+    for obj in ['service']:
+        tap.ok_run_compare("Create {} object".format(obj),
+                           [core_cmd, '--content', '{}', obj,
+                            'create', '_reactor_test_'],
+                           r'''"name":"_reactor_test_",''')
+        tap.ok_run_compare("List {} objects".format(obj),
+                           [core_cmd, obj, 'list', '_reactor_test_'],
+                           r'''_reactor_test_''')
+        tap.ok_run_compare("Get {} object".format(obj),
+                           [core_cmd, obj, 'get', '_reactor_test_'],
+                           r'''"name":"_reactor_test_",''')
+        tap.ok_run_compare("Delete {} object".format(obj),
+                           [core_cmd, obj, 'delete', '_reactor_test_'],
+                           r"""Deleted Service '_reactor_test_'""")
+
+    if not args.noclean and not tap._tap_bad:
+        clean()
+
+    tap.exit()
+
+################################################################################
+if __name__ == "__main__":
+    main()
+

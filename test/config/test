@@ -1,0 +1,163 @@
+#!/app/local/bin/virtual-python
+#$#HEADER-START
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+#
+#     Reactor Configuration Event Engine
+#
+#     Copyright (C) 2016 Brandon Gillespie
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU Affero General Public License as published
+#     by the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU Affero General Public License for more details.
+#
+#     You should have received a copy of the GNU Affero General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#$#HEADER-END
+
+# common includes
+import sys
+import os
+import argparse
+import doctest
+import subprocess
+from subprocess import *
+import hashlib
+import shutil
+import json
+import re
+import base64
+import io
+
+reactor_lib = "../../src/reactor/"
+
+import reactor
+import reactor.launch
+from reactor.backend import Core
+from reactor.test import *
+from reactor.config import ConfigProcessor
+
+class TestCP(reactor.Base):
+    def __init__(self, *args, **kwargs):
+        super(TestCP, self).__init__(*args, **kwargs)
+        self.notifyfd = io.StringIO()
+        self.outputfd = io.StringIO()
+
+    def test(self, ctmp):
+        core = TestDb(base=self)
+        core.load()
+        os.environ['APP_CFG_BASE'] = '.'
+        conf = ConfigProcessor(base=self, core=core, verbose=True)
+        cfg = conf.flatten("test-config-head")
+        conf.commit(cfg, dest='./' + ctmp)
+
+        conf2 = ConfigProcessor(base=self, core=core, verbose=True)
+        cfg = conf2.flatten("test2-self")
+        conf2.commit(cfg, dest='./' + ctmp)
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action='append')
+    parser.add_argument("--base", action='store_true') # do base tests
+    parser.add_argument("--noclean", action='store_true')
+
+    args = parser.parse_args()
+
+    tap = TAP()
+    if args.base:
+        tap.lint(reactor_lib, "config.py", exit_on_fail=False)
+        tap.unit(reactor_lib, "config.py", exit_on_fail=False)
+
+    ctmp="c.test.tmp"
+    if os.path.exists(ctmp):
+        shutil.rmtree(ctmp)
+    if os.path.exists('test.log'):
+        os.unlink('test.log')
+    os.mkdir(ctmp)
+
+    test = TestCP(debug=args.debug).cfg_load()
+
+    if not tap.ok_func_compare("reactor.config functional processing of test-config-head",
+                        test, test.test, [ctmp], {},
+                        "CONFIG test-config-json into ./c.test.tmp/config.json",
+                        "CONFIG test-config-security-properties into ./c.test.tmp/security.properties",
+                        "CONFIG test-config-properties into ./c.test.tmp/head.properties"
+                        ):
+        with open("test.log") as log:
+            for line in log:
+                print(line.strip())
+        tap.exit()
+    tap.ok("Verify head.properties",
+           check_file(ctmp + "/head.properties", "c105692b645ab2c42575049b3011adf6"))
+    tap.ok("Verify security.properties",
+           check_file(ctmp + "/security.properties", "189f4021bb95ef75ea30aff633fad948"))
+
+    def sortkeys(fname):
+        with open(fname, "r") as f_in:
+            data = json.load(f_in)
+        with open(fname, "w") as f_out:
+            json.dump(data, f_out, sort_keys=True)
+
+    sortkeys(ctmp+"/config.json")
+    tap.ok("Verify config.json",
+           check_file(ctmp + "/config.json", "bbf879785bd2ea5deaec7d855be24fbf"))
+    sortkeys(ctmp+"/self.json")
+    tap.ok("Verify self.json",
+           check_file(ctmp + "/self.json", "ae910760deacdbf6d0f0cd94ad5bceb1"))
+
+    if not args.noclean and not tap._tap_bad:
+        shutil.rmtree(ctmp)
+
+    tap.exit()
+
+class MyJson:
+    # this should just be one rx, but python rx is being wierd
+    rx_all = re.compile(r"^\s*//.*$")
+    rx_end = re.compile(r'^(.*)([,{"[]])\s*//.*$')
+    def load_json(self, fileName):
+        buf = ""
+        with open(fileName, 'rt') as f:
+            for line in f:
+                m = self.rx_all.match(line)
+                if m:
+                    buf += "\n"
+                else:
+                    m = self.rx_end.match(line)
+                    if m:
+                        buf += m.group(1) + m.group(2) + "\n"
+                    else:
+                        buf += line
+        try:
+            return json.loads(buf)
+        except ValueError as e:
+            raise SystemExit("cannot read JSON: " + str(e))
+
+class TestDb(Core):
+    data = None
+
+    def __init__(self, **kwargs):
+        self.cfg['REACTOR_URL'] = 'http://localhost/' # go nowhere
+        super(TestDb, self).__init__(**kwargs)
+
+    # override so we can use local data set
+    def get_object(self, otype, oname):
+        if not oname in self.data:
+            raise ValueError("Cannot find '{n}' in TEST_DATA set".format(n=oname))
+
+        return self.data[oname]
+
+    def load(self):
+        self.data = dict()
+        for o in MyJson().load_json("./Config.json"):
+            self.data[o['name']]= o
+
+################################################################################
+if __name__ == "__main__":
+    main()

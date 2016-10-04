@@ -1,0 +1,5 @@
+pynacl
+#boto3
+#mysqlclient
+#pymysql
+#mysql

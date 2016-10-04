@@ -1,0 +1,4 @@
+#!/bin/bash
+dir=$(dirname $0)
+echo $dir/install.sh
+eval $($dir/install.sh env)

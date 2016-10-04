@@ -1,0 +1,11 @@
+
+[MESSAGES CONTROL]
+disable=trailing-newlines,bad-option-value
+
+[BASIC]
+bad-functions=[map,filter]
+
+[TYPECHECK]
+ignored-modules = ujson
+ignored-classes = ephemer.Namespace, dictlib.Obj
+

@@ -1,0 +1,113 @@
+#!/bin/bash
+# vim:set ts=4 sw=4 ft=bash:
+
+declare -a test_opts
+did=0
+do_all() {
+	DO_LINT=yes
+	DO_UNIT=yes
+	DO_INTEGRATION=yes
+	DO_FUNCTIONAL=yes
+	DO_STACK=yes
+	SERVICE=yes
+}
+
+for opt in "$@"; do
+	case $opt in
+		-*) test_opts[${#test_opts[*]}]=$opt;;
+		lint)
+			DO_LINT=yes
+			let did++;;
+		unit)
+			DO_UNIT=yes
+			let did++;;
+		int|integration)
+			DO_INTEGRATION=yes
+			SERVICE=yes
+			let did++;;
+		func|functional)
+			DO_FUNCTIONAL=yes
+			SERVICE=yes
+			let did++;;
+		stack|full-stack)
+			DO_STACK=yes
+			SERVICE=yes
+			let did++;;
+		all)
+			do_all
+			let did++;;
+	esac
+done
+
+if [ $did -eq 0 ]; then
+	do_all
+fi
+
+[ ! $TESTROOT ] && export TESTROOT=../
+
+if [ ! -f $TESTROOT/../.pkg/did_core ]; then
+	echo "Skipping Reactor Core checks (not configured with --core)"
+	exit 0
+fi
+source $TESTROOT/test.sh
+rm -f $testlog trace log_failed
+
+port=54321
+export JWT_SECRET=iamthewalrus
+config='
+{"sensitive":{"config":{
+ "heartbeat": 10,
+ "server": {
+   "route_base": "/api",
+   "port": '$port',
+   "host": "127.0.0.1"
+ },
+ "cache": {
+   "housekeeper": 2,
+   "policies": 1
+ },
+ "secrets":["'$JWT_SECRET'"],
+ "db": {
+    "database": "reactor_core",
+    "user": "root"
+ }
+}}}
+'
+
+[ $SERVICE ] && start_svc cored "--test --cfgin" "$config"
+
+errs=0
+[ $DO_LINT ] && {
+	./test.py lint "${test_opts[@]}"
+ 	let errs+=$?
+}
+
+[ $DO_UNIT ] && {
+	./test.py unit "${test_opts[@]}"
+	let errs+=$?
+}
+
+if [ $SERVICE ]; then
+	# see if agent is ready yet
+	waitfor_svc cored localhost:$port
+
+	[ $DO_INTEGRATION ] && {
+		./test.py integration "${test_opts[@]}"
+		let errs+=$?
+	}
+
+	[ $DO_FUNCTIONAL ] && {
+		./test.py functional "${test_opts[@]}"
+		let errs+=$?
+	}
+
+	[ $DO_STACK ] && {
+		./test.py full-stack "${test_opts[@]}"
+		let errs+=$?
+	}
+
+	kill_matching reactor-cored
+fi
+
+exit $errs
+

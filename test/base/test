@@ -1,0 +1,62 @@
+#!/app/local/bin/virtual-python
+#$#HEADER-START
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+#
+#     Reactor Configuration Event Engine
+#
+#     Copyright (C) 2016 Brandon Gillespie
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU Affero General Public License as published
+#     by the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU Affero General Public License for more details.
+#
+#     You should have received a copy of the GNU Affero General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#$#HEADER-END
+
+# common includes
+import sys
+import os
+import argparse
+import doctest
+import subprocess
+from subprocess import *
+import hashlib
+import shutil
+
+# prep for where the reactor bits are at
+reactor_cmd = 'test'
+reactor_base = "../../"
+reactor_lib = reactor_base + "src/"
+os.environ['REACTOR_BASE'] = reactor_base
+sys.path.append(reactor_base + '/src')
+
+import reactor
+from reactor.test import *
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action='append')
+
+    if os.path.exists("test.log"):
+        os.unlink("test.log")
+
+    args = parser.parse_args()
+    b = reactor.Base(debug=args.debug).cfg_load()
+
+    tap = TAP()
+    tap.lint(reactor_lib, "reactor", exit_on_fail=True)
+    tap.inline_unit(reactor, exit_on_fail=True)
+    tap.exit()
+
+################################################################################
+if __name__ == "__main__":
+    main()

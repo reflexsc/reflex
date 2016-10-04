@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# assert: run this script from the base folder
+
+cd test
+./test

@@ -1,0 +1,7 @@
+Logging direct to json has a recursion problem when the data submitted is not clean JSON.
+
+Making this performant may not be easy.  Problem lies in reactor/__init__.py:NOTIFY, where the JSON translation is handled.  Sending in data that is not type json will break.
+
+This is compounded in Cherrypy, which ends up getting into a recursive loop because of the boondogle needed to straighten up its logging stack.
+
+For the time being, with the server, logging is fixed as txt

@@ -1,0 +1,16 @@
+notifications: never
+language: python
+services:
+  - mysql
+python: 3.5
+before_script:
+  - mysql -e 'create database reactor_core;' -uroot
+cache:
+  pip: true
+  directories:
+    - ./python
+install:
+  - pip install virtualenv
+script:
+  - ./install.sh local $(which python) --core
+  - eval $(./install.sh env); cd test; ./test

@@ -1,0 +1,150 @@
+//////////////////////////////////////////////////////////////////////////////////////////
+// Config - two types: parameters and data.  Relates to dockerfiles as well (github)
+//   Name: primary key
+//   Type: params|data
+//   Tags: optional - dictionary of tags (for filtering)
+//   Sensitive: optional - dictionary of sensitive (encrypted@rest) data
+//   MacroExpansion: optional - array of files, relative to docker image root. processed for subs
+//   Extends: optional - array of config objects to import
+//   Data: optional - data stored a dictionary with vals:
+//      Content-Type - any mime type
+//      Content-Encoding - either undefined or base64 (if binary type data)
+//      Content - the data itself
+//      MacroExpansion - undefined, true or false.  If true, perform template substitution
+//      Filename - name of file stored, relative to data root
+//             template sub is done on name (i.e. filename is ok)
+//
+// config object comes in two primary shapes based on type.
+//
+//   parameters shape should include: one of MacroExpansion or Extends, and possibly Sensitive
+//   data shape should include: Data
+// 
+
+[
+
+{
+  "name": "test2-self",
+  "type": "file",
+  "sensitive": {
+    "data": {
+      "mesa": "so happy"
+    }
+  },
+  "content": {
+    "type": "application/json",
+    "dest": "self.json",
+    "varsub": true,
+    "ref": "sensitive.data"
+  }
+},
+
+{
+  "name": "test-config-common",
+  "type": "parameter",
+  "sensitive": {
+    "parameters": {
+      "SERVICE-NAME":  "fin",
+      "KFS-FRONT-END": "%{BASE-URL}/fin",
+      "RICE-FRONT-END":"%{BASE-URL}/rice",
+      "KUALI-LANE":    "",
+      "BASE-URL":      "https://%{KUALI-TENANT}%{KUALI-LANE}.kuali.co"
+    }
+  },
+  "setenv": {
+    "TEST": "%{BASE-URL}",
+    "PORT": 300
+  },
+  "exports":["test-config-properties", "test-config-security-properties", "test-config-json"]
+},
+
+{
+  "name": "test-config-properties",
+  "type": "file",
+  "sensitive": {
+    "data": "YXBwLmNvZGU9ZmluCmVudmlyb25tZW50PQpiYXNlLnVybD1odHRwczovL2RyYWdvbnMtdHN0Lmt1YWxpLmNvCmFwcGxpY2F0aW9uLnVybD0le0tGUy1GUk9OVC1FTkR9CmFwcC5jb250ZXh0Lm5hbWU9ZmluCmFwcHNlcnZlci51cmw9aHR0cHM6Ly9kcmFnb25zLXRzdC5rdWFsaS5jbwpyaWNlLnNlcnZlci51cmw9JXtSSUNFLUZST05ULUVORH0KcmljZS51cmw9JXtSSUNFLUZST05ULUVORH0KcmljZS5rc2IucmVnaXN0cnkuc2VydmljZVVybD0ke3JpY2UudXJsfS9yZW1vdGluZy9zb2FwL2tzYi92Ml8wL3NlcnZpY2VSZWdpc3RyeQpyaWNlLmtzYi53ZWIuZm9yY2VFbmFibGU9dHJ1ZQpiYXNlLmRpcmVjdG9yeT0vZGF0YS9maW4va2ZzCmNvbnRyYWN0cy5ncmFudHMuYmlsbGluZy5lbmFibGVkPXRydWUKbG9nNGouc2V0dGluZ3MuZmlsZT0vYXBwL2Zpbi9rZnMvYXBwL3RvbWNhdC9jb25mL2xvZzRqLnByb3BlcnRpZXMKa2V5c3RvcmUuZmlsZT0vZGF0YS9maW4vY29uZmlnL3JpY2Uua2V5c3RvcmUKc2VjdXJpdHkucHJvcGVydHkuZmlsZT1maWxlOi9kYXRhL2Zpbi9jb25maWcvc2VjdXJpdHkucHJvcGVydGllcwoKdXNlUXVhcnR6RGF0YWJhc2U9ZmFsc2UKY29udGV4dC5uYW1lcy5yaWNlPXJpY2UKc3ByaW5nLnNvdXJjZS5maWxlcz1jbGFzc3BhdGg6b3JnL2t1YWxpL3JpY2UvY29yZS9Db21tb25TcHJpbmdCZWFucy54bWwsY2xhc3NwYXRoOmtmcy1jYWNoZS1jb25maWcueG1sLGNsYXNzcGF0aDpzcHJpbmcta2ZzLWltcG9ydGVkLXJpY2UtYmVhbnMueG1sLGNsYXNzcGF0aDpzcHJpbmctYWRkaXRpb25hbC1yaWNlLWJlYW5zLnhtbCxjbGFzc3BhdGg6b3JnL2t1YWxpL2tmcy9zeXMvc3ByaW5nLXN5cy54bWwsY2xhc3NwYXRoOm9yZy9rdWFsaS9rZnMvY29hL3NwcmluZy1jb2EueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL2ZwL3NwcmluZy1mcC54bWwsY2xhc3NwYXRoOm9yZy9rdWFsaS9rZnMvZ2wvc3ByaW5nLWdsLnhtbCxjbGFzc3BhdGg6b3JnL2t1YWxpL2tmcy9wZHAvc3ByaW5nLXBkcC54bWwsY2xhc3NwYXRoOm9yZy9rdWFsaS9rZnMvdm5kL3NwcmluZy12bmQueG1sLGNsYXNzcGF0aDpzcHJpbmcta2ZzLWJhdGNoLnhtbCxjbGFzc3BhdGg6b3JnL2t1YWxpL2tmcy9pbnRlZ3JhdGlvbi9zcHJpbmctaW50ZWdyYXRpb24ueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL21vZHVsZS9lYy9zcHJpbmctZWMueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL21vZHVsZS9sZC9zcHJpbmctbGQueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL21vZHVsZS9jZy9zcHJpbmctY2cueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL21vZHVsZS9hci9zcHJpbmctYXIueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL21vZHVsZS9wdXJhcC9zcHJpbmctcHVyYXAueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL21vZHVsZS9jYW0vc3ByaW5nLWNhbS54bWwsY2xhc3NwYXRoOm9yZy9rdWFsaS9rZnMvbW9kdWxlL2NhYi9zcHJpbmctY2FiLnhtbCxjbGFzc3BhdGg6b3JnL2t1YWxpL2tmcy9tb2R1bGUvYmMvc3ByaW5nLWJjLnhtbCxjbGFzc3BhdGg6b3JnL2t1YWxpL2tmcy9tb2R1bGUvdGVtL3NwcmluZy10ZW0ueG1sLGNsYXNzcGF0aDpvcmcva3VhbGkva2ZzL3N5cy9zcHJpbmctZGV2LWVudi1iZWFucy54bWwKCnRyYXZlbC5yZWltYnVyc2VtZW50LmluaXRpYXRlbGluay5lbmFibGVkPXRydWUKCmNvcmVzZXJ2aWNlLm1vZGU9UkVNT1RFCmtlbi5tb2RlPVJFTU9URQprZXcubW9kZT1FTUJFRERFRApraW0ubW9kZT1FTUJFRERFRAprc2IubW9kZT1SRU1PVEUKbG9jYXRpb24ubW9kZT1SRU1PVEUKcHJvamVjdC5idWlsZC50aW1lc3RhbXA9Cg=="
+  },
+  "content": {
+    "type": "text/x-java-properties",
+    "dest": "head.properties",
+    "varsub": true,
+    "encoding": "base64",
+    "ref": "sensitive.data"
+  }
+},
+
+{
+  "name": "test-config-security-properties",
+  "type": "file",
+  "sensitive": {
+	"data":"a2ZzLmRhdGFzb3VyY2UudXNlcm5hbWU9JXtLRlMtTXhTUUwtQVBQVVNFUn0Ka2ZzLmRhdGFzb3VyY2UucGFzc3dvcmQ9JXtLRlMtTXhTUUwtQVBQUEFTU30Ka2ZzLmRhdGFzb3VyY2UudXJsPWpkYmM6JXtLRlMtTXhTUUwtQkFTRVVSTH0le0tGUy1NeFNRTC1EQklEfQoKcmljZS5kYXRhc291cmNlLnVybD1qZGJjOiV7UklDRS1NeFNRTC1CQVNFVVJMfSV7UklDRS1NeFNRTC1EQklEfQpyaWNlLmRhdGFzb3VyY2UudXNlcm5hbWU9JXtSSUNFLU14U1FMLUFETVVTRVJ9CnJpY2UuZGF0YXNvdXJjZS5wYXNzd29yZD0le1JJQ0UtTXhTUUwtQURNUEFTU30KCmtmcy5kYXRhc291cmNlLm1vbmdvLmhvc3Q9JXtLRlMtTU9OR08tSE9TVFN9Cmtmcy5kYXRhc291cmNlLm1vbmdvLnBvcnQ9JXtLRlMtTU9OR08tUE9SVH0Ka2ZzLmRhdGFzb3VyY2UubW9uZ28uZGJuYW1lPSV7S0ZTLU1PTkdPLURCSUR9Cmtmcy5kYXRhc291cmNlLm1vbmdvLnVzZXJuYW1lPSV7S0ZTLU1PTkdPLVVTRVJ9Cmtmcy5kYXRhc291cmNlLm1vbmdvLnBhc3N3b3JkPSV7S0ZTLU1PTkdPLVBBU1N9CgprZXlzdG9yZS5hbGlhcz1yaWNlCmtleXN0b3JlLnBhc3N3b3JkPSV7S0VZU1RPUkUtUEFTU30KZW5jcnlwdGlvbi5rZXk9JXtLRVlTVE9SRS1LRVl9CgojIGNvbmZpZ3VyZSBvbmx5IGlmIHRoZSBlbnZpcm9ubWVudCB3aWxsIGJlIGNvbm5lY3RlZCB0byBTY2lxdWVzdApiMmIudXNlci5hZ2VudD0KYjJiLnB1cmNoYXNlLm9yZGVyLmlkZW50aXR5PQpiMmIucHVyY2hhc2Uub3JkZXIucGFzc3dvcmQ9CmIyYi5zaG9wcGluZy5pZGVudGl0eT0KYjJiLnNob3BwaW5nLnBhc3N3b3JkPQoKc3VjY2Vzcy5pbXBvcnQ9JXtURVNULUlNUE9SVH0K"
+
+  },
+  "content": {
+  	"dest": "security.properties",
+	"varsub": true,
+    "type": "text/x-java-properties",
+    "encoding": "base64",
+    "ref": "sensitive.data"
+  },
+  "imports": ["test-import"]
+},
+
+{
+  "name": "test-config-json",
+  "type": "file",
+  "sensitive": {
+	"config": {
+		"random": {"json": 1},
+        "content": [1,2,3,{"deeper":{"nesting":1}}]
+    }
+  },
+  "content": {
+    "type": "application/json",
+    "dest": "config.json",
+    "varsub": true,
+    "ref": "sensitive.config"
+  }
+},
+
+{
+  "name":"test-config-head",
+  "type": "parameter",
+  "sensitive":{
+    "parameters":{
+      "KUALI-TENANT": "head",
+      "KEYSTORE-KEY":      "tst-key",
+      "KEYSTORE-PASS":     "tst-pass",
+      "KFS-MxSQL-APPUSER": "my-appuser",
+      "KFS-MxSQL-APPPASS": "my-apppass",
+      "KFS-MxSQL-DDLUSER": "my-ddluser",
+      "KFS-MxSQL-DDLPASS": "my-ddlpass",
+      "KFS-MxSQL-ADMUSER": "my-admuser",
+      "KFS-MxSQL-ADMPASS": "my-admpass",
+      "KFS-MxSQL-BASEURL": "mysql://hostname:port",
+      "KFS-MxSQL-DBID":    "fin_stg_head_kfs",
+      "KFS-MONGO-HOSTS":   "hostname,hostname",
+      "KFS-MONGO-PORT":    "141414",
+      "KFS-MONGO-DBID":    "fin_stg_head",
+      "KFS-MONGO-USER":    "mongo-app-user",
+      "KFS-MONGO-PASS":    "mongo-pass",
+	  "RICE-MxSQL-DBID":   "dbid",
+      "RICE-MxSQL-DDLUSER":"ricemy-ddluser",
+      "RICE-MxSQL-DDLPASS":"ricemy-ddlpass",
+      "RICE-MxSQL-ADMUSER":"ricemy-admuser",
+      "RICE-MxSQL-ADMPASS":"ricemy-admpass",
+      "RICE-MxSQL-BASEURL":"mysql://rice-db:port"
+    }
+  },
+  "extends": ["test-config-common"] 
+},
+
+{
+  "name": "test-import",
+  "sensitive":{
+  "parameters": {
+	"TEST-IMPORT":"success"
+   }
+  }
+}
+
+]

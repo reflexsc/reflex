@@ -1,0 +1,8 @@
+.pkg
+deploy
+bin
+python
+src
+test
+README.md
+install.sh

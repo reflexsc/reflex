@@ -1,0 +1,70 @@
+nest all policies by name!  That would be cool...
+
+    inside_ip:
+    sensitive:     @inside_ip and requestor.authorized and
+    update_object: @allowed_ip and
+
+Pipeline
+
+    'policies': {
+        'read': [ 'read-general', 'read-sensitive-server', 'read-sensitive-team' ],
+        'write': [ 'write-general', 'write-sensitive' ],
+        'admin': [ 'admin' ]
+    }
+
+Group Object
+Policies:
+    in-team = requestor.name in obj.group['team']
+    in-servers = requestor.name in obj.group['servers']
+    in-sensitive-read = requestor.name in obj.group['sensitive-read']
+    in-sensitive-write = requestor.name in obj.group['sensitive-write']
+    inside-network = rx('^10\.', requestor.ip)
+    read-general = sensitive=False and (@in-team or @in-servers)
+    read-sensitive-server = sensitive=True and @in-sensitive-read and @in-servers and @inside-network
+    read-sensitive-team = sensitive=True and @in-sensitive-read and @in-team
+    write-general = sensitive=False and @in-team
+    write-sensitive = sensitive=True and @in-sensitive-write and @in-team and @inside-network
+    admin = requestor.name in obj.group['admin'] and @inside-network
+
+Policy Mapping:
+    name matches ~
+    maps made at change of Policy, and at creation of object
+    include policies with object load:
+        'abac': {
+            'monitor': []
+            'sensitive-read': []
+            'sensitive-write': []
+        }
+
+Groups
+    fin-team
+    fin-servers
+    ops-team
+    ops-servers
+    res-team
+    res-servers
+
+Actions (one or more):
+    read -- read
+    write -- write
+    admin
+
+data.sensitive = True/False
+
+Effected Objects:
+    Logical expression describing effected objects
+
+context:
+
+user.ip
+user.token (meh)
+user.authenticated
+user.authorized (in group)
+
+action.read
+action.update
+action.delete
+
+data.sensitive
+
+policy user_in_network = rx(r'^10\.\d+\.\d+\.\d+$', user.ip)

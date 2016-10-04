@@ -1,0 +1,23 @@
+.*.swp
+cwc
+
+.ephemer_version
+
+# Editor
+.idea
+.idea/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+pylibs
+
+# C extensions
+*.so
+*.log
+
+/python
+
+/.pkg/did_core
+/bin/virtual-python
+

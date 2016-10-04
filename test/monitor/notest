@@ -1,0 +1,145 @@
+#!/app/local/bin/virtual-python
+#$#HEADER-START
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+#
+#     Reactor Configuration Event Engine
+#
+#     Copyright (C) 2016 Brandon Gillespie
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU Affero General Public License as published
+#     by the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU Affero General Public License for more details.
+#
+#     You should have received a copy of the GNU Affero General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#$#HEADER-END
+
+# common includes
+import sys
+import os
+import argparse
+import doctest
+import subprocess
+from subprocess import *
+import hashlib
+import shutil
+import json
+import re
+import base64
+import StringIO
+
+# prep for where the ephemer bits are at
+#ephemer_base = os.path.dirname(os.path.realpath(os.path.dirname(__file__)))
+ephemer_cmd  = os.path.basename(__file__)
+ephemer_base = "../../"
+ephemer_lib = ephemer_base + "/lib/ephemer/"
+os.environ['EPHEMER_BASE'] = ephemer_base
+sys.path.append(ephemer_base + '/lib')
+
+import ephemer
+from ephemer.test import *
+from ephemer.launch import LaunchCli
+from ephemer.backend import Database
+from ephemer.action import Action
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action='append')
+    parser.add_argument("--noclean", action='store_true')
+    parser.add_argument("--nounit", action='store_true')
+
+    args = parser.parse_args()
+    base = ephemer.Base(debug=args.debug).cfg_load()
+    base.timestamp = False # so our output is not altered by timestamps
+    base.term_width = 80
+    base.notifyfd = StringIO.StringIO()
+    base.outputfd = StringIO.StringIO()
+
+    tap = TAP()
+
+    db = Database(base=base)
+    test_name = "_ephemer-test_"
+    bpath = Action.action_dir
+
+    def clean():
+#        tap.trap(db.delete_object, "config", test_name + "-file", notify=False)
+
+    def rm(file):
+        try:
+            os.unlink(file)
+            return 1
+        except:
+            return 0
+
+    if not args.nounit:
+        tap.unit(ephemer_lib, "monitor.py", exit_on_fail=True)
+        rm('test.log')
+
+    ###########################################################################
+    # preparations
+    test_basics = True
+    reset_build = True
+
+    if reset_build:
+        clean()
+        tap.ok_func("Create Pipeline", db.create_object, "pipeline", {
+            'name': test_name,
+            'title': 'Ephemer Test',
+            'launch': {
+                'type': 'exec',
+                'rundir': '.',
+                'cfgdir': '.',
+                'exec': ["./bin/agent", "start", "monitor"],
+            },
+            'versions': False
+        }, notify=False)
+        tap.ok_func("Create Config", db.create_object, "config", {
+            'name': test_name,
+            'sensitive': { 'parameters':{} },
+            'type': 'parameter',
+            'versions': False
+        }, notify=False)
+        tap.ok_func("Create Service", db.create_object, "service", {
+            'name': test_name,
+            'pipeline': test_name,
+            'config': test_name,
+            'title': 'Ephemer Test',
+            'versions': False
+        }, notify=False)
+
+    def clean_get(label, expected, *args, **kwargs):
+        result = tap.trap(*args, **kwargs)
+        if type(result) != dict:
+            print("Bad Result: {}".format(result))
+        else:
+            del(result['createdAt'])
+            del(result['updatedAt'])
+            del(result['id'])
+            tap.ok_data(label, expected, result)
+
+    clean_get("Get Pipeline", "7b21cd5657acc53011ff50b7d12897b1",
+               db.get_object, "pipeline", test_name, notify=False)
+    clean_get("Get Service", "e03eee527cbcb4b6c2a8d9827f3f3556",
+               db.get_object, "service", test_name, notify=False)
+    clean_get("Get Config", "e6a40afc7b9689ad8605b5e8de3d99af",
+               db.get_object, "config", test_name, notify=False)
+               ["../../bin/launch", "--notime", "--debug=test", "service", test_name + ":variant"])
+
+    if not args.noclean:
+        clean()
+        shutil.rmtree(bpath)
+
+    tap.exit()
+
+################################################################################
+if __name__ == "__main__":
+    main()
+
