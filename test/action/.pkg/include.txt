@@ -1,3 +1,0 @@
-.pkg
-test
-include.txt

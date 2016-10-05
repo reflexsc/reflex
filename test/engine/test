@@ -33,15 +33,21 @@ import shutil
 import json
 import re
 import base64
-import io
+try:
+    import StringIO as strio
+except:
+    import io as strio
 
+rfx_cmd  = os.path.basename(__file__)
 rfx_base = "../../"
-rfx_lib = rfx_base + "/lib/rfx/"
-sys.path.append(rfx_base + '/lib')
+rfx_lib = rfx_base + "/src/rfx/"
+sys.path.append(rfx_base + '/src')
 
 import rfx
 from rfx.test import *
+from rfx.launch import LaunchCli
 from rfx.backend import Engine
+from rfx.action import Action
 
 ################################################################################
 def main():
@@ -50,21 +56,28 @@ def main():
     parser.add_argument("--noclean", action='store_true')
     parser.add_argument("--nounit", action='store_true')
 
+    if os.path.exists("test.log"):
+        os.unlink("test.log")
+
     args = parser.parse_args()
     base = rfx.Base(debug=args.debug).cfg_load()
+    if not base.cfg.get('REFLEX_URL'):
+        print("Skipping Reflex Engine tests: no configured REFLEX_URL")
+        sys.exit(0)
+
     base.timestamp = False # so our output is not altered by timestamps
     base.term_width = 80
-    base.notifyfd = io.StringIO()
-    base.outputfd = io.StringIO()
+    base.notifyfd = strio.StringIO()
+    base.outputfd = strio.StringIO()
 
     tap = TAP()
 
     db = Engine(base=base)
     test_name = "_rfx-test_"
-    bpath = Action.action_dir
+    bpath = Action.action_dirs[0]
 
-#    def clean():
-#        tap.trap(db.delete_object, "config", test_name + "-file", notify=False)
+    def clean():
+        rm("test.log")
 
     def rm(file):
         try:
@@ -74,17 +87,26 @@ def main():
             return 0
 
     if not args.nounit:
-        tap.unit(rfx_lib, "monitor.py", exit_on_fail=True)
-        rm('test.log')
+        tap.unit(rfx_lib, "backend.py", exit_on_fail=True)
 
-    ###########################################################################
-    # preparations
-    test_basics = True
-    reset_build = True
+    core_cmd = "../../bin/core"
+    for obj in ['service']:
+        tap.ok_run_compare("Create {} object".format(obj),
+                           [core_cmd, '--content', '{}', obj,
+                            'create', '_rfx_test_'],
+                           r'''"name":"_rfx_test_",''')
+        tap.ok_run_compare("List {} objects".format(obj),
+                           [core_cmd, obj, 'list', '_rfx_test_'],
+                           r'''_rfx_test_''')
+        tap.ok_run_compare("Get {} object".format(obj),
+                           [core_cmd, obj, 'get', '_rfx_test_'],
+                           r'''"name":"_rfx_test_",''')
+        tap.ok_run_compare("Delete {} object".format(obj),
+                           [core_cmd, obj, 'delete', '_rfx_test_'],
+                           r"""Deleted Service '_rfx_test_'""")
 
-    if not args.noclean:
+    if not args.noclean and not tap._tap_bad:
         clean()
-        shutil.rmtree(bpath)
 
     tap.exit()
 

@@ -1,0 +1,542 @@
+[28875] 1475631478.1971066 100 token_name=="master"
+[28875] 1475631478.2026267 100 token_name=="master"
+[28875] 1475631478.2087867 100 token_name=="master"
+[28875] 1475631478.2180846 100 token_name=="master"
+[28875] 1475631478.2242448 100 token_name=="master"
+[28875] 1475631478.225534 100 token_name=="master"
+[28875] 1475631478.2317336 sensitive Authorized get {
+  "action":"write",
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+
+  },
+  "ip":"",
+  "obj":{
+    "id":1,
+    "imports":[
+      "test-import.notfound"
+    ],
+    "name":"test-import",
+    "sensitive":{
+      "parameters":{
+        "hello":"there"
+      }
+    },
+    "type":"parameter"
+  },
+  "obj_type":"Config",
+  "policy":{
+    "disallowed_rx":{
+      "flags":34,
+      "groupindex":[
+
+      ],
+      "groups":0,
+      "pattern":"lambda "
+    },
+    "expires":1475631479.2229061127,
+    "policy_data":"{}",
+    "policy_exec":null,
+    "policy_expires":0,
+    "policy_expr":"token_name==\"master\"",
+    "policy_id":100,
+    "policy_name":"master",
+    "policy_timestamp":1475631478,
+    "policy_type":"admin",
+    "target_id":0
+  },
+  "sensitive":true,
+  "token_name":"master",
+  "token_nbr":100,
+  "user_name":""
+}
+[28875] 1475631478.232329 100 token_name=="master"
+[28875] 1475631478.2328825 sensitive decrypt
+[28875] 1475631478.2333784 100 token_name=="master"
+[28875] 1475631478.2383 100 token_name=="master"
+[28875] 1475631478.2437894 100 token_name=="master"
+[28875] 1475631478.2478018 100 token_name=="master"
+[28875] 1475631478.254893 100 token_name=="master"
+[28875] 1475631478.260409 100 token_name=="master"
+[28875] 1475631478.2678149 100 token_name=="master"
+[28875] 1475631478.2732725 100 token_name=="master"
+[28875] 1475631478.280578 100 token_name=="master"
+[28875] 1475631478.2811565 100 token_name=="master"
+[28875] 1475631478.2864196 100 token_name=="master"
+[28875] 1475631478.2918715 100 token_name=="master"
+[28875] 1475631478.300855 100 token_name=="master"
+[28875] 1475631478.3104024 100 token_name=="master"
+[28875] 1475631478.3196523 100 token_name=="master"
+[28875] 1475631478.3292024 100 token_name=="master"
+[28875] 1475631478.3346205 100 token_name=="master"
+[28893] 1475631479.0529387 100 token_name=="master"
+[28893] 1475631479.0534468 100 token_name=="master"
+[28761] 1475631479.0746317 100 token_name=="master"
+[28761] 1475631479.0937123 100 token_name=="master"
+[28761] 1475631479.1129086 100 token_name=="master"
+[28761] 1475631479.125408 100 token_name=="master"
+[28761] 1475631479.1345825 100 token_name=="master"
+[28761] 1475631479.1352048 100 token_name=="master"
+[28761] 1475631479.1485016 100 token_name=="master"
+[28761] 1475631479.1562753 100 token_name=="master"
+[28761] 1475631479.1682155 100 token_name=="master"
+[28761] 1475631479.180775 100 token_name=="master"
+[28761] 1475631479.2054152 100 token_name=="master"
+[28761] 1475631479.2224884 100 token_name=="master"
+[28761] 1475631479.2373161 100 token_name=="master"
+[28761] 1475631479.2487013 100 token_name=="master"
+[28761] 1475631479.2494316 100 token_name=="master"
+[28761] 1475631479.2617133 100 token_name=="master"
+[28761] 1475631479.269527 100 token_name=="master"
+[28761] 1475631479.2812471 100 token_name=="master"
+[28761] 1475631479.2960236 100 token_name=="master"
+[28761] 1475631479.317617 100 token_name=="master"
+[28761] 1475631479.3352692 100 token_name=="master"
+[28761] 1475631479.3516 100 token_name=="master"
+[28761] 1475631479.363111 100 token_name=="master"
+[28761] 1475631479.364037 100 token_name=="master"
+[28761] 1475631479.3796473 100 token_name=="master"
+[28761] 1475631479.3889377 100 token_name=="master"
+[28761] 1475631479.3991625 100 token_name=="master"
+[28761] 1475631479.4153585 100 token_name=="master"
+[28761] 1475631479.4377038 100 token_name=="master"
+[28761] 1475631479.4546037 100 token_name=="master"
+[28761] 1475631479.474296 100 token_name=="master"
+[28761] 1475631479.4827864 100 token_name=="master"
+[28761] 1475631479.483444 100 token_name=="master"
+[28761] 1475631479.498367 100 token_name=="master"
+[28761] 1475631479.5075104 100 token_name=="master"
+[28761] 1475631479.5204003 100 token_name=="master"
+[28761] 1475631479.5332477 100 token_name=="master"
+[28761] 1475631479.5571446 100 token_name=="master"
+[28761] 1475631479.5732455 100 token_name=="master"
+[28761] 1475631479.5860124 100 token_name=="master"
+[28761] 1475631479.597835 100 token_name=="master"
+[28761] 1475631479.599148 100 token_name=="master"
+[28761] 1475631479.6117206 100 token_name=="master"
+[28761] 1475631479.6198733 100 token_name=="master"
+[28761] 1475631479.6345792 100 token_name=="master"
+[28761] 1475631479.647688 100 token_name=="master"
+[28761] 1475631479.6681068 100 token_name=="master"
+[28761] 1475631479.668708 100 token_name=="master"
+[28761] 1475631479.6884387 100 token_name=="master"
+[28761] 1475631479.6993563 100 token_name=="master"
+[28761] 1475631479.6999607 100 token_name=="master"
+[28761] 1475631479.7092896 100 token_name=="master"
+[28761] 1475631479.709948 100 token_name=="master"
+[28761] 1475631479.7105784 100 token_name=="master"
+[28761] 1475631479.723596 100 token_name=="master"
+[28761] 1475631479.7243307 100 token_name=="master"
+[28761] 1475631479.7327816 100 token_name=="master"
+[28761] 1475631479.7447138 100 token_name=="master"
+[28761] 1475631479.75822 100 token_name=="master"
+[28761] 1475631479.7804353 100 token_name=="master"
+[28761] 1475631479.7969172 100 token_name=="master"
+[28761] 1475631479.8121285 100 token_name=="master"
+[28761] 1475631479.823072 100 token_name=="master"
+[28761] 1475631479.8239462 100 token_name=="master"
+[28761] 1475631479.8375418 100 token_name=="master"
+[28761] 1475631479.84584 100 token_name=="master"
+[28761] 1475631479.8594146 100 token_name=="master"
+[28761] 1475631479.873282 100 token_name=="master"
+[28761] 1475631479.8925219 100 token_name=="master"
+[28761] 1475631479.9128935 100 token_name=="master"
+[28761] 1475631479.9259808 100 token_name=="master"
+[28761] 1475631479.9374294 100 token_name=="master"
+[28761] 1475631479.938231 100 token_name=="master"
+[28761] 1475631479.9548044 100 token_name=="master"
+[28761] 1475631479.963897 100 token_name=="master"
+[28761] 1475631479.977453 100 token_name=="master"
+[28913] 1475631480.910121 100 token_name=="master"
+[28913] 1475631480.9107523 100 token_name=="master"
+[28761] 1475631480.9293623 100 token_name=="master"
+[28761] 1475631480.9433415 100 token_name=="master"
+[28761] 1475631480.9441872 100 token_name=="master"
+[28761] 1475631480.960802 100 token_name=="master"
+[28761] 1475631480.9730213 100 token_name=="master"
+[28761] 1475631480.973684 100 token_name=="master"
+[28761] 1475631480.9872384 100 token_name=="master"
+[28761] 1475631480.9897618 100 token_name=="master"
+[28761] 1475631481.0040176 sensitive Authorized get {
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQwLjk5ODQ5MTV9._qkEocgBGtml0dODutorCLVNz4PWS-TSsYNTer7tqlE",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQwLjk5ODQ5MTV9._qkEocgBGtml0dODutorCLVNz4PWS-TSsYNTer7tqlE"
+  },
+  "ip":"127.0.0.1",
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.0044596 100 token_name=="master"
+[28761] 1475631481.004958 100 token_name=="master"
+[28761] 1475631481.014589 sensitive Authorized get {
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=b84e3a994d86fed575536784b7547d395ef6f186352f2a64e7302efa9bcce9a5",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMCwiZXhwIjoxNDc1NjMxNTQxLjAwOTY0MzN9.p28IcCFoeuCELDiIQrnaM4HVtNOpjsmqK12qUAxVa7Q",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMCwiZXhwIjoxNDc1NjMxNTQxLjAwOTY0MzN9.p28IcCFoeuCELDiIQrnaM4HVtNOpjsmqK12qUAxVa7Q"
+  },
+  "ip":"127.0.0.1",
+  "token_name":"master",
+  "token_nbr":100,
+  "user_name":""
+}
+[28761] 1475631481.0151412 100 token_name=="master"
+[28761] 1475631481.0156314 sensitive decrypt
+[28761] 1475631481.016063 100 token_name=="master"
+[28761] 1475631481.0240643 100 token_name=="master"
+[28761] 1475631481.0370183 100 token_name=="master"
+[28761] 1475631481.048459 100 token_name=="master"
+[28761] 1475631481.0997472 sensitive Authorized get {
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjA5MzU4ODZ9.65qr5NyY_vYkX5HE0FOE-h3rr-HGQX8bLrXF5WdWiZ4",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjA5MzU4ODZ9.65qr5NyY_vYkX5HE0FOE-h3rr-HGQX8bLrXF5WdWiZ4"
+  },
+  "ip":"127.0.0.1",
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.100329 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.100948 100 token_name=="master"
+[28761] 1475631481.1014655 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1019163 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1108966 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.112881 sensitive Authorized get {
+  "action":"read",
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjEwNTk3NTZ9.2c6uXqGKkeHwN_qpcJKNnv31nXeY-AudpscUQxcBUYw",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjEwNTk3NTZ9.2c6uXqGKkeHwN_qpcJKNnv31nXeY-AudpscUQxcBUYw"
+  },
+  "ip":"127.0.0.1",
+  "obj":null,
+  "obj_type":"Config",
+  "policy":{
+    "disallowed_rx":{
+      "flags":34,
+      "groupindex":[
+
+      ],
+      "groups":0,
+      "pattern":"lambda "
+    },
+    "expires":1475631482.1089479923,
+    "policy_data":"{}",
+    "policy_exec":null,
+    "policy_expires":0,
+    "policy_expr":"token_name==\"amy-pond\" and sensitive==False",
+    "policy_id":101,
+    "policy_name":"pond-read-configs",
+    "policy_timestamp":1475631481,
+    "policy_type":"read",
+    "target_id":0
+  },
+  "sensitive":false,
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.1134765 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1141512 100 token_name=="master"
+[28761] 1475631481.1146739 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1171381 sensitive Authorized get {
+  "action":"read",
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjEwNTk3NTZ9.2c6uXqGKkeHwN_qpcJKNnv31nXeY-AudpscUQxcBUYw",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjEwNTk3NTZ9.2c6uXqGKkeHwN_qpcJKNnv31nXeY-AudpscUQxcBUYw"
+  },
+  "ip":"127.0.0.1",
+  "obj":{
+    "id":2
+  },
+  "obj_type":"Config",
+  "policy":{
+    "disallowed_rx":{
+      "flags":34,
+      "groupindex":[
+
+      ],
+      "groups":0,
+      "pattern":"lambda "
+    },
+    "expires":1475631482.1089479923,
+    "policy_data":"{}",
+    "policy_exec":null,
+    "policy_expires":0,
+    "policy_expr":"token_name==\"amy-pond\" and sensitive==False",
+    "policy_id":101,
+    "policy_name":"pond-read-configs",
+    "policy_timestamp":1475631481,
+    "policy_type":"read",
+    "target_id":0
+  },
+  "sensitive":true,
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.117822 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.118435 100 token_name=="master"
+[28761] 1475631481.118933 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1614974 sensitive Authorized get {
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjE1NDU0Nzd9.IkABCq7diS1AfrD0im3gJgLS0BtRrdRottOHPpG_FdA",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjE1NDU0Nzd9.IkABCq7diS1AfrD0im3gJgLS0BtRrdRottOHPpG_FdA"
+  },
+  "ip":"127.0.0.1",
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.1619833 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1624765 102 token_name=="amy-pond"
+[28761] 1475631481.1629632 sensitive decrypt
+[28761] 1475631481.1633756 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.171957 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.17987 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1880283 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1897528 sensitive Authorized get {
+  "action":"read",
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjE4NDc2MDZ9.E5f4iYe2MBgT3BaRWbxXqoChm2x_edf8VKurIY6JEb0",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjE4NDc2MDZ9.E5f4iYe2MBgT3BaRWbxXqoChm2x_edf8VKurIY6JEb0"
+  },
+  "ip":"127.0.0.1",
+  "obj":null,
+  "obj_type":"Config",
+  "policy":{
+    "disallowed_rx":{
+      "flags":34,
+      "groupindex":[
+
+      ],
+      "groups":0,
+      "pattern":"lambda "
+    },
+    "expires":1475631482.1705291271,
+    "policy_data":"{}",
+    "policy_exec":null,
+    "policy_expires":0,
+    "policy_expr":"token_name==\"amy-pond\" and sensitive==False",
+    "policy_id":101,
+    "policy_name":"pond-read-configs",
+    "policy_timestamp":1475631481,
+    "policy_type":"read",
+    "target_id":0
+  },
+  "sensitive":false,
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.1902974 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.1908102 102 token_name=="amy-pond"
+[28761] 1475631481.191185 sensitive decrypt
+[28761] 1475631481.192903 sensitive Authorized get {
+  "action":"read",
+  "cert_cn":"",
+  "groups":[
+
+  ],
+  "http_headers":{
+    "\f$\fAccept_Encoding":"Accept-Encoding",
+    "\f$\fContent_Type":"Content-Type",
+    "\f$\fRemote_Addr":"Remote-Addr",
+    "\f$\fUser_Agent":"User-Agent",
+    "\f$\fX_Apitoken":"X-Apitoken",
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept_Encoding":"gzip, deflate",
+    "Connection":"keep-alive",
+    "Content-Type":"application/json",
+    "Content_Type":"application/json",
+    "Cookie":"sid=eb7a0547f8aafcecc7bd18c36409ff4165daada525f10daa0f17f9c5e2887131",
+    "Host":"127.0.0.1:54321",
+    "Remote-Addr":"127.0.0.1",
+    "Remote_Addr":"127.0.0.1",
+    "User-Agent":"python-requests/2.11.1",
+    "User_Agent":"python-requests/2.11.1",
+    "X-Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjE4NDc2MDZ9.E5f4iYe2MBgT3BaRWbxXqoChm2x_edf8VKurIY6JEb0",
+    "X_Apitoken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwMSwiZXhwIjoxNDc1NjMxNTQxLjE4NDc2MDZ9.E5f4iYe2MBgT3BaRWbxXqoChm2x_edf8VKurIY6JEb0"
+  },
+  "ip":"127.0.0.1",
+  "obj":{
+    "id":2
+  },
+  "obj_type":"Config",
+  "policy":{
+    "disallowed_rx":{
+      "flags":34,
+      "groupindex":[
+
+      ],
+      "groups":0,
+      "pattern":"lambda "
+    },
+    "expires":1475631482.1590504646,
+    "policy_data":"{}",
+    "policy_exec":null,
+    "policy_expires":0,
+    "policy_expr":"token_name==\"amy-pond\"",
+    "policy_id":102,
+    "policy_name":"pond-read-sensitive",
+    "policy_timestamp":1475631481,
+    "policy_type":"read",
+    "target_id":1
+  },
+  "sensitive":true,
+  "token_name":"amy-pond",
+  "token_nbr":101,
+  "user_name":""
+}
+[28761] 1475631481.193334 101 token_name=="amy-pond" and sensitive==False
+[28761] 1475631481.193751 102 token_name=="amy-pond"
+[28761] 1475631481.1941485 sensitive decrypt

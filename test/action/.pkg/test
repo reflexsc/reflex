@@ -1,4 +1,0 @@
-#!/bin/bash
-        echo "booring test"
-        exit 0
-        

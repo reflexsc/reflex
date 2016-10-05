@@ -53,7 +53,7 @@ do_shebang() {
 	local path=$1
 
 	msg "Adjusting shebangs to $path"
-	for f in bin/cored bin/reactor $(find test -type f); do
+	for f in bin/reflex bin/reflex-engine $(find test -type f); do
 		shebang=$(head -1 $f | grep python)
 		if [ -n "$shebang" ]; then
 			base=$(basename $f)
@@ -101,7 +101,7 @@ hosted_python=/app/python3-latest/bin/python
 reqargs=''
 python3=true
 clean=false
-core=false
+engine=false
 action=$1
 shift
 
@@ -110,9 +110,9 @@ for x in "$@"; do
 		--clean)
 			clean=true
 			;;
-		--core|-core)
-			reqargs="-core $reqargs"
-			core=true
+		--engine|-engine)
+			reqargs="-engine $reqargs"
+			engine=true
 			python3=true
 			;;
 		*)
@@ -127,8 +127,8 @@ done
 #
 
 # to avoid accidental damage
-if [ ! -f README.md -a ! -d .reactor ]; then
-	echo "Run from reactor root please"
+if [ ! -f README.md -a ! -d .reflex ]; then
+	echo "Run from reflex root please"
 	exit 1
 fi
 
@@ -181,7 +181,7 @@ case $action in
 
 => Example:
 
-	$0 local|hosted [python-binary] [--core] [--clean]
+	$0 local|hosted [python-binary] [--engine] [--clean]
 	$0 revert
 
 => Action is \`local\` or \`hosted\`
@@ -199,7 +199,7 @@ case $action in
 
 => Options:
 
-   --core   : include building the DSE backend.  Python-3 required.  Default: no
+   --engine   : include building the DSE backend.  Python-3 required.  Default: no
    --clean : cleanup the virtualenv and python pre-compiled bytecode objects
 
 END
@@ -266,12 +266,13 @@ export PATH=${VIRTUAL_ENV}/bin:${PATH}
 
 ################################################################################
 # requirements
-for req in "" $reqargs; do
-	if [ -f src/requirements$req.txt ]; then
-		msg "Requirements from src/requirements$req.txt"
-		noerr pip install -Ur src/requirements$req.txt
-	fi
-done
+msg "Requirements from src/rfx/requirements.txt"
+noerr pip install -Ur src/rfx/requirements.txt
+
+if [ "$engine" = true ]; then
+	msg "Requirements from src/rfxengine/requirements.txt"
+	noerr pip install -Ur src/rfxengine/requirements.txt
+fi	
 
 ################################################################################
 # import our stuff
@@ -285,14 +286,10 @@ for f in $(cat src/libs.txt); do
 done
 
 ################################################################################
-# reactor core specific things
-if [ "$core" = true ]; then
-	echo core=true > .pkg/did_core
-#	msg "Installing cored (reactor core daemon)"
+# reflex engine specific things
+if [ "$engine" = true ]; then
+	echo engine=true > .pkg/did_engine
 	owd=$(pwd)
-#	cd bin
-#	ln -sf ../src/core/cored cored
-#	cd $owd
 
 	msg "Manually building mysql connector" # cause most other stuff sucks"
 
@@ -318,7 +315,7 @@ if [ "$core" = true ]; then
 
 	cd $owd
 else
-	rm -f .pkg/did_core
+	rm -f .pkg/did_engine
 fi
 
 ################################################################################

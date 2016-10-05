@@ -1,4 +1,3 @@
-#!/app/local/bin/virtual-python
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
@@ -21,41 +20,19 @@
 #
 #$#HEADER-END
 
-# common includes
-import sys
-import os
-import argparse
-import doctest
-import subprocess
-from subprocess import *
-import hashlib
-import shutil
-
-# prep for where the reflex bits are at
-reflex_cmd = 'test'
-reflex_base = "../../"
-reflex_lib = reflex_base + "src/"
-sys.path.append(reflex_base + '/src')
-
-import rfx
-from rfx.test import *
+"""
+Errors
+"""
 
 ################################################################################
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action='append')
+# exceptions
 
-    if os.path.exists("test.log"):
-        os.unlink("test.log")
-
-    args = parser.parse_args()
-    b = rfx.Base(debug=args.debug).cfg_load()
-
-    tap = TAP()
-    tap.lint(reflex_lib, "rfx", exit_on_fail=True)
-    tap.inline_unit(rfx, exit_on_fail=True)
-    tap.exit()
-
-################################################################################
-if __name__ == "__main__":
-    main()
+class InvalidPolicy(Exception):
+    """We had a problem houston"""
+    pass
+class InvalidContext(Exception):
+    """We had a problem houston"""
+    pass
+class PolicyFailed(Exception):
+    """We had a problem houston"""
+    pass

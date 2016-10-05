@@ -2,7 +2,7 @@
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
-#     Reactor Configuration Event Engine
+#     Reflex Configuration Event Engine
 #
 #     Copyright (C) 2016 Brandon Gillespie
 #
@@ -37,16 +37,15 @@ import base64
 import time
 from io import StringIO as ioString
 
-# prep for where the reactor bits are at
-reactor_cmd  = os.path.basename(__file__)
-reactor_base = "../../"
-reactor_lib = reactor_base + "/src/reactor/"
-os.environ['REACTOR_BASE'] = reactor_base
-sys.path.append(reactor_base + '/src')
+# prep for where the reflex bits are at
+reflex_cmd  = os.path.basename(__file__)
+reflex_base = "../../"
+reflex_lib = reflex_base + "/src/rfx/"
+sys.path.append(reflex_base + '/src')
 
-import reactor
-from reactor.test import *
-from reactor.action import Action
+import rfx
+from rfx.test import *
+from rfx.action import Action
 
 ################################################################################
 def main():
@@ -58,7 +57,7 @@ def main():
     if os.path.exists("test.log"):
         os.unlink("test.log")
     args = parser.parse_args()
-    base = reactor.Base(debug=args.debug).cfg_load()
+    base = rfx.Base(debug=args.debug).cfg_load()
     base.notifyfd = ioString()
     base.outputfd = ioString()
 
@@ -110,11 +109,11 @@ def main():
                 "package-repo": "s3://" + repo
             },
             "setenv": {
-                "REACTOR_PATH_APP": "${app-base}",
-                "REACTOR_PATH_DEPLOY": "${deploy-base}",
-                "REACTOR_PKG_REPO": "${package-repo}",
-                "REACTOR_PRODUCT": "${product}",
-                "REACTOR_MODULE": "${module}"
+                "REFLEX_PATH_APP": "${app-base}",
+                "REFLEX_PATH_DEPLOY": "${deploy-base}",
+                "REFLEX_PKG_REPO": "${package-repo}",
+                "REFLEX_PRODUCT": "${product}",
+                "REFLEX_MODULE": "${module}"
             },
             "actions": {
                 "first": {
@@ -189,7 +188,7 @@ def main():
     store(".gitignore", "*.json\n*.swp\n")
 
     if not args.nounit:
-        tap.unit(reactor_lib, "action.py", exit_on_fail=True)
+        tap.unit(reflex_lib, "action.py", exit_on_fail=True)
         rm('test.log')
 
     addargs = []
@@ -199,21 +198,21 @@ def main():
 
     os.environ['BUILD_NUMBER'] = '1600.2020'
 
-    tap.ok_run("action group", '17c342137e91c27336d714d5b5763503',
+    tap.ok_run("action group", 'd7eac56881fc952a6a08a92cf318df75',
                ["../../bin/action", "--notime", "--debug=test", "run", "group"] + addargs)
 
-    tap.ok_run("action build", '2ed756a79da8dfd86f3afd6ed796fbd8',
+    tap.ok_run("action build", '8bc134eee4620e7b13a1facbdcbf8a76',
                ["../../bin/action", "--notime", "--debug=test", "run", "build"] + addargs)
 
-    tap.ok_run("action input", '5957f58e7eb171e82761102e9b0ab00b',
+    tap.ok_run("action input", '86617166ffc61e820c02fbbd6b302243',
                ["../../bin/action", "--notime", "--debug=test", "run", "input-run", "--config=happy value"] + addargs)
 
-    tap.ok_run("action varsub", 'c46cbd78ac05c5a9c5c5b242eefe551a',
+    tap.ok_run("action varsub", '35ca3b56abf5ca997f52436f75e4ebc3',
                ["../../bin/action", "--notime", "--debug=test", "run", "varsub"] + addargs)
 
 	# with store-package this is the MD5
     #tap.ok_run("action roll-package", '5aad32443c0ce586c6dc3ac41033e907',
-    tap.ok_run("action roll-package", 'fc3cbd90cac779f699123dc54228d6d0',
+    tap.ok_run("action roll-package", '32520c19cd392d9b28496a17f888a2fb',
                ["../../bin/action", "--notime", "--debug=test", "run", "roll-package"] + addargs)
 
     tap.ok_run("verify package", 'ded41bf4bebb2e61e41c01d628eac82a',

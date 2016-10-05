@@ -2,7 +2,7 @@
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
-#     Reactor Configuration Event Engine
+#     Reflex Configuration Event Engine
 #
 #     Copyright (C) 2016 Brandon Gillespie
 #
@@ -123,7 +123,7 @@ start_svc() {
     args="$2"
     config="$3"
     echo "$config" | $BINDIR/$name start $args >> $testlog 2>&1 &
-    trap "kill_matching reactor-$name; exit 1" 0 15
+    trap "kill_matching reflex-$name; exit 1" 0 15
 }
 
 waitfor_svc() {

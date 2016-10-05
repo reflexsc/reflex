@@ -2,7 +2,7 @@
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
-#     Reactor Configuration Event Engine
+#     Reflex Configuration Event Engine
 #
 #     Copyright (C) 2016 Brandon Gillespie
 #
@@ -38,19 +38,19 @@ try:
 except:
     import io as strio
 
-# prep for where the reactor bits are at
-#reactor_base = os.path.dirname(os.path.realpath(os.path.dirname(__file__)))
-reactor_cmd  = os.path.basename(__file__)
-reactor_base = "../../"
-reactor_lib = reactor_base + "/src/reactor/"
-os.environ['REACTOR_BASE'] = reactor_base
-sys.path.append(reactor_base + '/src')
+# prep for where the rfx bits are at
+#rfx_base = os.path.dirname(os.path.realpath(os.path.dirname(__file__)))
+rfx_cmd  = os.path.basename(__file__)
+rfx_base = "../../"
+rfx_lib = rfx_base + "/src/rfx/"
+os.environ['REFLEX_BASE'] = rfx_base
+sys.path.append(rfx_base + '/src')
 
-import reactor
-from reactor.test import *
-from reactor.launch import LaunchCli
-from reactor.backend import Core
-from reactor.action import Action
+import rfx
+from rfx.test import *
+from rfx.launch import LaunchCli
+from rfx.backend import Engine
+from rfx.action import Action
 
 ################################################################################
 def main():
@@ -63,9 +63,9 @@ def main():
         os.unlink("test.log")
 
     args = parser.parse_args()
-    base = reactor.Base(debug=args.debug).cfg_load()
-    if not base.cfg.get('REACTOR_URL'):
-        print("Skipping Reactor Launch tests: no configured REACTOR_URL")
+    base = rfx.Base(debug=args.debug).cfg_load()
+    if not base.cfg.get('REFLEX_URL'):
+        print("Skipping Reflex Launch tests: no configured REFLEX_URL")
         sys.exit(0)
 
     base.timestamp = False # so our output is not altered by timestamps
@@ -75,8 +75,8 @@ def main():
 
     tap = TAP()
 
-    db = Core(base=base)
-    test_name = "_reactor-test_"
+    db = Engine(base=base)
+    test_name = "_rfx-test_"
     bpath = Action.action_dirs[0]
 
     def clean():
@@ -92,7 +92,7 @@ def main():
             return 0
 
     if not args.nounit:
-        tap.unit(reactor_lib, "launch.py", exit_on_fail=True)
+        tap.unit(rfx_lib, "launch.py", exit_on_fail=True)
         rm('test.log')
 
     ###########################################################################
@@ -160,10 +160,10 @@ def main():
     tap.ok_run("launch env w/arg", '6f22a03ee05c009ad2541520eaed5d4e',
                ["../../bin/launch", "--notime", "env", test_name])
 
-    os.environ['REACTOR_SERVICE'] = test_name
+    os.environ['REFLEX_SERVICE'] = test_name
     tap.ok_run("launch env w/env", '6f22a03ee05c009ad2541520eaed5d4e',
                ["../../bin/launch", "--notime", "env"])
-    del os.environ["REACTOR_SERVICE"]
+    del os.environ["REFLEX_SERVICE"]
 
     tap.ok_run("launch config", '257efd588ffd81da170468eb3a420ddb',
                ["../../bin/launch", "--notime", "config", test_name])

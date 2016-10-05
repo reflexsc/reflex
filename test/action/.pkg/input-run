@@ -1,5 +1,0 @@
-#!/bin/bash
-        echo "with input: "
-        cat
-        exit 0
-        

@@ -2,7 +2,7 @@
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
-#     Reactor Configuration Event Engine
+#     Reflex Configuration Event Engine
 #
 #     Copyright (C) 2016 Brandon Gillespie
 #
@@ -29,9 +29,9 @@ if [ ! -f .testbase ]; then
 	echo "Must be run from the working directory of the test folder"
 	exit 1
 fi
-#if [ ! -f ~/.reactor/cfg ]; then
-#    echo "Initializing reactor with null configuration"
-#    ../bin/reactor config set REACTOR_URL=http://localhost/
+#if [ ! -f ~/.reflex/cfg ]; then
+#    echo "Initializing reflex with null configuration"
+#    ../bin/reflex config set REFLEX_URL=http://localhost/
 #fi
 
 # for when we test ourself

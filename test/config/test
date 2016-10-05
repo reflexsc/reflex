@@ -2,7 +2,7 @@
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
-#     Reactor Configuration Event Engine
+#     Reflex Configuration Event Engine
 #
 #     Copyright (C) 2016 Brandon Gillespie
 #
@@ -35,29 +35,29 @@ import re
 import base64
 import io
 
-reactor_lib = "../../src/reactor/"
+reflex_lib = "../../src/rfx/"
 
-import reactor
-import reactor.launch
-from reactor.backend import Core
-from reactor.test import *
-from reactor.config import ConfigProcessor
+import rfx
+import rfx.launch
+from rfx.backend import Engine
+from rfx.test import *
+from rfx.config import ConfigProcessor
 
-class TestCP(reactor.Base):
+class TestCP(rfx.Base):
     def __init__(self, *args, **kwargs):
         super(TestCP, self).__init__(*args, **kwargs)
         self.notifyfd = io.StringIO()
         self.outputfd = io.StringIO()
 
     def test(self, ctmp):
-        core = TestDb(base=self)
-        core.load()
+        engine = TestDb(base=self)
+        engine.load()
         os.environ['APP_CFG_BASE'] = '.'
-        conf = ConfigProcessor(base=self, core=core, verbose=True)
+        conf = ConfigProcessor(base=self, engine=engine, verbose=True)
         cfg = conf.flatten("test-config-head")
         conf.commit(cfg, dest='./' + ctmp)
 
-        conf2 = ConfigProcessor(base=self, core=core, verbose=True)
+        conf2 = ConfigProcessor(base=self, engine=engine, verbose=True)
         cfg = conf2.flatten("test2-self")
         conf2.commit(cfg, dest='./' + ctmp)
 
@@ -72,8 +72,8 @@ def main():
 
     tap = TAP()
     if args.base:
-        tap.lint(reactor_lib, "config.py", exit_on_fail=False)
-        tap.unit(reactor_lib, "config.py", exit_on_fail=False)
+        tap.lint(reflex_lib, "config.py", exit_on_fail=False)
+        tap.unit(reflex_lib, "config.py", exit_on_fail=False)
 
     ctmp="c.test.tmp"
     if os.path.exists(ctmp):
@@ -84,7 +84,7 @@ def main():
 
     test = TestCP(debug=args.debug).cfg_load()
 
-    if not tap.ok_func_compare("reactor.config functional processing of test-config-head",
+    if not tap.ok_func_compare("rfx.config functional processing of test-config-head",
                         test, test.test, [ctmp], {},
                         "CONFIG test-config-json into ./c.test.tmp/config.json",
                         "CONFIG test-config-security-properties into ./c.test.tmp/security.properties",
@@ -139,11 +139,11 @@ class MyJson:
         except ValueError as e:
             raise SystemExit("cannot read JSON: " + str(e))
 
-class TestDb(Core):
+class TestDb(Engine):
     data = None
 
     def __init__(self, **kwargs):
-        self.cfg['REACTOR_URL'] = 'http://localhost/' # go nowhere
+        self.cfg['REFLEX_URL'] = 'http://localhost/' # go nowhere
         super(TestDb, self).__init__(**kwargs)
 
     # override so we can use local data set
