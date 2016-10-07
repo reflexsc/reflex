@@ -1,6 +1,7 @@
-FROM revenant/centos-python3
+FROM revenant/centos7-python3
 
-RUN yum -y install mariadb-server mariadb
+RUN yum -y install mariadb-server mariadb libffi libffi-devel
+RUN yum -y install gcc gcc-c++ make
 
 WORKDIR /app/reflex
 COPY bin ./bin
@@ -22,7 +23,7 @@ COPY .pkg/build_mysql .
 RUN /app/python-3/bin/pip3 install -r src/rfx/requirements.txt
 RUN /app/python-3/bin/pip3 install -r src/rfxengine/requirements.txt
 
-RUN sh fix_shebang /usr/local/bin/python3 && rm fix_shebang
+RUN sh fix_shebang /app/python-3/bin/python3 && rm fix_shebang
 
 RUN cd /app/python-3/lib/python3.5/site-packages; \
     for f in $(cat /app/reflex/src/libs.txt); do \
@@ -36,9 +37,9 @@ RUN cd /usr/local/bin; \
         ln -s /app/reflex/bin/$f; \
     done
 
-CMD ["reflex"]
+RUN su mysql mysql_install_db
 
-RUN sh ./build_mysql
+RUN sh ./build_mysql /app/python-3/bin/python3
 
 RUN yum clean all
 

@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # problems with bringing this in via pip
+python=$1
 
 owd=$(pwd)
 mkdir temp
@@ -14,9 +15,9 @@ ls -l
 cd mysql-connector-python-*
 
 if [ $MYSQL_CAPI ]; then
-	 python setup.py install --with-mysql-capi=$MYSQL_CAPI
+	 $python setup.py install --with-mysql-capi=$MYSQL_CAPI
 else
-	 python setup.py install
+	 $python setup.py install
 fi
 cd $owd
 rm -rf temp

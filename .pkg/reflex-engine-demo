@@ -9,7 +9,9 @@ config='
 }}}
 '
 
-mysqld_safe &
-mysql -u root "create database reflex_engine;"
+cd /usr
+su mysql /usr/bin/mysqld_safe --datadir=/var/lib/mysql &
+
+echo "create database reflex_engine;" | mysql -u root
 
 echo "$config" | exec reflex-engine --cfgin start
