@@ -1,0 +1,24 @@
+FROM reflexsc/tools
+
+WORKDIR /app/reflex
+RUN apk add --no-cache mariadb-client mariadb mariadb-libs
+
+RUN apk add --no-cache --virtual .build-deps curl
+COPY .pkg/build_mysql .
+COPY src/rfxengine/requirements.txt src/rfxengine
+
+#RUN apk add --no-cache --virtual .build-deps \
+#        gcc \
+#        mysql-dev \
+#        make
+
+RUN /usr/local/bin/pip3 install -r src/rfxengine/requirements.txt
+
+RUN sh ./build_mysql
+
+RUN apk del .build-deps && rm -rf ~/.cache
+
+COPY .pkg/reflex-engine-demo bin
+RUN ln -s /app/reflex/bin/reflex-engine-demo /usr/local/bin/reflex-engine-demo
+
+CMD ["/usr/local/bin/reflex-engine"]

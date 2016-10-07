@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# problems with bringing this in via pip
+
+owd=$(pwd)
+mkdir temp
+cd temp
+latest=mysql-connector-latest.tar.gz
+url=https://dev.mysql.com/get/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz
+curl -L -o $latest $url
+tar -xzf $latest
+ls -l
+
+cd mysql-connector-python-*
+
+if [ $MYSQL_CAPI ]; then
+	 python setup.py install --with-mysql-capi=$MYSQL_CAPI
+else
+	 python setup.py install
+fi
+cd $owd
+rm -rf temp

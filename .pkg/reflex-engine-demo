@@ -1,0 +1,15 @@
+#!/bin/sh
+
+config='
+{"sensitive":{"config":{
+ "db": {
+    "database": "reflex_engine",
+    "user": "root"
+ }
+}}}
+'
+
+mysqld_safe &
+mysql -u root "create database reflex_engine;"
+
+echo "$config" | exec reflex-engine --cfgin start

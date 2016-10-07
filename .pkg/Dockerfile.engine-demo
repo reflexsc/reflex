@@ -1,0 +1,49 @@
+FROM revenant/centos-python3
+
+RUN yum -y install mariadb-server mariadb
+
+WORKDIR /app/reflex
+COPY bin ./bin
+COPY src ./src
+COPY .pkg/fix_shebang .
+COPY .pkg/build_mysql .
+
+#RUN apk add --no-cache \
+#		libffi \
+#		openssl
+
+#RUN apk add --no-cache --virtual .build-deps \
+#		gcc \
+#		libc-dev \
+#        libffi-dev \
+#		linux-headers \
+#		make
+
+RUN /app/python-3/bin/pip3 install -r src/rfx/requirements.txt
+RUN /app/python-3/bin/pip3 install -r src/rfxengine/requirements.txt
+
+RUN sh fix_shebang /usr/local/bin/python3 && rm fix_shebang
+
+RUN cd /app/python-3/lib/python3.5/site-packages; \
+    for f in $(cat /app/reflex/src/libs.txt); do \
+        echo "Linking $f"; \
+        rm -f $f; \
+        ln -s /app/reflex/src/$f; \
+    done 
+
+RUN cd /usr/local/bin; \
+    for f in $(cd /app/reflex/bin; ls -1); do \
+        ln -s /app/reflex/bin/$f; \
+    done
+
+CMD ["reflex"]
+
+RUN sh ./build_mysql
+
+RUN yum clean all
+
+COPY .pkg/reflex-engine-demo bin
+
+RUN ln -s /app/reflex/bin/reflex-engine-demo /usr/local/bin/reflex-engine-demo
+
+CMD ["/usr/local/bin/reflex-engine"]

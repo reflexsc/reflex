@@ -1,5 +1,6 @@
 pynacl
-#boto3
 #mysqlclient
+#client
+#boto3
 #pymysql
 #mysql

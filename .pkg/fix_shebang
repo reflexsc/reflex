@@ -1,0 +1,10 @@
+#!/bin/sh
+
+path=$(which python)
+for f in bin/reflex bin/reflex-engine $(find test -type f); do
+    shebang=$(head -1 $f | grep python)
+    if [ -n "$shebang" ]; then
+        echo " $f"
+        sed -i -e "1 s+^.*\$+#"'!'"$path+" $f
+    fi
+done
