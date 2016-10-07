@@ -10,7 +10,9 @@ config='
 '
 
 cd /usr
-su mysql /usr/bin/mysqld_safe --datadir=/var/lib/mysql &
+su mysql /usr/bin/mysqld_safe &
+
+sleep 1
 
 echo "create database reflex_engine;" | mysql -u root
 

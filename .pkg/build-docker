@@ -1,0 +1,8 @@
+#!/bin/bash
+
+vers=$(date +%y%m.%d%H%M)
+
+for type in tools engine demo; do
+	docker build -f .pkg/Dockerfile.$type -t reflexsc/$type -t reflexsc/$type:$vers .
+done
+

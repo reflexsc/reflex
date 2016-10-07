@@ -3,6 +3,7 @@
 # problems with bringing this in via pip
 python=$1
 
+chmod 777 /run
 owd=$(pwd)
 mkdir temp
 cd temp
@@ -11,6 +12,8 @@ url=https://dev.mysql.com/get/Downloads/Connector-Python/mysql-connector-python-
 curl -L -o $latest $url
 tar -xzf $latest
 ls -l
+
+sed -i -e 's!^mysql:x\(.*\)/sbin/nologin!mysql:x\1/bin/ash!' /etc/passwd
 
 cd mysql-connector-python-*
 
