@@ -1,0 +1,9 @@
+#!/bin/bash
+
+vers=$(date +%y%m.%d%H%M)
+
+for type in tools engine demo; do
+	docker tag reflexsc/$type:latest reflexsc/$type:$vers
+	docker push reflexsc/$type:latest reflexsc/$type:$vers
+done
+

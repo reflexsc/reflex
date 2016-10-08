@@ -10,10 +10,40 @@ config='
 '
 
 cd /usr
-su mysql /usr/bin/mysqld_safe &
+
+cat <<END
+>>> 
+>>> NOTE: THIS IS FOR DEMO PURPOSES ONLY.  This is not intended for production use!
+>>> Please see full documentation at https://reflex.solv.com/
+>>> 
+END
+
+banner() {
+	echo  ""
+	echo "--------------------------------------------------------------------------------"
+    echo "$@"
+	echo "--------------------------------------------------------------------------------"
+	echo  ""
+}
+
+banner "Starting Internal MySQL Service"
+#su mysql /usr/bin/mysqld_safe &
+cat >/mysql-server.sh <<END
+nohup /usr/bin/mysqld_safe 2>&1 > /dev/null &
+END
+chmod 755 /mysql-server.sh
+#su mysql /root/mysql-server.sh /usr/bin/mysqld --basedir=/usr \
+#	--datadir=/var/lib/mysql \
+#	--plugin-dir=/usr/lib/mysql/plugin \
+#	--log-error=/var/lib/mysql/error.log \
+#	--pid-file=/var/lib/mysql.pid &
+su mysql  /mysql-server.sh
 
 sleep 1
 
+echo "Creating Reflex Engine Database"
 echo "create database reflex_engine;" | mysql -u root
 
-echo "$config" | exec reflex-engine --cfgin start
+banner "Starting Reflex Engine"
+
+echo "$config" | /app/reflex/bin/reflex-engine --cfgin start

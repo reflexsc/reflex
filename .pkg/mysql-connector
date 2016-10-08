@@ -1,7 +1,10 @@
 #!/bin/sh
 
-# problems with bringing this in via pip
+# problems with bringing mysql in via pip, so do by hand
+
 python=$1
+
+sed -i -e 's!^mysql:x\(.*\)/sbin/nologin!mysql:x\1/bin/ash!' /etc/passwd
 
 chmod 777 /run
 owd=$(pwd)
@@ -11,9 +14,7 @@ latest=mysql-connector-latest.tar.gz
 url=https://dev.mysql.com/get/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz
 curl -L -o $latest $url
 tar -xzf $latest
-ls -l
 
-sed -i -e 's!^mysql:x\(.*\)/sbin/nologin!mysql:x\1/bin/ash!' /etc/passwd
 
 cd mysql-connector-python-*
 
