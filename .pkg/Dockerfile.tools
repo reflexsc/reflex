@@ -1,12 +1,5 @@
 FROM python:3.5.2-alpine
 
-WORKDIR /app/reflex
-COPY bin ./bin
-COPY src ./src
-COPY .pkg/fix_shebang .
-
-#RUN apk --no-cache search ffi
-
 RUN apk add --no-cache \
 		libffi \
 		openssl
@@ -18,21 +11,15 @@ RUN apk add --no-cache --virtual .build-deps \
 		linux-headers \
 		make
 
-#		bzip2-dev \
-#		ncurses-dev \
-#		openssl-dev \
-#		pax-utils \
-#		readline-dev \
-#		sqlite-dev \
-#		tcl-dev \
-#		tk \
-#		tk-dev \
-#		xz-dev \
-#		zlib-dev
-
+WORKDIR /app/reflex
+COPY src/rfx/requirements.txt src/rfx/requirements.txt
 RUN /usr/local/bin/pip3 install -r src/rfx/requirements.txt
 
 RUN apk del .build-deps && rm -rf ~/.cache
+
+COPY bin ./bin
+COPY src ./src
+COPY .pkg/fix_shebang .
 
 RUN sh fix_shebang /usr/local/bin/python3 && rm fix_shebang
 

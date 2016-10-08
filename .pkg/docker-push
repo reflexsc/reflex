@@ -2,8 +2,22 @@
 
 vers=$(date +%y%m.%d%H%M)
 
-for type in tools engine demo; do
+if [ -f actions.json ]; then
+	cd ..
+elif [ ! -f .pkg/actions.json ]; then
+	echo "Unable to find .pkg/Dockerfile.*"
+	exit 1
+fi
+
+if [ $1 ]; then
+	images="$@"
+else
+	images="tools engine"
+fi
+
+for type in $images; do
 	docker tag reflexsc/$type:latest reflexsc/$type:$vers
-	docker push reflexsc/$type:latest reflexsc/$type:$vers
+	docker push reflexsc/$type:latest
+	docker push reflexsc/$type:$vers
 done
 

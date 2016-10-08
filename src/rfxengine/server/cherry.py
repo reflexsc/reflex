@@ -7,17 +7,20 @@
 General Webhooks and simple API routing
 """
 
+import os
 import sys
 import time
+import base64
 import logging
 import logging.config
+import traceback
 import argparse
 import cherrypy._cplogging
 import setproctitle
 import dictlib
 import timeinterval
 import rfx
-from rfx import json2data
+from rfx import json2data, json4human
 import rfxengine
 from rfxengine import log
 import rfxengine.memstate
@@ -139,7 +142,7 @@ class Server(rfx.Base):
         self.stat.heartbeat.last = time.time()
 
     # pylint: disable=too-many-locals
-    def start(self, test=True, cfgin=False):
+    def start(self, test=True):
         """
         Startup script for webhook routing.
         Called from agent start
@@ -185,16 +188,11 @@ class Server(rfx.Base):
             }
         })
 
-        # bring i our config
-        if not cfgin:
-            print("--cfgin required")
-            sys.exit(0)
-        stdin = sys.stdin.read().strip()
         defaults = {
             'server': {
                 'route_base': '/api/v1',
-                'port': 54321,
-                'host': '127.0.0.1'
+                'port': 54000,
+                'host': '0.0.0.0'
             },
             'heartbeat': 10,
             'cache': {
@@ -211,9 +209,20 @@ class Server(rfx.Base):
                 'expires': 300
             }
         }
-        conf = dictlib.Obj(dictlib.union(defaults,
-                                         dictlib.dig(json2data(stdin),
-                                                     "sensitive.config")))
+        cfgin = os.environ.get('REFLEX_ENGINE_CONFIG')
+        if cfgin:
+            try:
+                cfgin = json2data(base64.b64decode(cfgin))
+            except:
+                try:
+                    cfgin = json2data(cfgin)
+                except Exception as err:
+                    traceback.print_exc()
+                    self.ABORT("Cannot process config json from REFLEX_ENGINE_CONFIG: " + str(err) + " from " + cfgin)
+
+            conf = dictlib.Obj(dictlib.union(defaults, cfgin))
+        else:
+            conf = dictlib.Obj(defaults)
 
         # cherry py global
         cherry_conf = {
@@ -248,6 +257,7 @@ class Server(rfx.Base):
         # schema
         schema = dbo.Schema(master=self.dbm)
         schema.initialize(verbose=False, reset=False)
+        sys.stdout.flush()
 
         cherrypy.config.update(cherry_conf)
 
@@ -328,10 +338,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action='append')
     parser.add_argument("--test", action='store_true')
-    parser.add_argument("--cfgin", action='store_true')
-    # BJG: see note on logfmt
-#    parser.add_argument("--logfmt", choices=['txt', 'json'], default='json')
-    parser.add_argument("action", choices=["start"])
 
     args = parser.parse_args()
 
@@ -342,11 +348,7 @@ def main():
         base.timestamp = True
     setproctitle.setproctitle('reflex-engine') # pylint: disable=no-member
     rfxengine.SERVER = Server(base=base)
-
-    if args.action == "start":
-        rfxengine.SERVER.start(test=args.test, cfgin=args.cfgin)
-    else:
-        base.ABORT("Unrecognized action: " + args.action)
+    rfxengine.SERVER.start(test=args.test)
 
 ################################################################################
 if __name__ == "__main__":

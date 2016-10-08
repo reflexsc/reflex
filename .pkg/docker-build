@@ -1,10 +1,16 @@
 #!/bin/bash
 
-vers=$(date +%y%m.%d%H%M)
 if [ $1 ]; then
 	images="$@"
 else
-	images="tools engine demo"
+	images="tools engine"
+fi
+
+if [ -f actions.json ]; then
+	cd ..
+elif [ ! -f .pkg/actions.json ]; then
+	echo "Unable to find .pkg/Dockerfile.*"
+	exit 1
 fi
 
 for type in $images; do

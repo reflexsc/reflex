@@ -27,7 +27,10 @@ Uses Prepared Cursors by default.
 """
 
 import time
+import traceback
 import mysql.connector
+from mysql.connector import errors
+from rfxengine import log
 from rfxengine.db import pool
 
 def row_to_dict(cursor, row):
@@ -73,7 +76,22 @@ class Interface(pool.Interface):
     ############################################################################
     def __init__(self, **kwargs):
         master = kwargs['master']
-        kwargs['dbc'] = mysql.connector.connect(**master.config)
+        retry = 30 # retry the connection for 5 minutes
+        error = None
+        kwargs['dbc'] = None
+
+        while retry > 0 and not kwargs['dbc']:
+            try:
+                kwargs['dbc'] = mysql.connector.connect(**master.config)
+            except (errors.ProgrammingError, errors.InterfaceError) as err:
+                log("Connect Problem, waiting...", error=str(err))
+                error = err
+                time.sleep(2)
+                retry -= 2
+
+        if not retry:
+            raise error
+
         super(Interface, self).__init__(**kwargs)
 
     ############################################################################

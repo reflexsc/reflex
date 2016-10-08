@@ -122,7 +122,7 @@ start_svc() {
     name="$1"
     args="$2"
     config="$3"
-    echo "$config" | $BINDIR/$name start $args >> $testlog 2>&1 &
+    echo "$config" | $BINDIR/$name $args >> $testlog 2>&1 &
     trap "kill_matching reflex-$name; exit 1" 0 15
 }
 

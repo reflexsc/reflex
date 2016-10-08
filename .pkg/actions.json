@@ -1,30 +1,11 @@
 {
     "config": {
-        "active-copies": 1,
         "app-base": "/app",
-        "archive-copies": 5,
-        "deploy-base": "/data",
-        "package-repo": "s3://deploy-manager",
-        "repo-copies": 30
+        "deploy-base": "/data"
     },
     "setenv": {
     },
     "actions": {
-        "launch-whr": {
-            "exec": ["./bin/agent", "start", "webhook-router", "--cfgin"],
-            "type": "system",
-            "config": "stdin"
-        },
-        "launch-nga": {
-            "exec": ["./bin/agent", "start", "nginx", "--cfgin"],
-            "type": "system",
-            "config": "stdin"
-        },
-        "launch-dca": {
-            "exec": ["./bin/agent", "start", "dockercloud", "--cfgin"],
-            "type": "system",
-            "config": "stdin"
-        },
         "launch-monitor": {
             "exec": ["./bin/agent", "start", "monitor", "--cfgin"],
             "type": "system",
@@ -32,35 +13,11 @@
         },
         "update": {
             "type": "script",
-			"target": "getreactor.sh"
-        },
-        "assemble": {
-            "type": "group",
-            "actions": ["test", "roll-full", "store-full"]
+			"target": "getreflex.sh"
         },
         "test": {
             "target": "test",
             "type": "script"
-        },
-        "cat": {
-            "exec": ["cat"],
-            "type": "system",
-			"config": "stdin"
-        },
-        "echo": {
-            "exec": ["echo", "hello"],
-            "type": "system"
-        },
-        "roll-full": {
-            "type": "roll-package",
-            "exclude": "exclude.txt",
-            "include": "include.txt",
-            "setenv": {
-                "PKG_VERSION": "${BUILD_VERSION}"
-            }
-        },
-        "store-full": {
-            "type": "store-package-s3"
         }
     }
 }

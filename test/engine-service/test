@@ -55,7 +55,7 @@ rm -f $testlog trace log_failed
 port=54321
 export JWT_SECRET=iamthewalrus
 config='
-{"sensitive":{"config":{
+{
  "heartbeat": 10,
  "server": {
    "route_base": "/api",
@@ -71,10 +71,11 @@ config='
     "database": "reflex_engine",
     "user": "root"
  }
-}}}
+}
 '
 
-[ $SERVICE ] && start_svc reflex-engine "--test --cfgin" "$config"
+export REFLEX_ENGINE_CONFIG="$config"
+[ $SERVICE ] && start_svc reflex-engine "--test"
 
 errs=0
 [ $DO_LINT ] && {
