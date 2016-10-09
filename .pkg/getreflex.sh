@@ -128,7 +128,7 @@ if [ $errs -gt 0 ]; then
 	exit 1
 fi
 
-base=~/.reactor
+base=~/.reflex
 if [ -e $base -a ! -d $base ]; then
 	msg "Cannot continue: $base is not a directory"
 	exit 1
@@ -140,13 +140,13 @@ cd $base
 rm -rf TEMP
 mkdir TEMP
 
-gitraw=https://raw.github.com/srevenant/reactor
+gitraw=https://raw.github.com/srevenant/reflex
 version=$(download -s $gitraw/master/.pkg/version)
-dlurl=https://github.com/srevenant/reactor/archive/$version.tar.gz
+dlurl=https://github.com/srevenant/reflex/archive/$version.tar.gz
 
-cmd "Downloading..." download -s "$dlurl" -o reactor.src.tgz
-cmd "Unrolling..." tar -C TEMP --strip 1 -xzf reactor.src.tgz
-rm -f reactor.src.tgz 
+cmd "Downloading..." download -s "$dlurl" -o reflex.src.tgz
+cmd "Unrolling..." tar -C TEMP --strip 1 -xzf reflex.src.tgz
+rm -f reflex.src.tgz 
 VERSION=$(cat TEMP/.pkg/version)
 if [ -z "$VERSION" ]; then
 	echo "Unable to determine version?"
@@ -179,8 +179,8 @@ profile=$(detect_profile)
 sed -io -e '/#REACTOR-PATH/d' $profile
 echo "export PATH=\$PATH:$base/current/bin #REACTOR-PATH" >> $profile
 
-if [ ! -f ~/.reactor/cfg ]; then
-	./bin/reactor setup wizard
+if [ ! -f ~/.reflex/cfg ]; then
+	./bin/reflex setup wizard
 fi
 
 cd $base
