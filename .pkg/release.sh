@@ -50,7 +50,7 @@ git add version &&
 git commit -m "Release # $VERSION" &&
 git push origin master
 
-github_api="https://api.github.com/repos/srevenant/reactor/releases?access_token=$GITHUB_TOKEN"
+github_api="https://api.github.com/repos/reflexsc/reactor/releases?access_token=$GITHUB_TOKEN"
 
 curl --data '{"tag_name": "'$VERSION'","target_commitish": "master","name": "'$VERSION'","body": "Release of version '"$VERSION"'","draft": false,"prerelease": false}'  $github_api
 
