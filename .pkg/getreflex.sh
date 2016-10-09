@@ -140,9 +140,9 @@ cd $base
 rm -rf TEMP
 mkdir TEMP
 
-gitraw=https://raw.github.com/srevenant/reflex
+gitraw=https://raw.github.com/reflexsc/reflex
 version=$(download -s $gitraw/master/.pkg/version)
-dlurl=https://github.com/srevenant/reflex/archive/$version.tar.gz
+dlurl=https://github.com/reflexsc/reflex/archive/$version.tar.gz
 
 cmd "Downloading..." download -s "$dlurl" -o reflex.src.tgz
 cmd "Unrolling..." tar -C TEMP --strip 1 -xzf reflex.src.tgz
