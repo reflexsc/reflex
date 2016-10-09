@@ -76,7 +76,6 @@ class Interface(pool.Interface):
     ############################################################################
     def __init__(self, **kwargs):
         master = kwargs['master']
-        error = None
         kwargs['dbc'] = None
 
         while not kwargs['dbc']:
@@ -84,11 +83,7 @@ class Interface(pool.Interface):
                 kwargs['dbc'] = mysql.connector.connect(**master.config)
             except (errors.ProgrammingError, errors.InterfaceError) as err:
                 log("Connect Problem, waiting...", error=str(err))
-                error = err
                 time.sleep(1)
-
-        if not retry:
-            raise error
 
         super(Interface, self).__init__(**kwargs)
 

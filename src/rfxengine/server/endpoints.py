@@ -196,7 +196,10 @@ class Token(server.Rest, abac.AuthService):
         try:
             jwt_apikey = cherrypy.request.headers['X-ApiKey']
             token_id = get_jti(jwt_apikey)
-            token = dbo.Apikey(master=self.server.dbm).get(token_id, True)
+            try:
+                token = dbo.Apikey(master=self.server.dbm).get(token_id, True)
+            except dbo.ObjectNotFound:
+                return self.auth_fail("Apikey not found")
 
             # validate base on array of secrets
             jwt_data = None

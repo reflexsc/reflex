@@ -53,7 +53,6 @@ source $TESTROOT/test.sh
 rm -f $testlog trace log_failed
 
 port=54321
-export JWT_SECRET=iamthewalrus
 config='
 {
  "heartbeat": 10,
@@ -74,8 +73,8 @@ config='
 }
 '
 
-export REFLEX_ENGINE_CONFIG="$config"
-[ $SERVICE ] && start_svc reflex-engine "--test"
+#export REFLEX_ENGINE_CONFIG="$config"
+#[ $SERVICE ] && start_svc reflex-engine "--test"
 
 errs=0
 [ $DO_LINT ] && {
@@ -90,7 +89,7 @@ errs=0
 
 if [ $SERVICE ]; then
 	# see if agent is ready yet
-	waitfor_svc engine localhost:$port
+###	waitfor_svc engine localhost:$port
 
 	[ $DO_INTEGRATION ] && {
 		./test.py integration "${test_opts[@]}"

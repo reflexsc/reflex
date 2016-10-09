@@ -269,7 +269,6 @@ class Tester(rfx.Base):
 
 ################################################################################
 def test_integration(schema, base, tester):
-    schema.initialize(verbose=False)
     tname = 'test'
     tester.addcheck("Object Verify: Pipeline", 
             (Pipeline, tname, {
@@ -374,8 +373,6 @@ def test_integration(schema, base, tester):
 
 ###############################################################################
 def test_functional(schema, base, tester, baseurl):
-    schema.initialize(verbose=True)
-
     tester.okcmp("REST Health Check", tester, tester.fcall,
                  [requests.get, baseurl + "/health"], {},
                  r'Response \[204\]')
@@ -690,17 +687,14 @@ def test_functional(schema, base, tester, baseurl):
                      *samples[obj].mcreate_expect)
 
 def test_full_stack(schema, base, tester, baseurl):
-    schema.initialize(verbose=True, reset=True)
 
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
 
     master_key = Apikey(master=tester.dbm)
     master_key.get('master', user_attrs)
 
-    os.environ['REFLEX_URL'] = tester.baseurl
-
-    os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
-    rcs_master = client.Session().cfg_load()
+#    os.environ['REFLEX_URL'] = tester.baseurl
+#    os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
 
     tester.okcmp("Reflex Apikey Create", tester, tester.rcs,
                  [rcs_master.create, "apikey", {
@@ -836,6 +830,7 @@ def test_full_stack(schema, base, tester, baseurl):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action='append')
+    parser.add_argument("--dbinit", action='store_true')
     parser.add_argument("--noclean", "--no-clean", action='store_true')
     parser.add_argument("option", choices=['unit', 'lint', 'integration', 'functional', 'full-stack'])
 
@@ -863,6 +858,9 @@ def main():
                     else:
                         flist.append(base.replace(libdir + "/", "") + "/" + f)
         return flist
+
+    if args.dbinit:
+        schema.initialize(verbose=True, reset=True)
 
     if args.option == 'unit':
         for f in get_libfiles():

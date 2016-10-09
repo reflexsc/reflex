@@ -6,6 +6,7 @@ services:
       - "54000:54000"
     links:
       - db
+    #entrypoint: ["/usr/local/bin/reflex-engine", "--debug=*"]
     environment:
       - REFLEX_ENGINE_CONFIG={"db":{"host":"db"}}
       - PYTHONUNBUFFERED=true

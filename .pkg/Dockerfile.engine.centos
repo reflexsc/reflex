@@ -1,0 +1,37 @@
+FROM revenant/centos7-python3
+
+RUN yum -y install libffi libffi-devel openssl \
+	 mariadb mariadb-libs gcc curl make
+
+WORKDIR /app/reflex
+COPY src/rfx/requirements.txt src/rfx/requirements.txt
+COPY src/rfxengine/requirements.txt src/rfxengine/requirements.txt
+
+ENV APP_BASE=/app/python-3
+RUN $APP_BASE/bin/pip3 install -r src/rfx/requirements.txt
+
+COPY .pkg/mysql-connector .
+RUN sh ./mysql-connector $APP_BASE/bin/python3
+
+COPY bin ./bin
+COPY src ./src
+
+COPY .pkg/fix_shebang .
+RUN sh fix_shebang $APP_BASE/bin/python3 && rm fix_shebang
+
+RUN cd $APP_BASE/lib/python3.5/site-packages; \
+    for f in $(cat /app/reflex/src/libs.txt); do \
+        echo "Linking $f"; \
+        rm -f $f; \
+        ln -s /app/reflex/src/$f; \
+    done 
+
+RUN cd /usr/local/bin; \
+    for f in $(cd /app/reflex/bin; ls -1); do \
+        ln -s /app/reflex/bin/$f; \
+    done
+
+#RUN apk del .build-deps && rm -rf ~/.cache
+
+EXPOSE 54321
+CMD ["/usr/local/bin/reflex-engine"]
