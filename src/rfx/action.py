@@ -506,7 +506,7 @@ class Action(rfx.Base):
         if output=True or debug, print export output
         """
         if export_meta:
-            for key in 'APIKEY', 'URL', 'TOKEN', 'SECRET':
+            for key in 'APIKEY', 'URL':
                 key = 'REFLEX_' + key
                 if key not in self.env:
                     self.env[key] = self.cfg[key]

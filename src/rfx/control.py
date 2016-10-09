@@ -55,19 +55,11 @@ class ControlCli(rfx.Base):
 
     ############################################################
     def wizard_cli(self, argv, args): # pylint: disable=unused-argument
-        for key in 'URL', 'APIKEY', 'TOKEN':
+        for key in 'URL', 'APIKEY':
             if 'SET_REFLEX_' + key in os.environ.keys():
                 self.cfg['REFLEX_' + key] = os.environ['SET_REFLEX_' + key]
             else:
                 self.cfg['REFLEX_' + key] = input('REFLEX_' + key + ': ')
-        # do this one without terminal echo
-        os.system("stty -echo")
-        if 'SET_REFLEX_SECRET'in os.environ.keys():
-            self.cfg['REFLEX_SECRET'] = os.environ['SET_REFLEX_SECRET']
-        else:
-            self.cfg['REFLEX_SECRET'] = input('REFLEX_SECRET: ')
-        os.system("stty echo")
-        self.NOTIFY("")
         self.cfg_save()
 
     ############################################################
@@ -99,8 +91,6 @@ class ControlCli(rfx.Base):
     def list_cli(self, argv, args): # pylint: disable=unused-argument
         """dump the rfx config"""
         altcfg = self.cfg
-        #altcfg['REFLEX_SECRET'] = 'xxxxxxxxxxxxx'
-        #altcfg['REFLEX_APIKEY'] = 'xxxxxxxxxxxxx'
         for line in altcfg:
             self.NOTIFY(line + "=" + altcfg[line])
 

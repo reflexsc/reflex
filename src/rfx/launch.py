@@ -130,7 +130,7 @@ class App(rfx.Base):
             self._launch_prep_exec(service, commit=commit)
 
         # for security, do not expose this to the running app
-        for key in ('REFLEX_APIKEY', 'REFLEX_TOKEN', 'REFLEX_SECRET'):
+        for key in ['REFLEX_APIKEY']:
             if key in os.environ:
                 del os.environ[key]
             if action and key in self.launch_action.env:

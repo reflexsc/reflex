@@ -112,8 +112,6 @@ class Base(Colorize):
 
     cfg = {
         "REFLEX_URL": "",
-        "REFLEX_TOKEN": "",
-        "REFLEX_SECRET": "",
         "REFLEX_APIKEY": ""
     }
     cmd = 'reflex'
@@ -194,8 +192,6 @@ class Base(Colorize):
 
             # then pull environment settings, as they have higher priority
             self._env2cfg('REFLEX_URL')
-            self._env2cfg('REFLEX_TOKEN')
-            self._env2cfg('REFLEX_SECRET')
             self._env2cfg('REFLEX_APIKEY')
         except ValueError as err:
             self.NOTIFY("Unable to load config!")
