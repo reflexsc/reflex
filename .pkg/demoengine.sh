@@ -83,7 +83,7 @@ if [ -f 'docker-compose.yml' ]; then
 	exit 1
 fi
 
-cmd "Pulling Docker Compose file as $file..." download -s "$dlurl" -o docker-compose.yml
+cmd "Pulling Docker Compose file" download -o docker-compose.yml -s "$dlurl"
 cmd "Starting Engines:"
 docker-compose up -d
 APIKEY=
