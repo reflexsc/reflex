@@ -31,7 +31,8 @@ RUN cd /usr/local/bin; \
         ln -s /app/reflex/bin/$f; \
     done
 
-#RUN apk del .build-deps && rm -rf ~/.cache
+RUN yum -y erase gcc make
+RUN yum clean all
 
 EXPOSE 54321
 CMD ["/usr/local/bin/reflex-engine"]
