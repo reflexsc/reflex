@@ -64,6 +64,7 @@ END
 	fi
 }
 
+errs=0
 has_cmd docker-compose "
 
 	https://docs.docker.com/compose/install/
@@ -77,13 +78,13 @@ file=reflex-engine-demo.yml
 gitraw=https://raw.github.com/reflexsc/reflex
 dlurl=$gitraw/master/.pkg/$file
 
-cmd "Pulling Docker Compose file as $file..." download -s "$dlurl"
+cmd "Pulling Docker Compose file as $file..." download -s -O "$dlurl"
 cmd "Starting Engines: docker-compose -f $file up -d"
 docker-compose -f $file up -d
 APIKEY=
 echo "Waiting for engine to come online..."
 while [ -z "$APIKEY" ]; do
-	APIKEY=$(docker-compose logs | grep REFLEX_APIKEY|sed -e sed -e 's/^.*REFLEX_APIKEY=//')
+	APIKEY=$(docker-compose logs | grep REFLEX_APIKEY |sed -e 's/^.*REFLEX_APIKEY=//')
 	sleep 1
     echo -n "."
 done
