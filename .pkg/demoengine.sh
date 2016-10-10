@@ -78,9 +78,14 @@ file=reflex-engine-demo.yml
 gitraw=https://raw.github.com/reflexsc/reflex
 dlurl=$gitraw/master/.pkg/$file
 
-cmd "Pulling Docker Compose file as $file..." download -s -O "$dlurl"
-cmd "Starting Engines: docker-compose -f $file up -d"
-docker-compose -f $file up -d
+if [ -f 'docker-compose.yml' ]; then
+	echo "There is already a docker-compose.yml file in the current folder.  Remove it first."
+	exit 1
+fi
+
+cmd "Pulling Docker Compose file as $file..." download -s -O "$dlurl" -o docker-compose.yml
+cmd "Starting Engines:"
+docker-compose up -d
 APIKEY=
 echo "Waiting for engine to come online..."
 while [ -z "$APIKEY" ]; do
