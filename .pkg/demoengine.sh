@@ -124,6 +124,10 @@ case "$1" in
 		do_address
 		;;
 	reflex)
+		if [ -z "$REFLEX_URL" ]; then
+	        echo "pulling REFLEX_URL from container.  Stop this message with: eval \$($0 address)"
+			eval $(do_address)
+		fi
 		do_command "$@"
 		;;
 esac
