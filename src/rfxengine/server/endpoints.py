@@ -280,12 +280,9 @@ class Object(server.Rest, Attributes):
             if kwargs.get('cols'):
                 cols = list(set(kwargs['cols'].split(',')))
                 errs = []
-#                for key in cols:
-#                    if not key in obj.omap:
-#                        errs.append("{} is not a valid element of {}"
-#                                    .format(key, obj.table))
                 if errs:
                     raise server.Error(",".join(errs), 400)
+            # todo: sanitize match
                 data = obj.list_cols(attrs, cols, match=kwargs.get('match'))
             else:
                 data = obj.list_buffered(attrs, match=kwargs.get('match'))

@@ -34,5 +34,6 @@ RUN cd /usr/local/bin; \
 RUN yum -y erase gcc make
 RUN yum clean all
 
-EXPOSE 54321
+EXPOSE 54000
+
 CMD ["/usr/local/bin/reflex-engine"]

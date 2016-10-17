@@ -64,41 +64,69 @@ END
 	fi
 }
 
-errs=0
-has_cmd docker-compose "
+do_address() {
+	ipaddr=$(do_command ip route 2>/dev/null | grep default | awk '{print $3}')
+	export REFLEX_URL=http://$ipaddr:54000/api/v1
+	echo "export REFLEX_URL=http://$ipaddr:54000/api/v1"
+}
+
+do_command() {
+    echo "docker run --rm -t -e REFLEX_URL=\$REFLEX_URL -e REFLEX_APIKEY=\$REFLEX_APIKEY reflexsc/tools $@" 1>&2
+    docker run --rm -t \
+		 -e REFLEX_URL=$REFLEX_URL \
+		 -e REFLEX_APIKEY=$REFLEX_APIKEY \
+		 reflexsc/tools "$@"
+}
+
+do_engine() {
+    errs=0
+    has_cmd docker-compose "
 
 	https://docs.docker.com/compose/install/
 
 "
-if [ $errs -gt 0 ]; then
-	exit 1
-fi
+    if [ $errs -gt 0 ]; then
+    	exit 1
+    fi
 
-file=reflex-engine-demo.yml
-gitraw=https://raw.github.com/reflexsc/reflex
-dlurl=$gitraw/master/.pkg/$file
+    file=reflex-engine-demo.yml
+    gitraw=https://raw.github.com/reflexsc/reflex
+    dlurl=$gitraw/master/.pkg/$file
 
-if [ -f 'docker-compose.yml' ]; then
-	echo "There is already a docker-compose.yml file in the current folder.  Remove it first."
-	exit 1
-fi
+    if [ -f 'docker-compose.yml' ]; then
+    	echo "There is already a docker-compose.yml file in the current folder.  Remove it first."
+    	exit 1
+    fi
 
-cmd "Pulling Docker Compose file" download -o docker-compose.yml -s "$dlurl"
-cmd "Starting Engines:"
-docker-compose up -d
-APIKEY=
-echo "Waiting for engine to come online..."
-while [ -z "$APIKEY" ]; do
-	APIKEY=$(docker-compose logs | grep REFLEX_APIKEY |sed -e 's/^.*REFLEX_APIKEY=//')
-	sleep 1
-    echo -n "."
-done
+    cmd "Pulling Docker Compose file" download -o docker-compose.yml -s "$dlurl"
+    cmd "Starting Engines:"
+    docker-compose up -d
+    APIKEY=
+    echo "Waiting for engine to come online..."
+    while [ -z "$APIKEY" ]; do
+    	APIKEY=$(docker-compose logs | grep REFLEX_APIKEY |sed -e 's/^.*REFLEX_APIKEY=//')
+    	sleep 1
+        echo -n "."
+    done
 
-echo ""
-echo "Available, use APIKEY:"
-echo ""
-echo "    export REFLEX_APIKEY=$APIKEY"
-echo ""
+    echo ""
+    echo "Available, use APIKEY:"
+    echo ""
+    echo "    export REFLEX_APIKEY=$APIKEY"
+    echo ""
+}
+
+case "$1" in
+	engine)
+		do_engine
+		;;
+	address)
+		do_address
+		;;
+	reflex)
+		do_command "$@"
+		;;
+esac
 
 } # this ensures the entire script is downloaded #
 
