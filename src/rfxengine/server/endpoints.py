@@ -14,7 +14,7 @@ import cherrypy
 import dictlib
 import jwt
 from rfx import json2data#, json4human#, json4store #, json2data
-from rfxengine import log, get_jti, trace
+from rfxengine import log, get_jti #, trace
 from rfxengine import server # pylint: disable=cyclic-import
 from rfxengine import abac
 from rfxengine.db import objects as dbo

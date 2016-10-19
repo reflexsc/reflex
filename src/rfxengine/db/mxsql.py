@@ -27,7 +27,7 @@ Uses Prepared Cursors by default.
 """
 
 import time
-import traceback
+#import traceback
 import mysql.connector
 from mysql.connector import errors
 from rfxengine import log

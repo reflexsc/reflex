@@ -20,7 +20,7 @@ import setproctitle
 import dictlib
 import timeinterval
 import rfx
-from rfx import json2data, json4human
+from rfx import json2data #, json4human
 import rfxengine
 from rfxengine import log
 import rfxengine.memstate
@@ -214,12 +214,13 @@ class Server(rfx.Base):
         if cfgin:
             try:
                 cfgin = json2data(base64.b64decode(cfgin))
-            except:
+            except: # pylint: disable=bare-except
                 try:
                     cfgin = json2data(cfgin)
-                except Exception as err:
+                except Exception as err: # pylint: disable=broad-except
                     traceback.print_exc()
-                    self.ABORT("Cannot process config json from REFLEX_ENGINE_CONFIG: " + str(err) + " from " + cfgin)
+                    self.ABORT("Cannot process REFLEX_ENGINE_CONFIG: " +
+                               str(err) + " from " + cfgin)
 
             conf = dictlib.Obj(dictlib.union(defaults, cfgin))
         else:

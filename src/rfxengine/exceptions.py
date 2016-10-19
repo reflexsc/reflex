@@ -30,9 +30,39 @@ Errors
 class InvalidPolicy(Exception):
     """We had a problem houston"""
     pass
+
 class InvalidContext(Exception):
     """We had a problem houston"""
     pass
+
 class PolicyFailed(Exception):
     """We had a problem houston"""
+    pass
+
+class ObjectNotFound(Exception):
+    """Returned when a requested object cannot be found"""
+    pass
+
+class NoArchive(Exception):
+    """The specified object doesn't support Archives"""
+    pass
+
+class ObjectExists(Exception):
+    """Returned when there are relationship problems"""
+    pass
+
+#class RelationshipException(Exception):
+#    """Returned when there are relationship problems"""
+#    pass
+
+class NoChanges(Exception):
+    """Nothing was changed"""
+    pass
+
+class CipherException(Exception):
+    """Problems w/crypto"""
+    pass
+
+class InvalidParameter(Exception):
+    """Variant error for catching bad params"""
     pass

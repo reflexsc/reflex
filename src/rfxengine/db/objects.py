@@ -39,7 +39,9 @@ import hashlib # hashlib is fastest for hashing
 import nacl.utils # for keys -- faster than cryptography lib
 from mysql.connector.errors import ProgrammingError, IntegrityError
 import rfx
-from rfx import json4store, json2data, json4human
+from rfx import json4store, json2data #, json4human
+from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
+                                 NoChanges, CipherException, InvalidParameter
 from rfxengine import abac, log, trace, do_DEBUG
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
@@ -77,35 +79,6 @@ class RCMap(dictlib.Obj):
                                     stype=stype,
                                     hasid=hasid,
                                     sensitive=sensitive)
-
-################################################################################
-class ObjectNotFound(Exception):
-    """Returned when a requested object cannot be found"""
-    pass
-
-class NoArchive(Exception):
-    """The specified object doesn't support Archives"""
-    pass
-
-class ObjectExists(Exception):
-    """Returned when there are relationship problems"""
-    pass
-
-class RelationshipException(Exception):
-    """Returned when there are relationship problems"""
-    pass
-
-class NoChanges(Exception):
-    """Nothing was changed"""
-    pass
-
-class CipherException(Exception):
-    """Problems w/crypto"""
-    pass
-
-class InvalidParameter(Exception):
-    """Variant error for catching bad params"""
-    pass
 
 ################################################################################
 # pylint: disable=too-many-public-methods
@@ -537,9 +510,9 @@ class RCObject(rfx.Base):
                 result.append(row)
         except:
             # if we broke, dump the rest of the vals so the connection is clean
-            try: # pylint disable=bare-except
+            try:
                 cursor.fetchall()
-            except:
+            except: # pylint: disable=bare-except
                 pass
             raise
         finally:
@@ -1153,7 +1126,8 @@ class Group(RCObject):
         errors = super(Group, self).validate()
 
         if self.obj['type'] not in ('Apikey', 'Pipeline'):
-            raise InvalidParameter("Invalid type=" + self.obj['type'] + " not one of: Apikey, Pipeline")
+            raise InvalidParameter("Invalid type=" + self.obj['type'] +
+                                   " not one of: Apikey, Pipeline")
 
         return errors
 
@@ -1184,7 +1158,10 @@ class Group(RCObject):
     ############################################################################
     @db_interface
     def get_for_attrs(self, dbi=None):
-        """We pull from _grp for performance purposes, and it is stripped of the id for matching purposes"""
+        """
+        We pull from _grp for performance purposes, and it is stripped of the
+        id for matching purposes
+        """
         cache = self.master.cache
         groups = cache.get_cache('groups', '.')
         if groups:
@@ -1674,6 +1651,7 @@ class Schema(rfx.Base):
     # pylint: disable=unused-argument,too-many-branches
     @db_interface
     def initialize(self, dbi=None, verbose=False, reset=True):
+        """Setup the database."""
         new_master = False
 
         for obj in self.tables:
