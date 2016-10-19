@@ -88,7 +88,8 @@ class TAP(rfx.Base):
     # pylint: disable=super-init-not-called
     def TRAP(self, func, *args, **kwargs):
         try:
-            return func(*args, **kwargs)
+            func(*args, **kwargs)
+            return True
         except: # pylint: disable=bare-except
             self.log("--- Error Calling:\n    {}({}, {})\n--- "
                      .format(func, args, kwargs))

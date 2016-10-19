@@ -198,7 +198,8 @@ class Server(rfx.Base):
             'cache': {
                 'housekeeper': 60,
                 'policies': 300,
-                'sessions': 300
+                'sessions': 300,
+                'groups': 300
             },
             'secrets': [],
             'db': {
@@ -247,12 +248,8 @@ class Server(rfx.Base):
         self.dbm = mxsql.Master(config=conf.db, base=self)
 
         # configure the cache
-        self.dbm.cache = rfxengine.memstate.Cache()
+        self.dbm.cache = rfxengine.memstate.Cache(**conf.cache.__export__())
         self.dbm.cache.start_housekeeper(conf.cache.housekeeper)
-        self.dbm.cache.configure('policy', conf.cache.policies)
-        self.dbm.cache.configure('policymap', conf.cache.policies)
-        self.dbm.cache.configure('policymatch', conf.cache.policies)
-        self.dbm.cache.configure('session', conf.cache.sessions)
 
         # schema
         schema = dbo.Schema(master=self.dbm)
@@ -319,8 +316,8 @@ class Server(rfx.Base):
                             conf.server.route_base + "/policy",
                             endpoint_conf)
         cherrypy.tree.mount(endpoints.Object(conf, server=self,
-                                             obj="policymatch"),
-                            conf.server.route_base + "/policymatch",
+                                             obj="policyscope"),
+                            conf.server.route_base + "/policyscope",
                             endpoint_conf)
 
         # setup our heartbeat monitor

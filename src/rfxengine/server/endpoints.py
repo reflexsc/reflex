@@ -14,7 +14,7 @@ import cherrypy
 import dictlib
 import jwt
 from rfx import json2data#, json4human#, json4store #, json2data
-from rfxengine import log, get_jti#, trace
+from rfxengine import log, get_jti, trace
 from rfxengine import server # pylint: disable=cyclic-import
 from rfxengine import abac
 from rfxengine.db import objects as dbo
@@ -64,6 +64,7 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
         self._client_cert(attrs)
         self._origin_addr(attrs)
         self._http_headers(attrs)
+        self._groups(attrs)
 
         return attrs
 
@@ -142,6 +143,14 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             if self.server.do_DEBUG():
                 self.server.DEBUG(traceback.format_exc())
             self.auth_fail(traceback.format_exc(0))
+
+    ############################################################################
+    # pylint: disable=no-self-use, unused-argument
+    def _groups(self, attrs):
+        """http headers as dictobj"""
+
+        attrs['groups'] = dbo.Group(master=self.server.dbm).get_for_attrs()
+
 ################################################################################
 class Health(server.Rest, abac.AuthService):
     """

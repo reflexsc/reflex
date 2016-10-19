@@ -32,6 +32,7 @@ import traceback
 import cherrypy
 from rfxengine import log, trace, do_DEBUG
 from rfxengine import exceptions
+from rfxengine.db import objects as dbo
 
 ################################################################################
 def secureheaders():
@@ -97,7 +98,7 @@ class Rest(object):
                 log("forbidden", traceback=traceback.format_exc(0))
             cherrypy.response.status = 403
             return {"status": "failed", "message": "Forbidden"}
-        except Error as err:
+        except (ValueError, dbo.InvalidParameter, Error) as err:
             cherrypy.response.status = err.args[1]
             if isinstance(err.args[0], dict):
                 status = err.args[0]
@@ -106,7 +107,6 @@ class Rest(object):
                 status = {"status": "failed", "message": err.args[0]}
             return status
         except Exception as err:
-            trace(traceback.format_exc())
             log("error", traceback=traceback.format_exc())
             raise
 

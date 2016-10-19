@@ -63,10 +63,18 @@ class Cache(object):
     def __init__(self, **kwargs):
         self.cache = dict()
         self.ctypes = dict()
-        for ctype in kwargs:
+        config = {
+            'policy': 300,
+            'policymap': 300,
+            'policyscope': 300,
+            'session': 300,
+            'groups': 300
+        }
+        config.update(kwargs)
+        for ctype in config:
             if ctype == 'housekeeper':
                 continue
-            self.configure(ctype, kwargs[ctype])
+            self.configure(ctype, config[ctype])
         self._clean()
 
     ############################################################################

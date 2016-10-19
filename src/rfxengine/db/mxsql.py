@@ -125,6 +125,11 @@ class Interface(pool.Interface):
             if str(err) == "Unread result found":
                 self.close()
             raise
+        except mysql.connector.errors.OperationalError as err:
+            log("db error", error=str(err))
+            self.close()
+            raise
+
         cursor.execute(stmt, args)
         return cursor
 

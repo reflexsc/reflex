@@ -365,22 +365,23 @@ class RCObject(rfx.Base):
             if col.stored == "data":
                 value = data.get(name, None)
             else:
-                value = dbin.get(name, None)
+                value = dbin.get(col.stored, None)
 
             if value is None:
                 if col.stype == "opt":
                     continue
-                raise InvalidParameter("Object load: missing '" + name + "'")
+                trace(data)
+                trace(dbin)
+                trace([name, col])
+                raise InvalidParameter("Object load: missing '" + col.stored + "'")
 
             if col.encrypt:
-                trace("{} Authorized get {}".format(name, json4human(attrs)))
                 if attrs is True or not self.authorized("read",
                                                         attrs,
                                                         sensitive=True,
                                                         raise_error=False):
                     value = 'encrypted'
                 elif isinstance(value, str) and value[:3] == '__$':
-                    trace("{} decrypt".format(name))
                     value = json2data(self.decrypt(value))
 
             elif col.sensitive:
@@ -465,14 +466,8 @@ class RCObject(rfx.Base):
         Prepare sql and args for list
         """
 
-        try:
-            self.policies = self._get_policies(dbi=dbi)
-            self.authorized("read", attrs, sensitive=False)
-        except:
-            trace("list read fail")
-            trace(json4human(attrs))
-            trace(self.policies)
-            raise
+        self.policies = self._get_policies(dbi=dbi)
+        self.authorized("read", attrs, sensitive=False)
 
         args = []
         sql = "SELECT id,name,updated_by,unix_timestamp(updated_at) FROM " + self.table
@@ -542,7 +537,10 @@ class RCObject(rfx.Base):
                 result.append(row)
         except:
             # if we broke, dump the rest of the vals so the connection is clean
-            cursor.fetchall()
+            try: # pylint disable=bare-except
+                cursor.fetchall()
+            except:
+                pass
             raise
         finally:
             dbi2.done()
@@ -667,7 +665,7 @@ class RCObject(rfx.Base):
     ############################################################################
     def validate(self):
         """
-        Validate object.
+        Validate object from external sources, before converting to db format.
 
         On critical errors raises InvalidParameter.
 
@@ -677,12 +675,12 @@ class RCObject(rfx.Base):
         data = self.obj # speed up
         for name, col in self.omap.items():
             if col.stype == "alter":
-                key = col.stored
-                if key == "data":
-                    key = name
-                val = data.get(key, None)
+#                key = col.stored
+#                if key == "data":
+#                    key = name
+                val = data.get(name, None)
                 if val is None:
-                    raise InvalidParameter("Object load: missing '" + key + "'")
+                    raise InvalidParameter("Object validate: missing '" + name + "'")
 
             if not data.get(name): # only alter is required on load
                 continue
@@ -850,20 +848,20 @@ class RCObject(rfx.Base):
         """
         Any actions or updates required on change of this object
         """
-        matchlist = policymatch_get_cached(self.master.cache, dbi, 'targetted')
-        self.map_targetted_policies(matchlist, dbi=dbi)
+        scopelist = policyscope_get_cached(self.master.cache, dbi, 'targetted')
+        self.map_targetted_policies(scopelist, dbi=dbi)
         return list()
 
     #############################################################################
-    def map_targetted_policies(self, matchlist, dbi=None):
+    def map_targetted_policies(self, scopelist, dbi=None):
         """
-        Review policies and match to this object
+        Review policies and scope to this object
         """
 
         self._delete_policyfor(dbi)
         context = dict(obj=self.obj, obj_type=self.table)
-        for pmatch in matchlist:
-            policymatch_map_for(pmatch, dbi, context, self.table, self.obj['id'])
+        for pscope in scopelist:
+            policyscope_map_for(pscope, dbi, context, self.table, self.obj['id'])
 
 ################################################################################
 class Pipeline(RCObject):
@@ -1132,6 +1130,8 @@ class Group(RCObject):
      ADD>     name varchar(64) not null,
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
+     ADD>     _grp text,
+     ADD>     typ varchar(32),
      ADD>     data text,
      ADD>     primary key(id),
      ADD>     unique(name)
@@ -1143,8 +1143,9 @@ class Group(RCObject):
 
     def __init__(self, *args, **kwargs):
         self.omap = dictlib.Obj()
-        self.omap['group'] = RCMap(stored="data", dtype=list)
-        self.omap['type'] = RCMap(stored="data", dtype="value")
+        self.omap['group'] = RCMap(stored="data", dtype=list, stype="alter")
+        self.omap['_grp'] = RCMap(stored="_grp", dtype=list, stype="opt")
+        self.omap['type'] = RCMap(stored="typ", dtype="value", stype="alter")
         super(Group, self).__init__(*args, **kwargs)
 
     ############################################################################
@@ -1152,7 +1153,7 @@ class Group(RCObject):
         errors = super(Group, self).validate()
 
         if self.obj['type'] not in ('Apikey', 'Pipeline'):
-            raise ValueError("Invalid type=" + self.obj['type'] + " not one of: Apikey, Pipeline")
+            raise InvalidParameter("Invalid type=" + self.obj['type'] + " not one of: Apikey, Pipeline")
 
         return errors
 
@@ -1165,6 +1166,7 @@ class Group(RCObject):
         # pylint: disable=eval-used
         class_obj = eval(self.obj['type'])(clone=self)
         mapped = set()
+        noid = set()
         for target in self.obj['group']:
             (target, error) = self._map_soft_relationship_name2id(dbi,
                                                                   class_obj,
@@ -1172,9 +1174,40 @@ class Group(RCObject):
             if error:
                 errors.append(error)
             mapped.add(target)
+            noid.add(target.split(".")[0])
 
         self.obj['group'] = list(mapped)
+        self.obj['_grp'] = list(noid)
 
+        return errors
+
+    ############################################################################
+    @db_interface
+    def get_for_attrs(self, dbi=None):
+        """We pull from _grp for performance purposes, and it is stripped of the id for matching purposes"""
+        cache = self.master.cache
+        groups = cache.get_cache('groups', '.')
+        if groups:
+            return groups
+        groups = dictlib.Obj()
+        result = dbi.do_getlist("""
+            SELECT name, _grp FROM Grp
+          """)
+        for row in result:
+            groups[row[0]] = json2data(row[1])
+        cache.set_cache('groups', '.', groups)
+        return groups
+
+    #############################################################################
+    def changed(self, attrs, dbi=None):
+        errors = super(Group, self).changed(attrs, dbi=dbi)
+        self.master.cache.clear_type('groups')
+        return errors
+
+    #############################################################################
+    def deleted(self, attrs, dbi=None):
+        errors = super(Group, self).deleted(attrs, dbi=dbi)
+        self.master.cache.clear_type('groups')
         return errors
 
 ################################################################################
@@ -1211,7 +1244,7 @@ class Apikey(RCObject):
     ############################################################################
     def validate(self):
         if not len(self.obj.get('name', '')):
-            return ["Object load: missing 'name'"]
+            raise InvalidParameter("Object load: missing 'name'")
         return []
 
     ############################################################################
@@ -1417,54 +1450,54 @@ class Policy(RCObject):
         errors = super(Policy, self).deleted(attrs, dbi=dbi)
 
         dbi.do("""DELETE FROM PolicyFor WHERE policy_id = ?""", self.obj['id'])
-        dbi.do("""DELETE FROM Policymatch WHERE policy_id = ?""", self.obj['id'])
+        dbi.do("""DELETE FROM Policyscope WHERE policy_id = ?""", self.obj['id'])
         self.master.cache.clear_type('policymap')
 
         return errors
 
 ################################################################################
-def policymatch_get_cached(cache, dbi, mtype):
-    """get a list of policymatch objects, checking cache first"""
-    matchlist = cache.get_cache('policymatch', mtype)
-    if matchlist:
-        return matchlist
-    return policymatch_get_direct(cache, dbi, mtype)
+def policyscope_get_cached(cache, dbi, mtype):
+    """get a list of policyscope objects, checking cache first"""
+    scopelist = cache.get_cache('policyscope', mtype)
+    if scopelist:
+        return scopelist
+    return policyscope_get_direct(cache, dbi, mtype)
 
 ################################################################################
-def policymatch_get_direct(cache, dbi, mtype):
-    """get a list of policymatch objects directly from db, and update cache"""
-    matchlist = list()
+def policyscope_get_direct(cache, dbi, mtype):
+    """get a list of policyscope objects directly from db, and update cache"""
+    scopelist = list()
     cursor = dbi.do("""SELECT id,policy_id,matches,actions
-                         FROM Policymatch
+                         FROM Policyscope
                         WHERE type = ?""", mtype)
     for row in cursor:
-        matchlist.append(row_to_dict(cursor, row))
-    cache.set_cache('policymatch', mtype, matchlist)
-    return matchlist
+        scopelist.append(row_to_dict(cursor, row))
+    cache.set_cache('policyscope', mtype, scopelist)
+    return scopelist
 
 ################################################################################
-def policymatch_map_for(pmatch, dbi, context, table, target_id):
-    """"map poicymatch objects into PolicyFor table"""
+def policyscope_map_for(pscope, dbi, context, table, target_id):
+    """"map poicyscope objects into PolicyFor table"""
     try:
         # pylint: disable=eval-used
-        if eval(pmatch['matches'], {'__builtins__':{}, 'rx': re}, context):
-            for action in pmatch['actions'].split(","):
+        if eval(pscope['matches'], {'__builtins__':{}, 'rx': re}, context):
+            for action in pscope['actions'].split(","):
                 dbi.do("""REPLACE INTO PolicyFor
                           SET obj = ?, policy_id = ?, target_id = ?,
-                              pmatch_id = ?, action = ?
-                       """, table, pmatch['policy_id'], target_id,
-                       pmatch['policy_id'], action)
+                              pscope_id = ?, action = ?
+                       """, table, pscope['policy_id'], target_id,
+                       pscope['policy_id'], action)
     except: # pylint: disable=bare-except
         if do_DEBUG():
             log("error", traceback=traceback.format_exc())
         trace(traceback.format_exc())
 
 ################################################################################
-class Policymatch(RCObject):
+class Policyscope(RCObject):
     # pylint: disable=line-too-long
     """
-    DROP> drop table if exists Policymatch;
-     ADD> create table Policymatch (
+    DROP> drop table if exists Policyscope;
+     ADD> create table Policyscope (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
      ADD>     policy_id int not null,
@@ -1478,8 +1511,8 @@ class Policymatch(RCObject):
      ADD>     unique(name)
      ADD> ) engine=InnoDB;
 
-    DROP> drop table if exists PolicymatchArchive;
-     ADD> create table PolicymatchArchive (
+    DROP> drop table if exists PolicyscopeArchive;
+     ADD> create table PolicyscopeArchive (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
      ADD>     policy_id int not null,
@@ -1494,17 +1527,17 @@ class Policymatch(RCObject):
      ADD> ) engine=InnoDB;
      ADD>
 
-    DROP> DROP TRIGGER IF EXISTS archive_Policymatch;
-     ADD> CREATE TRIGGER archive_Policymatch BEFORE UPDATE ON Policymatch
+    DROP> DROP TRIGGER IF EXISTS archive_Policyscope;
+     ADD> CREATE TRIGGER archive_Policyscope BEFORE UPDATE ON Policyscope
      ADD>   FOR EACH ROW
-     ADD>     INSERT INTO PolicymatchArchive SELECT * FROM Policymatch WHERE NEW.id = id;
+     ADD>     INSERT INTO PolicyscopeArchive SELECT * FROM Policyscope WHERE NEW.id = id;
 
     DROP> drop table if exists PolicyFor;
      ADD> create table PolicyFor (
      ADD>     policy_id int not null,
-     ADD>     obj enum('Pipeline', 'Service', 'Config', 'Instance', 'Policy', 'Policymatch', 'Apikey', 'Build', 'Grp'),
+     ADD>     obj enum('Pipeline', 'Service', 'Config', 'Instance', 'Policy', 'Policyscope', 'Apikey', 'Build', 'Grp'),
      ADD>     action enum('write', 'read', 'admin') default 'read',
-     ADD>     pmatch_id int not null default 0,
+     ADD>     pscope_id int not null default 0,
      ADD>     target_id int not null default 0,
      ADD>     primary key(obj, policy_id, target_id),
      ADD>     index(obj, target_id),
@@ -1512,7 +1545,7 @@ class Policymatch(RCObject):
      ADD> ) engine=InnoDB;
     """
 
-    table = 'Policymatch'
+    table = 'Policyscope'
     policy_map = False
     vardata = True
 
@@ -1522,14 +1555,14 @@ class Policymatch(RCObject):
         self.omap['matches'] = RCMap(stype="alter", stored='matches')
         self.omap['actions'] = RCMap(stype="alter", stored='actions')
         self.omap['type'] = RCMap(stype="alter", stored='type')
-        super(Policymatch, self).__init__(*args, **kwargs)
+        super(Policyscope, self).__init__(*args, **kwargs)
 
 
     #############################################################################
     # merge in w/abac.Policy validation
     # keep pre-rx version and post, for subsequent editing
     def validate(self):
-        errors = super(Policymatch, self).validate()
+        errors = super(Policyscope, self).validate()
         try:
             compile(self.obj['matches'], '<matches>', 'eval')
             # Future note: put in an eval here with mock data
@@ -1559,10 +1592,10 @@ class Policymatch(RCObject):
 
     #############################################################################
     def changed(self, attrs, dbi=None):
-        errors = super(Policymatch, self).changed(attrs, dbi=dbi)
+        errors = super(Policyscope, self).changed(attrs, dbi=dbi)
 
         # direct since we changed
-        matchlist = policymatch_get_direct(self.master.cache,
+        scopelist = policyscope_get_direct(self.master.cache,
                                            dbi,
                                            self.obj['type'])
 
@@ -1584,11 +1617,11 @@ class Policymatch(RCObject):
                 # now map out the policies
                 for row in memarray:
                     tobj.obj = row
-                    tobj.map_targetted_policies(matchlist, dbi=dbi)
+                    tobj.map_targetted_policies(scopelist, dbi=dbi)
 
         else: # global
             context = dict(obj={}, obj_type='')
-            for pmatch in matchlist:
+            for pscope in scopelist:
                 for table in Schema.tables:
                     if not table.policy_map:
                         continue
@@ -1596,9 +1629,9 @@ class Policymatch(RCObject):
                     context['obj'] = obj
                     context['obj_type'] = obj.table
                     dbi.do("""DELETE FROM PolicyFor
-                              WHERE obj = ? AND pmatch_id = ? AND policy_id = ?
-                           """, obj.table, pmatch['id'], pmatch['policy_id'])
-                    policymatch_map_for(pmatch, dbi, context, obj.table, 0)
+                              WHERE obj = ? AND pscope_id = ? AND policy_id = ?
+                           """, obj.table, pscope['id'], pscope['policy_id'])
+                    policyscope_map_for(pscope, dbi, context, obj.table, 0)
 
         return errors
 
@@ -1607,7 +1640,7 @@ class Schema(rfx.Base):
     """Define our DB schema as code"""
     # NOTE: update PolicyFor and PolicyActive table enums if adding to this list
     # also: order matters
-    tables = [Policy, Policymatch, Pipeline, Service, Config, Instance, Apikey,
+    tables = [Policy, Policyscope, Pipeline, Service, Config, Instance, Apikey,
               Build, Group, AuthSession]
     master = ''
 
@@ -1641,9 +1674,6 @@ class Schema(rfx.Base):
     # pylint: disable=unused-argument,too-many-branches
     @db_interface
     def initialize(self, dbi=None, verbose=False, reset=True):
-        """initialize the db (create everything)"""
-        dbi.connect()
-
         new_master = False
 
         for obj in self.tables:
@@ -1673,15 +1703,15 @@ class Schema(rfx.Base):
                 dbi.dbc.cmd_query(stmt)
 
         if reset or new_master:
-            pmatch = Policymatch(master=self.master)
-            pmatch.load({
+            pscope = Policyscope(master=self.master)
+            pscope.load({
                 'name': 'master',
                 'matches': 'True',
                 'policy_id': 100,
                 'actions': 'admin',
                 'type': 'global'
             })
-            pmatch.create(abac.MASTER_ATTRS)
+            pscope.create(abac.MASTER_ATTRS)
 
             secret = base64.b64encode(nacl.utils.random(Apikey.keysize)).decode()
             dbi.do("""

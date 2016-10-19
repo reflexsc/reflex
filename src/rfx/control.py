@@ -27,7 +27,7 @@ import os
 import re
 #from builtins import input # pylint: disable=redefined-builtin
 import rfx
-from rfx.backend import Engine
+from rfx.backend import Engine, EngineCli
 from rfx.action import Action
 
 ################################################################################
@@ -96,9 +96,10 @@ class ControlCli(rfx.Base):
 
     ############################################################
     def apikey_cli(self, argv, args, cli):
-        self.NOTIFY("Specify Administrative Token (end with newline):")
-        admkey = input("Admin API Token: ")
-        self.NOTIFY("")
+        #self.NOTIFY("Specify Administrative Token (end with newline):")
+        #admkey = input("Admin API Token: ")
+        #self.NOTIFY("")
+        admkey = self.cfg.get('REFLEX_APIKEY')
 
         action = args.get('action')
         target = " ".join(argv)
@@ -125,9 +126,8 @@ class ControlCli(rfx.Base):
 
     ############################################################
     def apikey_cli__list(self, dbo, admkey, cli): # pylint: disable=unused-argument
-        self.NOTIFY("{0:20} {1:24} {2:24} {3}".format("Name", "Id", "CreatedAt", "Scope"))
-        for obj in dbo.list_objects("apikey", apikey=admkey):
-            self.NOTIFY("{name:20} {id:24} {createdAt:24} {scope}".format(**obj))
+        ecli = EngineCli(base=self)
+        ecli.list_cli("apikey", {'--show': 'name'}, [])
 
     ############################################################
     def apikey_cli__create(self, dbo, admkey, target, cli):

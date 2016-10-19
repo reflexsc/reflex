@@ -35,7 +35,7 @@ import re
 import dictlib
 import cherrypy
 from rfx import json4human
-from rfxengine import log, server, trace
+from rfxengine import log, server
 from rfxengine import exceptions
 
 ################################################################################
@@ -114,15 +114,14 @@ class Policy(object):
         if not isinstance(attrs, dict):
             raise exceptions.InvalidContext("Context is not a dictionary")
 
-        attrs['policy'] = self
+        #attrs['policy'] = self
 
-        trace("{} {}".format(self.policy_id, self.policy_expr))
         # pylint: disable=eval-used
         try:
             if eval(self.policy_expr, {'__builtins__':{}, 'rx': re}, attrs):
                 return True
-        except KeyError:
-            trace(json4human(attrs))
+        except KeyError as err:
+            log("policy error, missing key", error=str(err))
         if raise_error:
             raise exceptions.PolicyFailed("Policy failed to evaluate ({})".format(self.policy_expr))
         return False
@@ -136,7 +135,7 @@ def _attrs_skeleton(**kwargs):
         token_nbr=0,
         token_name='',
         http_headers=dictlib.Obj(),
-        groups=[]
+        groups=dictlib.Obj()
     )
     if kwargs:
         attrs = dictlib.union(attrs, kwargs)
