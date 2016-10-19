@@ -44,7 +44,7 @@ try:
 except:
     import io as strio
 import rfxengine.db.mxsql
-from rfxengine.db.objects import Pipeline, Service, Config, Instance, Policy, Policymatch, Apikey, Build, Group, ObjectExists
+from rfxengine.db.objects import Pipeline, Service, Config, Instance, Policy, Policyscope, Apikey, Build, Group, ObjectExists
 import rfx
 import rfxengine.abac as abac
 from rfxengine import memstate
@@ -91,7 +91,7 @@ class Tester(rfx.Base):
         self.dbm.cache.start_housekeeper(2) # extreme
         self.dbm.cache.configure('policy', 1) # extreme
         self.dbm.cache.configure('policymap', 1) # extreme
-        self.dbm.cache.configure('policymatch', 1) # extreme
+        self.dbm.cache.configure('policyscope', 1) # extreme
 
         self.notifyfd = strio.StringIO()
         self.outputfd = strio.StringIO()
@@ -114,13 +114,13 @@ class Tester(rfx.Base):
         errs = []
     
         otype = obj_class(master=self.dbm)
-        self.DEBUG("Loading data")
-        self.tap.TRAP(otype.load, data)
+        if not self.tap.TRAP(otype.load, data):
+            return False
         try:
-            self.DEBUG("Creating in DB")
             otype.create(self.attrs)
         except:
             self.output(traceback.format_exc())
+        return True
     
     ############################################################################
     def get(self, obj_class, target):
@@ -151,7 +151,8 @@ class Tester(rfx.Base):
     ############################################################################
     def _addcheck(self, obj_class, name, data):
         data['name'] = name # just to be certain
-        self.make(obj_class, data.copy())
+        if not self.make(obj_class, data.copy()):
+            return False
         obj = self.get(obj_class, name)
         if not obj:
             self.output("No second object to compare to")
@@ -171,7 +172,7 @@ class Tester(rfx.Base):
             warning = True
 
         self.output(json4human(data2))
-        return True
+        return not warning
 
     ############################################################################
     def addcheck(self, label, args, *expect):
@@ -269,6 +270,7 @@ class Tester(rfx.Base):
 
 ################################################################################
 def test_integration(schema, base, tester):
+    schema.initialize(verbose=False, reset=False)
     tname = 'test'
     tester.addcheck("Object Verify: Pipeline", 
             (Pipeline, tname, {
@@ -339,40 +341,36 @@ def test_integration(schema, base, tester):
             """)
     tester.addcheck("Object Verify: Policy", 
             (Policy, tname + '-policy', {
-                'policy': 'hello nurse'
+                'policy': 'True'
             }),
             r"""
-            test-policy
+            "name":"test-policy"
             """)
-    tester.addcheck("Object Verify: Policymatch", 
-            (Policy, tname + '-policy', {
+    tester.addcheck("Object Verify: Policyscope", 
+            (Policyscope, tname + '-policy', {
                 'policy_id': 100,
-                'matches': 'hello nurse'
+                'matches': 'True',
+                'type': 'targetted',
+                'actions': 'admin'
             }),
             r"""
-            test-policy
+            "name":"test-policy"
             """)
     tester.addcheck("Object Verify: Group", 
             (Group, tname, {
-                'type': 'Pipeline',
-                'group': [ 'test', 'notest' ]
+                'type': "Apikey",
+                'group': [ 'master', 'notest' ]
             }),
             r"""
             Altered data: \['group'\]
             """,
             r"notest\.notfound",
-            r"test\.1"
+            r"master\.100"
             )
-    tester.resubmit("Object Rebuild Relationships: Service",
-            (Service, tname + '-tst'),
-            r"""
-            notfound
-            """,
-            negate=True)
-
 
 ###############################################################################
 def test_functional(schema, base, tester, baseurl):
+    schema.initialize(verbose=False, reset=False)
     tester.okcmp("REST Health Check", tester, tester.fcall,
                  [requests.get, baseurl + "/health"], {},
                  r'Response \[204\]')
@@ -403,7 +401,7 @@ def test_functional(schema, base, tester, baseurl):
             '-mcreate': {
                 'name': 'gallifrey'
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object load'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
             'mupdate': {
                 'name': 'gallifrey',
                 'title': 'College of Cardinals',
@@ -427,7 +425,7 @@ def test_functional(schema, base, tester, baseurl):
             '-mcreate': {
                 'name': 'tardis'
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object load'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
             'mupdate': {
                 'type': 'parameter',
                 'name': 'tardis',
@@ -456,7 +454,7 @@ def test_functional(schema, base, tester, baseurl):
                 'region': 'arcadia',
                 'name': 'gallifrey-prd'
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object load'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
             'mupdate': {
                 'config': 'tardis',
                 'pipeline': 'gallifrey',
@@ -485,7 +483,7 @@ def test_functional(schema, base, tester, baseurl):
             '-mcreate': {
                 'name': 'gallifrey-1'
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object load'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
             'mupdate': {
                 'name': 'gallifrey-1',
                 'id': 1,
@@ -512,7 +510,7 @@ def test_functional(schema, base, tester, baseurl):
             'mcreate-expect': [r'Response \[201\]'],
             '-mcreate': {
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object load'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
             'mupdate': {
                 'name': 'gallifrey-1600',
                 'id': 1,
@@ -535,7 +533,8 @@ def test_functional(schema, base, tester, baseurl):
             },
             'mcreate-expect': [r'Response \[201\]'],
             '-mcreate': {
-                'id': 200
+                'id': 200,
+                'name': 'boo'
             },
             '-mcreate-expect': [r'Response \[400\]', r'message": "id must be left undef'],
             'mupdate': {
@@ -564,7 +563,7 @@ def test_functional(schema, base, tester, baseurl):
                 'id': 1,
                 'group': ['the-master']
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object load'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
             'mupdate': {
                 'name': 'timelords',
                 'type': 'Apikey',
@@ -604,7 +603,7 @@ def test_functional(schema, base, tester, baseurl):
             'mmerge-expect': [r'status": "updated'],
             'mmerge-validate': [r'description": "do not trust']
         },
-        'policymatch': {
+        'policyscope': {
             'mcreate': {
                 'name': 'timelords',
                 'policy_id': 101,
@@ -640,7 +639,7 @@ def test_functional(schema, base, tester, baseurl):
     })
 
     # order matters, otherwise I would use sample.keys()
-    for obj in ('pipeline', 'config', 'service', 'instance', 'build', 'apikey', 'group', 'policy', 'policymatch'):
+    for obj in ('pipeline', 'config', 'service', 'instance', 'build', 'apikey', 'group', 'policy', 'policyscope'):
         odata = samples[obj].mcreate
         tester.okcmp("REST create " + obj, tester, tester.rest_useauth,
                      [requests.post, baseurl + "/" + obj],
@@ -687,14 +686,15 @@ def test_functional(schema, base, tester, baseurl):
                      *samples[obj].mcreate_expect)
 
 def test_full_stack(schema, base, tester, baseurl):
-
+    schema.initialize(verbose=False, reset=False)
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
 
     master_key = Apikey(master=tester.dbm)
     master_key.get('master', user_attrs)
 
-#    os.environ['REFLEX_URL'] = tester.baseurl
-#    os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
+    os.environ['REFLEX_URL'] = tester.baseurl
+    os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
+    rcs_master = client.Session().cfg_load()
 
     tester.okcmp("Reflex Apikey Create", tester, tester.rcs,
                  [rcs_master.create, "apikey", {
@@ -765,7 +765,7 @@ def test_full_stack(schema, base, tester, baseurl):
 
     # map the policy global
     tester.okcmp("Reflex Policymatch Create global", tester, tester.rcs,
-                 [rcs_master.create, "policymatch", {
+                 [rcs_master.create, "policyscope", {
                      "name": "pond-read-configs",
                      "policy_id": 101,
                      "actions": 'read',
@@ -786,7 +786,7 @@ def test_full_stack(schema, base, tester, baseurl):
 
     # map the sensitive policy just to the individual items (it is targetted)
     tester.okcmp("Reflex Policymatch Create sensitive", tester, tester.rcs,
-                 [rcs_master.create, "policymatch", {
+                 [rcs_master.create, "policyscope", {
                      "name": "pond-read-sensitive",
                      "policy_id": 102,
                      "actions": 'read',

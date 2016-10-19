@@ -39,6 +39,10 @@ for opt in "$@"; do
 	esac
 done
 
+msg() {
+    echo "--- $@"
+}
+
 if [ $did -eq 0 ]; then
 	do_all
 fi
@@ -73,35 +77,40 @@ config='
 }
 '
 
-#export REFLEX_ENGINE_CONFIG="$config"
-#[ $SERVICE ] && start_svc reflex-engine "--test"
+export REFLEX_ENGINE_CONFIG="$config"
+[ $SERVICE ] && start_svc reflex-engine "--test"
 
 errs=0
 [ $DO_LINT ] && {
+    msg Lint Tests
 	./test.py lint "${test_opts[@]}"
  	let errs+=$?
 }
 
 [ $DO_UNIT ] && {
+    msg Unit Tests
 	./test.py unit "${test_opts[@]}"
 	let errs+=$?
 }
 
 if [ $SERVICE ]; then
 	# see if agent is ready yet
-###	waitfor_svc engine localhost:$port
+	waitfor_svc engine localhost:$port
 
 	[ $DO_INTEGRATION ] && {
+        msg Integration Tests
 		./test.py integration "${test_opts[@]}"
 		let errs+=$?
 	}
 
 	[ $DO_FUNCTIONAL ] && {
+        msg Functional Tests
 		./test.py functional "${test_opts[@]}"
 		let errs+=$?
 	}
 
 	[ $DO_STACK ] && {
+        msg Stack Tests
 		./test.py full-stack "${test_opts[@]}"
 		let errs+=$?
 	}
