@@ -38,6 +38,8 @@ fi
 unset APP_CFG_BASE
 unset APP_RUN_BASE
 unset APP_RUN_ROOT
+unset REFLEX_URL
+unset REFLEX_APIKEY
 
 export TESTROOT=$(pwd)
 total=0

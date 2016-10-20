@@ -89,20 +89,20 @@ def main():
     if not args.nounit:
         tap.unit(rfx_lib, "backend.py", exit_on_fail=True)
 
-    core_cmd = "../../bin/core"
+    rxe_cmd = "../../bin/rxe"
     for obj in ['service']:
         tap.ok_run_compare("Create {} object".format(obj),
-                           [core_cmd, '--content', '{}', obj,
+                           [rxe_cmd, '--content', '{}', obj,
                             'create', '_rfx_test_'],
                            r'''"name":"_rfx_test_",''')
         tap.ok_run_compare("List {} objects".format(obj),
-                           [core_cmd, obj, 'list', '_rfx_test_'],
+                           [rxe_cmd, obj, 'list', '_rfx_test_'],
                            r'''_rfx_test_''')
         tap.ok_run_compare("Get {} object".format(obj),
-                           [core_cmd, obj, 'get', '_rfx_test_'],
+                           [rxe_cmd, obj, 'get', '_rfx_test_'],
                            r'''"name":"_rfx_test_",''')
         tap.ok_run_compare("Delete {} object".format(obj),
-                           [core_cmd, obj, 'delete', '_rfx_test_'],
+                           [rxe_cmd, obj, 'delete', '_rfx_test_'],
                            r"""Deleted Service '_rfx_test_'""")
 
     if not args.noclean and not tap._tap_bad:

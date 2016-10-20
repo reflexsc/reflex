@@ -326,7 +326,6 @@ class Server(rfx.Base):
                                                    self.monitor,
                                                    frequency=conf.heartbeat/2)
         int_mon.start()
-
         cherrypy.engine.start()
         cherrypy.engine.block()
 

@@ -101,7 +101,10 @@ class Session(rfx.Base):
     ############################################################################
     def _call(self, func, target, *args, **kwargs):
         """Call Reflex Engine, wrapped with authentication and session management"""
-        self._login()
+        try:
+            self._login()
+        except requests.exceptions.ConnectionError:
+            self.ABORT("Unable to connect to REFLEX_URL ({})".format(self.cfg['REFLEX_URL']))
 
         # enrich the arguments
         if not kwargs.get('headers'):
@@ -126,9 +129,11 @@ class Session(rfx.Base):
         if result.status_code == 500:
             raise ClientError("Server side error")
 
-        if "application/json" not in result.headers.get('Content-Type'):
+        if result.status_code == 404:
+            raise ClientError("Endpoint or object not found")
+
+        if "application/json" not in result.headers.get('Content-Type', ''):
             self.DEBUG("error", result.content.decode())
-            self.DEBUG("Foo")
             raise ClientError("Result is not valid content type")
 
         if result.status_code == 204:

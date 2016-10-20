@@ -1,6 +1,9 @@
 #!/bin/bash
 # vim:set ts=4 sw=4 ft=bash:
 
+unset REFLEX_URL
+unset REFLEX_APIKEY
+
 declare -a test_opts
 did=0
 do_all() {

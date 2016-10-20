@@ -695,6 +695,7 @@ def test_full_stack(schema, base, tester, baseurl):
     os.environ['REFLEX_URL'] = tester.baseurl
     os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
     rcs_master = client.Session().cfg_load()
+    print(rcs_master.cfg)
 
     tester.okcmp("Reflex Apikey Create", tester, tester.rcs,
                  [rcs_master.create, "apikey", {
@@ -813,15 +814,13 @@ def test_full_stack(schema, base, tester, baseurl):
                  r"tardis-main-sub",
                  r"'sensitive': {'config': 'real'}")
 
-    sys.exit(0)
-
     tester.okcmp("Reflex Policy Drop", tester, tester.rcs,
-                 [rcs_master.delete, "policy", 101], {},
+                 [rcs_master.delete, "policy", 102], {},
                  r"'status': 'deleted'")
 
     tester.okcmp("Reflex Client Get (limited w/fail)", tester, tester.rcs,
                  [rcs_pond.get, "config", "tardis-main"], {},
-                 r"rfx.client.ClientError: Forbidden"
+                 r"""sensitive': 'encrypted"""
                  )
 
     # test a list as master, amy pond, and after policy is deleted
