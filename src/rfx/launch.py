@@ -173,7 +173,7 @@ class App(rfx.Base):
             """Pull some configs based on local first, then service"""
             if name in local_config:
                 return local_config[name]
-            elif name in self.launch_pipeline['launch']:
+            elif name in self.launch_pipeline.get('launch', {}):
                 return self.launch_pipeline['launch'][name]
             raise ValueError("Unable to find '" + name + "' in local or pipeline definition")
 
@@ -202,7 +202,7 @@ class App(rfx.Base):
             return self
         elif action_target:
             self.launch_target = action_target
-        elif self.launch_pipeline['launch'].get('target', None):
+        elif self.launch_pipeline.get('launch', {}).get('target', None):
             self.launch_target = self.launch_pipeline['launch']['target']
         else:
             raise ValueError("No launch service action target (svc:target)")
@@ -214,10 +214,10 @@ class App(rfx.Base):
 
     ############################################################################
     def _launch_prep_exec(self, name, commit=True):
-        self.launch_rundir = self.sed_env(self.launch_pipeline['launch']['rundir'], {}, '')
-        self.launch_cfgdir = self.sed_env(self.launch_pipeline['launch']['cfgdir'], {}, '')
-        self.launch_exec = [self.sed_env(elem, {}, '')
-                            for elem in self.launch_pipeline['launch']['exec']]
+        launch = self.launch_pipeline.get('launch', {})
+        self.launch_rundir = self.sed_env(launch.get('rundir', '.'), {}, '')
+        self.launch_cfgdir = self.sed_env(launch.get('cfgdir', '.'), {}, '')
+        self.launch_exec = [self.sed_env(elem, {}, '') for elem in launch.get('exec', [])]
 
         os.environ["APP_RUN_BASE"] = self.launch_rundir
         os.environ["APP_CFG_BASE"] = self.launch_cfgdir

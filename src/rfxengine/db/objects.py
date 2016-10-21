@@ -41,8 +41,9 @@ from mysql.connector.errors import ProgrammingError, IntegrityError
 import rfx
 from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
-                                 NoChanges, CipherException, InvalidParameter
-from rfxengine import abac, log, trace, do_DEBUG
+                                 NoChanges, CipherException, InvalidParameter,\
+                                 PolicyFailed
+from rfxengine import abac, log, do_DEBUG
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
 import dictlib
@@ -222,18 +223,26 @@ class RCObject(rfx.Base):
         If a string, it accepts a name reference for an object (name.id).  If .id
         is an integer, that is given preference in looking up the object.
         """
+        name = None
         if isinstance(target, str):
             name, obj_id = self.split_name2id(target)
             if obj_id:
                 target = obj_id
             else:
                 target = name
+
+        def get_name(name):
+            """helper"""
+            return dbi.do_getone("SELECT ID FROM " + self.table +
+                                 " WHERE name = ?", name, output=list)
+
         if isinstance(target, int):
             result = dbi.do_getone("SELECT ID FROM " + self.table +
                                    " WHERE id = ?", target, output=list)
+            if not result and name:
+                result = get_name(name)
         else:
-            result = dbi.do_getone("SELECT ID FROM " + self.table +
-                                   " WHERE name = ?", target, output=list)
+            result = get_name(target)
         if result:
             return result[0]
         return 0
@@ -307,7 +316,7 @@ class RCObject(rfx.Base):
         self.obj = self._get_decode(attrs, dbin)
 
         if attrs is not True:
-            self.authorized("read", attrs, sensitive=False)
+            self.authorized("read", attrs, sensitive=False, raise_error=True)
 
         # are there any policies targetted to this object?
         return self
@@ -343,9 +352,6 @@ class RCObject(rfx.Base):
             if value is None:
                 if col.stype == "opt":
                     continue
-                trace(data)
-                trace(dbin)
-                trace([name, col])
                 raise InvalidParameter("Object load: missing '" + col.stored + "'")
 
             if col.encrypt:
@@ -388,7 +394,8 @@ class RCObject(rfx.Base):
         """
 
         self.policies = self._get_policies(dbi=dbi)
-        self.authorized("write", attrs, sensitive=False)
+        if not self.authorized("write", attrs, sensitive=False, raise_error=False):
+            raise PolicyFailed("Unable to get permission to read object")
 
         obj_id = self.name2id_direct(target, dbi)
         if obj_id:
@@ -440,7 +447,7 @@ class RCObject(rfx.Base):
         """
 
         self.policies = self._get_policies(dbi=dbi)
-        self.authorized("read", attrs, sensitive=False)
+        self.authorized("read", attrs, sensitive=False, raise_error=True)
 
         args = []
         sql = "SELECT id,name,updated_by,unix_timestamp(updated_at) FROM " + self.table
@@ -464,7 +471,7 @@ class RCObject(rfx.Base):
         """
 
         self.policies = self._get_policies(dbi=dbi)
-        self.authorized("read", attrs, sensitive=False)
+        self.authorized("read", attrs, sensitive=False, raise_error=True)
 
         keys = []
         args = []
@@ -522,7 +529,7 @@ class RCObject(rfx.Base):
 
     ############################################################################
     # pylint: disable=too-many-locals, too-many-statements
-    def _put(self, attrs, dbi=None):
+    def _put(self, attrs, dbi=None, doabac=True):
         """
         Store an object into DB
         """
@@ -532,7 +539,7 @@ class RCObject(rfx.Base):
         #################### AUTHORIZED
         # these will raise errors if not acceptable
         self.policies = self._get_policies(dbi=dbi)
-        self.authorized("write", attrs, sensitive=False)
+        self.authorized("write", attrs, sensitive=False, raise_error=doabac)
 
         errors += self.validate()
         errors += self.map_soft_relationships(dbi)
@@ -569,7 +576,7 @@ class RCObject(rfx.Base):
             if col.encrypt:
                 if value == 'encrypted':
                     continue # ignore
-                self.authorized('write', attrs, sensitive=True)
+                self.authorized('write', attrs, sensitive=True, raise_error=doabac)
                 value = self.encrypt(json4store(value))
             elif col.dtype != "value":
                 value = json4store(value)
@@ -627,13 +634,13 @@ class RCObject(rfx.Base):
 
     ############################################################################
     @db_interface
-    def create(self, attrs, dbi=None):
+    def create(self, attrs, dbi=None, doabac=True):
         """Create data from self into db.  Use on new objects"""
         if self.obj.get('id') and self.exists(self.obj['id']) \
            or self.exists(self.obj['name']):
             raise ObjectExists(self.table + " named `{name}` already exists"
                                .format(**self.obj))
-        return self._put(attrs, dbi=dbi)
+        return self._put(attrs, dbi=dbi, doabac=doabac)
 
     ############################################################################
     def validate(self):
@@ -697,7 +704,7 @@ class RCObject(rfx.Base):
             return data[6:]
 
     ############################################################################
-    def authorized(self, action, attrs, sensitive=False, raise_error=True):
+    def authorized(self, action, attrs, sensitive=False, raise_error=False):
         """Cross reference ABAC policy for attrs and action"""
 
         attrs['action'] = action
@@ -706,8 +713,10 @@ class RCObject(rfx.Base):
         attrs['obj'] = self.obj
         for act in (action, 'admin'):
             for policy_id in self.policies[act]:
-                if self.policies[act][policy_id].allowed(attrs, raise_error=raise_error):
+                if self.policies[act][policy_id].allowed(attrs):
                     return True
+        if raise_error:
+            raise PolicyFailed("Unable to get permission")
         return False
 
     ############################################################################
@@ -1226,7 +1235,7 @@ class Apikey(RCObject):
 
     ############################################################################
     @db_interface
-    def create(self, attrs, dbi=None):
+    def create(self, attrs, dbi=None, doabac=True):
         """
         create new apikey
         """
@@ -1237,7 +1246,7 @@ class Apikey(RCObject):
         self.obj['uuid'] = str(uuid.uuid4())
         self.obj['secrets'] = [base64.b64encode(nacl.utils.random(self.keysize)).decode()]
 
-        return self._put(attrs, dbi=dbi)
+        return self._put(attrs, dbi=dbi, doabac=doabac)
 
     # override update to deal with params changing and deleting secrets
     # do not accept secrets as changes, must use new_secrete
@@ -1467,7 +1476,6 @@ def policyscope_map_for(pscope, dbi, context, table, target_id):
     except: # pylint: disable=bare-except
         if do_DEBUG():
             log("error", traceback=traceback.format_exc())
-        trace(traceback.format_exc())
 
 ################################################################################
 class Policyscope(RCObject):
@@ -1523,7 +1531,7 @@ class Policyscope(RCObject):
     """
 
     table = 'Policyscope'
-    policy_map = False
+    policy_map = True
     vardata = True
 
     def __init__(self, *args, **kwargs):
@@ -1689,7 +1697,7 @@ class Schema(rfx.Base):
                 'actions': 'admin',
                 'type': 'global'
             })
-            pscope.create(abac.MASTER_ATTRS)
+            pscope.create(abac.MASTER_ATTRS, doabac=False) # special override
 
             secret = base64.b64encode(nacl.utils.random(Apikey.keysize)).decode()
             dbi.do("""

@@ -23,60 +23,346 @@
 
 import sys
 import rfx.client
+import dictlib
 import requests.exceptions
 
 rcs = rfx.client.Session()
 rcs.cfg_load()
 
+################################################################################
 def create(func, otype, odata):
+    """Wrapper to handle errors"""
     try:
-        print("Create " + otype + "." + odata.get('name'))
-        res = func(otype, odata)
+        sys.stdout.write("Create " + otype + "." + odata.get('name'))
+        res = do(func, otype, odata)
+        if res.get('status') != 'created':
+            msg = res.get('message')
+            print(" - " + res.get('message'))
+        else:
+            print("")
+        return dictlib.Obj(res)
 
     except rfx.client.ClientError as err:
-        if "already exists" in str(err):
-            print(" => " + str(err))
+        errmsg = str(err)
+        if "already exists" in errmsg or "Duplicate entry" in errmsg:
+            print(" - already exists")
             return False
-        raise
+        else:
+            print(" - error:\n       " + errmsg)
+            if 'Unable to authorize session' in errmsg:
+                sys.exit(0)
 
+def do(func, *args):
+    """Wrapper to handle errors"""
+    try:
+        return func(*args)
     except requests.exceptions.ConnectionError:
         print("Server not available at " + rcs.cfg['REFLEX_URL'])
         sys.exit(1)
 
-    return res
+################################################################################
+# services:
+#
+#   svc-bct bat'leth
+#   svc-eng engineering
+#
+# users:
+#
+#   kirk
+#   spock
+#   svc-bct
+#   svc-eng
+#
 
-res = create(rcs.create, "group", {
-	"name":"admins",
-	"group":["master"],
+data = dictlib.Obj()
+
+########################################
+create(rcs.create, "apikey", {
+    "name":"kirk"
+})
+create(rcs.create, "apikey", {
+    "name":"spock"
+})
+create(rcs.create, "apikey", {
+    "name":"redshirt"
+})
+create(rcs.create, "apikey", {
+    "name":"svc-bct",
+})
+create(rcs.create, "apikey", {
+    "name":"svc-eng",
+})
+
+data['keys'] = dictlib.Obj({
+    'kirk': do(rcs.get, "apikey", "kirk"),
+    'spock': do(rcs.get, "apikey", "spock"),
+    'redshirt': do(rcs.get, "apikey", "redshirt"),
+    'svc-bct': do(rcs.get, "apikey", "svc-bct"),
+    'svc-eng': do(rcs.get, "apikey", "svc-eng"),
+})
+
+########################################
+create(rcs.create, "group", {
+    "name":"bridge",
+    "group":["kirk", "spock"],
     "type":"Apikey"
 })
 
-res = create(rcs.create, "group", {
-	"name":"developers",
-	"group":["master"],
+create(rcs.create, "group", {
+    "name":"support",
+    "group":["redshirt"],
     "type":"Apikey"
 })
 
-res = create(rcs.create, "policy", {
-    "name": "admins-all-access",
-    "policy": "token_name in groups.admins"
+create(rcs.create, "policy", {
+    "name": "bridge-all-access",
+    "policy": "token_name in groups.bridge"
 })
 
-res = create(rcs.create, "policy", {
-    "name": "developers-read-not-sensitive",
-    "policy": "token_name in groups.developers and sensitive == False"
+create(rcs.create, "policy", {
+    "name": "support-not-sensitive",
+    "policy": "token_name in groups.support and sensitive == False"
 })
 
-res = create(rcs.create, "policy", {
-    "name": "developers-sensitive",
-    "policy": "token_name in groups.developers and sensitive == True"
+create(rcs.create, "policy", {
+    "name": "support-sensitive",
+    "policy": "token_name in groups.support and sensitive == True"
 })
 
-res = create(rcs.create, "policyscope", {
-	"name": "pond-read-configs",
-	"policy_id": 101,
-	"actions": 'read',
-	"type": 'global',
-	"matches": 'obj_type == "Config"'
+data['policies'] = dictlib.Obj({
+    'bridge-all-access': do(rcs.get, "policy", "bridge-all-access"),
+    'support-not-sensitive': do(rcs.get, "policy", "support-not-sensitive"),
+    'support-sensitive': do(rcs.get, "policy", "support-sensitive"),
+})
+
+########################################
+create(rcs.create, "policyscope", {
+    "name": "bridge-all",
+    "policy_id": data.policies.support_not_sensitive.id,
+    "actions": 'read',
+    "type": 'global',
+    "matches": 'True'
+})
+create(rcs.create, "policyscope", {
+    "name": "support-read-configs-sensitive",
+    "policy_id": data.policies.support_sensitive.id,
+    "actions": 'read',
+    "type": 'global',
+    "matches": 'obj_type == "Config" and re.match(r"^bct-", obj["name"])'
+})
+create(rcs.create, "policyscope", {
+    "name": "support-read-configs",
+    "policy_id": data.policies.support_not_sensitive.id,
+    "actions": 'read',
+    "type": 'global',
+    "matches": 'obj_type == "Config" and not re.match(r"^bct-", obj["name"])'
+})
+
+########################################
+create(rcs.create, "pipeline", {
+    "name": "bridge-navigation",
+    "title": "Navigation Console",
+})
+
+create(rcs.create, "config", {
+    "name": "bridge-navigation",
+    "type": "parameter",
+    "setenv": {
+        "PORT": 8080
+    }
+})
+create(rcs.create, "config", {
+    "name": "bridge-navigation-train",
+    "type": "parameter",
+    "extends": ["bridge-navigation"],
+    "sensitive": {
+       "parameters": {
+           "mongodb-pass": "H77OsiFfuH",
+           "mongodb-user": "nav_user",
+           "mongodb-host": "mongo-x42020",
+           "mongodb-name": "navigation_train"
+       }
+    }
+})
+
+create(rcs.create, "config", {
+    "name": "bridge-navigation-battle",
+    "type": "parameter",
+    "extends": ["bridge-navigation"],
+    "sensitive": {
+       "parameters": {
+           "mongodb-pass": "qhsm1LjO/52K",
+           "mongodb-user": "nav_user",
+           "mongodb-host": "mongo-x42020",
+           "mongodb-name": "navigation_battle"
+       }
+    }
+})
+create(rcs.create, "config", {
+    "name": "bridge-navigation-main",
+    "type": "parameter",
+    "extends": ["bridge-navigation"],
+    "sensitive": {
+       "parameters": {
+           "mongodb-pass": "SKAtGgGl4x+IF",
+           "mongodb-user": "nav_user",
+           "mongodb-host": "mongo-x42020",
+           "mongodb-name": "navigation_main"
+       }
+    }
+})
+
+create(rcs.create, "service", {
+    "name": "bridge-navigation-train",
+    "config": "bridge-navigation-train",
+    "pipeline": "bridge-navigation",
+})
+
+create(rcs.create, "service", {
+    "name": "bridge-navigation-battle",
+    "config": "bridge-navigation-battle",
+    "pipeline": "bridge-navigation",
+})
+
+create(rcs.create, "service", {
+    "name": "bridge-navigation-main",
+    "config": "bridge-navigation-main",
+    "pipeline": "bridge-navigation",
+})
+
+########################################
+create(rcs.create, "pipeline", {
+    "name": "bct",
+    "title": "Bat'leth Combat Training",
+})
+
+create(rcs.create, "config", {
+    "name": "bct",
+    "type": "parameter",
+    "extends": ["common"],
+    "exports": ["bct-config1", "bct-config2"],
+    "sensitive": {
+        "parameters": {
+            "MONGO-URI":"mongodb://%{MONGO-HOSTS}/%{MONGO-DBID}"
+        },
+        "config": {
+            "db": {
+                "server": "%{MONGO-HOSTS}",
+                "db": "%{MONGO-DBID}",
+                "user": "%{MONGO-USER}",
+                "pass": "%{MONGO-PASS}",
+                "replset": {
+                    "rs_name": "myReplicaSetName"
+                }
+            }
+        }
+    },
+    "setenv": {
+        "MONGO-URI": "%{MONGO-URI}"
+    }
+})
+create(rcs.create, "config", {
+    "name": "bct-tst",
+    "type": "parameter",
+    "extends": ["bct"],
+    "exports": ["bct-keystore"],
+    "procvars": ["sensitive.config.db"],
+    "sensitive": {
+        "parameters": {
+            "MONGO-USER":"test_user",
+            "MONGO-PASS":"not a good password",
+            "MONGO-HOSTS":"test-db",
+            "MONGO-DBID":"test_db"
+        }
+    }
+})
+create(rcs.create, "config", {
+    "name": "bct-qa",
+    "type": "parameter",
+    "extends": ["bct"],
+    "exports": ["bct-keystore"],
+    "procvars": ["sensitive.config.db"],
+    "sensitive": {
+        "parameters": {
+            "MONGO-USER":"qa_user",
+            "MONGO-PASS":"a better passwd",
+            "MONGO-HOSTS":"qa-db",
+            "MONGO-DBID":"qa_db"
+        }
+    }
+})
+create(rcs.create, "config", {
+    "name": "bct-prd",
+    "type": "parameter",
+    "exports": ["bct-keystore"],
+    "procvars": ["sensitive.config.db"],
+    "sensitive": {
+        "parameters": {
+            "MONGO-USER":"test_user",
+            "MONGO-PASS":"not a good password",
+            "MONGO-HOSTS":"test-db",
+            "MONGO-DBID":"test_db"
+        }
+    }
+})
+create(rcs.create, "config", {
+    "name": "common",
+    "type": "parameter",
+    "sensitive": {
+        "parameters": {
+            "SHARED-SECRET":"moar"
+        }
+    }
+})
+
+create(rcs.create, "config", {
+    "name": "bct-config1",
+    "type": "file",
+    "content": {
+        "source": "local.xml.in",
+        "dest": "local.xml",
+        "varsub": True
+    }
+})
+
+create(rcs.create, "config", {
+    "name": "bct-config2",
+    "type": "file",
+    "content": {
+        "dest":"local-production.json",
+        "ref":"sensitive.config",
+        "type":"application/json"
+    }
+})
+
+create(rcs.create, "config", {
+    "name": "bct-keystore",
+    "type": "file",
+    "content": {
+        "dest":"local.keystore",
+        "ref":"sensitive.data",
+        "encoding": "base64"
+    },
+    "sensitive": {
+        "data": "bm90IHJlYWxseSBhIGtleXN0b3JlIG9iamVjdAo="
+    }
+})
+
+create(rcs.create, "service", {
+    "name": "bct-tst",
+    "config": "bct-tst",
+    "pipeline": "bct",
+})
+
+create(rcs.create, "service", {
+    "name": "bct-qa",
+    "config": "bct-qa",
+    "pipeline": "bct",
+})
+
+create(rcs.create, "service", {
+    "name": "bct-prd",
+    "config": "bct-prd",
+    "pipeline": "bct",
 })
 

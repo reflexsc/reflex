@@ -76,13 +76,10 @@ class Policy(object):
         if self.disallowed_rx.search(expression):
             raise exceptions.InvalidPolicy("Policy is invalid")
 
-        expression = re.sub(r'^rx\(', 'rx.search(', expression)
-        expression = re.sub(r'\s+rx\(', 'rx.search(', expression)
-
         return expression
 
     ############################################################################
-    def allowed(self, attrs, raise_error=True):
+    def allowed(self, attrs):
         """
         process an ABAC policy expression.  Context is provided as a dict
         to add to the namespace of the expression.
@@ -99,7 +96,7 @@ class Policy(object):
         Traceback (most recent call last):
         ...
         exceptions.PolicyFailed: Policy failed to evaluate (token_name == 'frank')
-        >>> p.compile("rx('^sin', token_name)").allowed(attrs)
+        >>> p.compile("re('^sin', token_name)").allowed(attrs)
         True
         >>> p.compile("token_name == 'sinatra'").allowed(attrs)
         True
@@ -114,16 +111,19 @@ class Policy(object):
         if not isinstance(attrs, dict):
             raise exceptions.InvalidContext("Context is not a dictionary")
 
-        #attrs['policy'] = self
-
         # pylint: disable=eval-used
         try:
-            if eval(self.policy_expr, {'__builtins__':{}, 'rx': re}, attrs):
+            context = {
+                '__builtins__':{},
+                'true': True,
+                'false': False,
+                'rx': re.search
+            }
+            if eval(self.policy_expr, context, attrs):
                 return True
         except KeyError as err:
             log("policy error, missing key", error=str(err))
-        if raise_error:
-            raise exceptions.PolicyFailed("Policy failed to evaluate ({})".format(self.policy_expr))
+
         return False
 
 ################################################################################

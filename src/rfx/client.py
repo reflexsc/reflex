@@ -114,23 +114,23 @@ class Session(rfx.Base):
         if not kwargs['headers'].get('Content-Type'):
             kwargs['headers']['Content-Type'] = "application/json"
 
-        target = self.cfg['REFLEX_URL'] + "/" + target
+        query = self.cfg['REFLEX_URL'] + "/" + target
 
         # make the call
-        result = self._call_sub(func, target, *args, **kwargs)
+        result = self._call_sub(func, query, *args, **kwargs)
 
         # unlikely, as self._login() should take care of this, unless our timing
         # is off from the server's, but just in case...
         if result.status_code == 401:
             self.DEBUG("Unauthorized received, Retrying Login")
             self._login(force=True)
-            result = self._call_sub(func, target, *args, **kwargs)
+            result = self._call_sub(func, query, *args, **kwargs)
 
         if result.status_code == 500:
             raise ClientError("Server side error")
 
         if result.status_code == 404:
-            raise ClientError("Endpoint or object not found")
+            raise ClientError("Endpoint or object not found (" + query + ")")
 
         if "application/json" not in result.headers.get('Content-Type', ''):
             self.DEBUG("error", result.content.decode())
