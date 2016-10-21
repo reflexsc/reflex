@@ -6,7 +6,7 @@
 { # this ensures the entire script is downloaded #
 
 msg() {
-	echo >&2 "$@"
+    echo >&2 "$@"
 }
 
 host_has() {
@@ -29,70 +29,70 @@ download() {
 }
 
 die() {
-	echo >&2 $*
-	exit 1
+    echo >&2 $*
+    exit 1
 }
 
 cmd() {
-	label="$1"
-	shift
+    label="$1"
+    shift
 
-	if [ -n "$label" ]; then
-		msg "$label"
-	fi
+    if [ -n "$label" ]; then
+        msg "$label"
+    fi
 
-	"$@" || {
-		echo >&2 "Unable to run: $@"
-		if grep -q "command 'gcc' failed" $log; then
-			echo >&2 "Is your python able to compile properly?  Check $log"
-			echo >&2 "Try running with: export USE_PYTHON=/path/to/functional/python/bin/python3"
-		fi
-		exit
-	}
+    "$@" || {
+        echo >&2 "Unable to run: $@"
+        if grep -q "command 'gcc' failed" $log; then
+            echo >&2 "Is your python able to compile properly?  Check $log"
+            echo >&2 "Try running with: export USE_PYTHON=/path/to/functional/python/bin/python3"
+        fi
+        exit
+    }
 }
 
 has_cmd() {
     name="$1"
-	expl="$2"
-	if ! host_has $name ; then
-		cat <<END
+    expl="$2"
+    if ! host_has $name ; then
+        cat <<END
 
 --> Pre-Requisite: You need \`$name\`, try:
 $expl
 END
-		let errs++
-	fi
+        let errs++
+    fi
 }
 
 do_address() {
-	ipaddr=$(do_command ip route 2>/dev/null | grep default | awk '{print $3}')
-	export REFLEX_URL=http://$ipaddr:54000/api/v1
-	echo "export REFLEX_URL=http://$ipaddr:54000/api/v1"
+    ipaddr=$(do_command ip route 2>/dev/null | grep default | awk '{print $3}')
+    export REFLEX_URL=http://$ipaddr:54000/api/v1
+    echo "export REFLEX_URL=http://$ipaddr:54000/api/v1"
 }
 
 do_command() {
     echo "doing:"
     echo ""
-    echo "	docker run --rm -it \\"
-	echo "     -e REFLEX_URL=\$REFLEX_URL\\"
-	echo "     -e REFLEX_APIKEY=\$REFLEX_APIKEY\\"
-	echo "     reflexsc/tools $@" 1>&2
+    echo "    docker run --rm -it \\"
+    echo "       -e REFLEX_URL=\$REFLEX_URL\\"
+    echo "       -e REFLEX_APIKEY=\$REFLEX_APIKEY\\"
+    echo "       reflexsc/tools $@" 1>&2
     echo ""
     docker run --rm -it \
-		 -e REFLEX_URL=$REFLEX_URL \
-		 -e REFLEX_APIKEY=$REFLEX_APIKEY \
-		 reflexsc/tools "$@"
+         -e REFLEX_URL=$REFLEX_URL \
+         -e REFLEX_APIKEY=$REFLEX_APIKEY \
+         reflexsc/tools "$@"
 }
 
 do_engine() {
     errs=0
     has_cmd docker-compose "
 
-	https://docs.docker.com/compose/install/
+    https://docs.docker.com/compose/install/
 
 "
     if [ $errs -gt 0 ]; then
-    	exit 1
+        exit 1
     fi
 
     file=reflex-engine-demo.yml
@@ -100,8 +100,8 @@ do_engine() {
     dlurl=$gitraw/master/.pkg/$file
 
     if [ -f 'docker-compose.yml' ]; then
-    	echo "There is already a docker-compose.yml file in the current folder.  Remove it first."
-    	exit 1
+        echo "There is already a docker-compose.yml file in the current folder.  Remove it first."
+        exit 1
     fi
 
     cmd "Pulling Docker Compose file" download -o docker-compose.yml -s "$dlurl"
@@ -110,8 +110,8 @@ do_engine() {
     APIKEY=
     echo "Waiting for engine to come online..."
     while [ -z "$APIKEY" ]; do
-    	APIKEY=$(docker-compose logs | grep REFLEX_APIKEY |sed -e 's/^.*REFLEX_APIKEY=//')
-    	sleep 1
+        APIKEY=$(docker-compose logs | grep REFLEX_APIKEY |sed -e 's/^.*REFLEX_APIKEY=//')
+        sleep 1
         echo -n "."
     done
 
@@ -123,23 +123,23 @@ do_engine() {
 }
 
 case "$1" in
-	engine)
-		do_engine
-		;;
-	address)
-		do_address
-		;;
-	reflex)
-		if [ -z "$REFLEX_URL" ]; then
-	        echo "Getting engine url from container network...  Stop this message with: eval \$($0 address)"
-			eval $(do_address)
-		fi
-		do_command "$@"
-		;;
-	*)
-		echo "Unrecognized argument: $1"
-		echo "Try one of: engine, address, reflex"
-		;;
+    engine)
+        do_engine
+        ;;
+    address)
+        do_address
+        ;;
+    reflex)
+        if [ -z "$REFLEX_URL" ]; then
+            echo "Getting engine url from container network...  Stop this message with: eval \$($0 address)"
+            eval $(do_address)
+        fi
+        do_command "$@"
+        ;;
+    *)
+        echo "Unrecognized argument: $1"
+        echo "Try one of: engine, address, reflex"
+        ;;
 esac
 
 } # this ensures the entire script is downloaded #
