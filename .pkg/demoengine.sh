@@ -71,7 +71,10 @@ do_address() {
 }
 
 do_command() {
-    echo "docker run --rm -t -e REFLEX_URL=\$REFLEX_URL -e REFLEX_APIKEY=\$REFLEX_APIKEY reflexsc/tools $@" 1>&2
+    echo "	docker run --rm -t \\"
+	echo "     -e REFLEX_URL=\$REFLEX_URL\\"
+	echo "     -e REFLEX_APIKEY=\$REFLEX_APIKEY\\"
+	echo "     reflexsc/tools $@" 1>&2
     docker run --rm -t \
 		 -e REFLEX_URL=$REFLEX_URL \
 		 -e REFLEX_APIKEY=$REFLEX_APIKEY \
@@ -125,10 +128,14 @@ case "$1" in
 		;;
 	reflex)
 		if [ -z "$REFLEX_URL" ]; then
-	        echo "pulling REFLEX_URL from container.  Stop this message with: eval \$($0 address)"
+	        echo "Getting engine url from container network...  Stop this message with: eval \$($0 address)"
 			eval $(do_address)
 		fi
 		do_command "$@"
+		;;
+	*)
+		echo "Unrecognized argument: $1"
+		echo "Try one of: engine, address, reflex"
 		;;
 esac
 

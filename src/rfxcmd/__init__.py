@@ -31,6 +31,7 @@ import sys
 import os
 import re
 import dictlib
+from builtins import input # pylint: disable=redefined-builtin
 import rfx
 from rfx.backend import EngineCli, Engine
 from rfx import client
@@ -38,6 +39,7 @@ from rfx.control import ControlCli
 from rfx.launch import LaunchCli
 from rfx.optarg import Args
 from rfx.action import Action
+import rfxcmd.demo
 
 ################################################################################
 def new_base(args):
@@ -191,7 +193,12 @@ class CliSetup(CliRoot):
                 "action", {
                     "type": "from-set",
                     "set": ["l?ist|ls", "set", "unset",
-                            "wiz?ard", "update|upgrade"]
+                            "wiz?ard", "update|upgrade",
+                            "demo"]
+                }
+            ], [
+                "--confirm", {
+                    "type": "set-true",
                 }
             ], [
                 "--debug|-d", {
@@ -210,6 +217,7 @@ Usage: """ + self.cmd + """ l?ist|ls
        """ + self.cmd + """ set key=value
        """ + self.cmd + """ unset key
        """ + self.cmd + """ wiz?ard
+       """ + self.cmd + """ demo
 
 """
 
@@ -222,7 +230,16 @@ Usage: """ + self.cmd + """ l?ist|ls
 
         action = args.get('action')
         control = ControlCli(base=new_base(args))
-        getattr(control, action + "_cli")(self.args.argv, args)
+        if action == 'demo':
+            self.setup_demo(args)
+        else:
+            getattr(control, action + "_cli")(self.args.argv, args)
+
+    def setup_demo(self, args):
+        if not args.get('--confirm'):
+            input("This will populate your engine with demo data.\n" +
+                  "Press [Enter/Return] to continue...")
+        rfxcmd.demo.setup()
 
 ################################################################################
 class CliApp(CliRoot):

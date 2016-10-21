@@ -36,3 +36,4 @@ RUN cd /usr/local/bin; \
     done
 
 CMD ["reflex"]
+CMD ["initialize-basic-team"]
