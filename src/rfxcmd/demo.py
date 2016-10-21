@@ -219,7 +219,7 @@ def setup():
     ########################################
     create(rcs.create, "pipeline", {
         "name": "bct",
-        "title": "Bat'leth Combat Training",
+        "title": "Bat'leth Combat Training"
     })
 
     create(rcs.create, "config", {

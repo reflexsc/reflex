@@ -197,7 +197,8 @@ class ConfigProcessor(VerboseBase):
 
     ############################################################################
     def _process(self, conf):
-        self.NOTIFY("Processing config object {0}".format(conf.name))
+        subname = (conf.name + ".").split(".")[0]
+        self.NOTIFY("Processing config object {0}".format(subname))
         # process the variables
         self.expanded_vars = allvars = dict()
         procvars = set(['sensitive.parameters'] + conf.procvars)
@@ -418,8 +419,12 @@ class ConfigProcessor(VerboseBase):
         if content.get('varsub'):
             buf = self.macro_expand(buf, self.expanded_vars)
 
-        self.NOTIFY("CONFIG {0} into {1}".format(conf.name, fname))
-        with open(fname, 'wt') as ofile:
+        if isinstance(buf, str): # writing everything binary
+            buf = buf.encode()
+
+        subname = (conf.name + ".").split(".")[0]
+        self.NOTIFY("CONFIG {0} into {1}".format(subname, fname))
+        with open(fname, 'wb') as ofile:
             ofile.write(buf)
 
     def _get_content_ref(self, conf):

@@ -192,7 +192,7 @@ class CliSetup(CliRoot):
             [
                 "action", {
                     "type": "from-set",
-                    "set": ["l?ist|ls", "set", "unset",
+                    "set": ["l?ist|ls", "set", "get", "unset",
                             "wiz?ard", "update|upgrade",
                             "demo"]
                 }
@@ -215,6 +215,7 @@ class CliSetup(CliRoot):
 Usage: """ + self.cmd + """ l?ist|ls
        """ + self.cmd + """ set key=
        """ + self.cmd + """ set key=value
+       """ + self.cmd + """ get key
        """ + self.cmd + """ unset key
        """ + self.cmd + """ wiz?ard
        """ + self.cmd + """ demo

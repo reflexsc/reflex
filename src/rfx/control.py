@@ -95,6 +95,16 @@ class ControlCli(rfx.Base):
             self.NOTIFY(line + "=" + altcfg[line])
 
     ############################################################
+    def get_cli(self, argv, args): # pylint: disable=unused-argument
+        """dump the rfx config"""
+        self.timestamp = False
+        if argv:
+            self.OUTPUT(self.cfg[argv[0]])
+        else:
+            for line in self.cfg:
+                self.OUTPUT("export " + line + "=" + self.cfg[line])
+
+    ############################################################
     def apikey_cli(self, argv, args, cli):
         #self.NOTIFY("Specify Administrative Token (end with newline):")
         #admkey = input("Admin API Token: ")
