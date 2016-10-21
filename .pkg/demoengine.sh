@@ -71,11 +71,14 @@ do_address() {
 }
 
 do_command() {
-    echo "	docker run --rm -t \\"
+    echo "doing:"
+    echo ""
+    echo "	docker run --rm -it \\"
 	echo "     -e REFLEX_URL=\$REFLEX_URL\\"
 	echo "     -e REFLEX_APIKEY=\$REFLEX_APIKEY\\"
 	echo "     reflexsc/tools $@" 1>&2
-    docker run --rm -t \
+    echo ""
+    docker run --rm -it \
 		 -e REFLEX_URL=$REFLEX_URL \
 		 -e REFLEX_APIKEY=$REFLEX_APIKEY \
 		 reflexsc/tools "$@"
