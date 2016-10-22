@@ -527,6 +527,33 @@ def test_functional(schema, base, tester, baseurl):
             'mmerge-expect': [r'status": "updated'],
             'mmerge-validate': [r'status": {"starting": "up']
         },
+        'state': {
+            'mcreate': {
+                'name': 'versions',
+                'application': 'gallifrey',
+                'version': '1600',
+                'state': 'ready'
+            },
+            'mcreate-expect': [r'Response \[201\]'],
+            '-mcreate': {
+            },
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
+            'mupdate': {
+                'name': 'versions',
+                'id': 1,
+                'application': 'gallifrey',
+                'version': '1600',
+                'state': 'failed'
+            },
+            'mupdate-expect': [r'status": "updated'],
+            'mupdate-validate': [r'state": "failed'],
+            'mmerge': {
+                'name': 'versions',
+                'status': {'starting': 'up'}
+            },
+            'mmerge-expect': [r'status": "updated'],
+            'mmerge-validate': [r'status": {"starting": "up']
+        },
         'apikey': {
             'mcreate': {
                 'name': 'the-doctor',
@@ -639,7 +666,7 @@ def test_functional(schema, base, tester, baseurl):
     })
 
     # order matters, otherwise I would use sample.keys()
-    for obj in ('pipeline', 'config', 'service', 'instance', 'build', 'apikey', 'group', 'policy', 'policyscope'):
+    for obj in ('pipeline', 'config', 'service', 'instance', 'build', 'apikey', 'group', 'policy', 'policyscope', 'state'):
         odata = samples[obj].mcreate
         tester.okcmp("REST create " + obj, tester, tester.rest_useauth,
                      [requests.post, baseurl + "/" + obj],

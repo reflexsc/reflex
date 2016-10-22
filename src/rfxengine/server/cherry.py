@@ -320,6 +320,10 @@ class Server(rfx.Base):
                                              obj="policyscope"),
                             conf.server.route_base + "/policyscope",
                             endpoint_conf)
+        cherrypy.tree.mount(endpoints.Object(conf, server=self,
+                                             obj="state"),
+                            conf.server.route_base + "/state",
+                            endpoint_conf)
 
         # setup our heartbeat monitor
         int_mon = cherrypy.process.plugins.Monitor(cherrypy.engine,

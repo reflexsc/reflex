@@ -1076,6 +1076,29 @@ class Instance(RCObject):
         return errors
 
 ################################################################################
+class State(RCObject):
+    """
+    DROP> drop table if exists State;
+     ADD> create table State (
+     ADD>     id int auto_increment not null,
+     ADD>     name varchar(64) not null,
+     ADD>     updated_at timestamp not null,
+     ADD>     updated_by varchar(32) not null,
+     ADD>     data text,
+     ADD>     primary key(id),
+     ADD>     unique(name)
+     ADD> ) engine=InnoDB;
+    """
+    # a list of object attributes which are part of the actual db object
+
+    table = 'State'
+
+    def __init__(self, *args, **kwargs):
+        self.omap = dictlib.Obj()
+        super(State, self).__init__(*args, **kwargs)
+
+
+################################################################################
 class Build(RCObject):
     """
     DROP> drop table if exists Build;
@@ -1520,7 +1543,7 @@ class Policyscope(RCObject):
     DROP> drop table if exists PolicyFor;
      ADD> create table PolicyFor (
      ADD>     policy_id int not null,
-     ADD>     obj enum('Pipeline', 'Service', 'Config', 'Instance', 'Policy', 'Policyscope', 'Apikey', 'Build', 'Grp'),
+     ADD>     obj enum('Pipeline', 'Service', 'Config', 'Instance', 'Policy', 'Policyscope', 'Apikey', 'Build', 'Grp', 'State'),
      ADD>     action enum('write', 'read', 'admin') default 'read',
      ADD>     pscope_id int not null default 0,
      ADD>     target_id int not null default 0,
@@ -1623,10 +1646,10 @@ class Policyscope(RCObject):
 ################################################################################
 class Schema(rfx.Base):
     """Define our DB schema as code"""
-    # NOTE: update PolicyFor and PolicyActive table enums if adding to this list
+    # NOTE: update PolicyFor enum if adding to this list
     # also: order matters
     tables = [Policy, Policyscope, Pipeline, Service, Config, Instance, Apikey,
-              Build, Group, AuthSession]
+              Build, Group, AuthSession, State]
     master = ''
 
     # pylint: disable=super-init-not-called
