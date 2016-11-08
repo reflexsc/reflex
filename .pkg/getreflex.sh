@@ -194,28 +194,32 @@ else
 	cmd "(log: $log)" ./install.sh $action $USE_PYTHON >> $log
 fi
 
-profile=$(detect_profile)
-sed -io -e '/#REACTOR-PATH/d' $profile
-echo "export PATH=\$PATH:$REFLEX_BASE/reflex/bin #REACTOR-PATH" >> $profile
+if [ "$action" = root ]; then
+	echo "Installed as root, skipping post setup"
+else
+	profile=$(detect_profile)
+	sed -io -e '/#REACTOR-PATH/d' $profile
+	echo "export PATH=\$PATH:$REFLEX_BASE/reflex/bin #REACTOR-PATH" >> $profile
 
-if [ ! -f ~/.reflex/cfg ]; then
-	./bin/reflex setup wizard
-fi
-
-cd $REFLEX_BASE
-version_list() { ls -1 |egrep '^[0-9][0-9][0-9][0-9].'|sort -rn; }
-
-maxver=3
-list=$(version_list)
-while [ $(echo "$list" | wc -l) -gt $maxver ]; do
-	name=$(echo "$list" |tail -1)
-	if [ -n "$name" ]; then
-		msg "Removing old version $name..."
-		rm -rf $name
+	if [ ! -f ~/.reflex/cfg ]; then
+		./bin/reflex setup wizard
 	fi
+
+	cd $REFLEX_BASE
+	version_list() { ls -1 |egrep '^[0-9][0-9][0-9][0-9].'|sort -rn; }
+
+	maxver=3
 	list=$(version_list)
-	sleep 1
-done
+	while [ $(echo "$list" | wc -l) -gt $maxver ]; do
+		name=$(echo "$list" |tail -1)
+		if [ -n "$name" ]; then
+			msg "Removing old version $name..."
+			rm -rf $name
+		fi
+		list=$(version_list)
+		sleep 1
+	done
+fi
 
 echo ""
 echo "Done installing version $VERSION"
