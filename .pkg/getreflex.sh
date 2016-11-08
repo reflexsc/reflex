@@ -91,7 +91,7 @@ cmd() {
 			echo >&2 "Is your python able to compile properly?  Check $log"
 			echo >&2 "Try running with: export USE_PYTHON=/path/to/functional/python/bin/python3"
 		fi
-		exit
+		exit 1
 	}
 }
 
@@ -108,6 +108,12 @@ END
 	fi
 }
 
+# give a default action
+action="$1"
+if [ -z "$action" ]; then
+    action=local
+fi
+
 # if called from within an existing virtual env, strip it out
 if [ -n "$VIRTUAL_ENV" ]; then
     p=$(echo "$PATH" | sed -e 's!'${VIRTUAL_ENV}'/bin!!;s/::/:/')
@@ -116,38 +122,46 @@ if [ -n "$VIRTUAL_ENV" ]; then
 fi
 
 errs=0
-has_cmd pip "
+has_cmd pip3 "
     curl -o https://bootstrap.pypa.io/get-pip.py
     sudo $pybin/python get-pip.py
 "
-has_cmd virtualenv "
+
+if [ "$VIRTUALENV" != false ]; then
+    has_cmd virtualenv "
     sudo $pybin/pip install virtualenv
 "
+fi
 
 if [ $errs -gt 0 ]; then
 	exit 1
 fi
 
-base=~/.reflex
-if [ -e $base -a ! -d $base ]; then
-	msg "Cannot continue: $base is not a directory"
+if [ -z "$REFLEX_BASE" ]; then
+	REFLEX_BASE=~/.reflex
+fi
+
+if [ -e $REFLEX_BASE -a ! -d $REFLEX_BASE ]; then
+	msg "Cannot continue: $REFLEX_BASE is not a directory"
 	exit 1
 fi
-if [ ! -d $base ]; then
-	mkdir $base
+if [ ! -d $REFLEX_BASE ]; then
+	mkdir $REFLEX_BASE
 fi
-cd $base
-rm -rf TEMP
-mkdir TEMP
+
+REFLEX_TEMP=REFLEX_TEMP
+cd $REFLEX_BASE
+rm -rf $REFLEX_TEMP
+mkdir $REFLEX_TEMP
 
 gitraw=https://raw.github.com/reflexsc/reflex
 version=$(download -s $gitraw/master/.pkg/version)
 dlurl=https://github.com/reflexsc/reflex/archive/$version.tar.gz
 
 cmd "Downloading..." download -s "$dlurl" -o reflex.src.tgz
-cmd "Unrolling..." tar -C TEMP --strip 1 -xzf reflex.src.tgz
+cmd "Unrolling..." tar -C $REFLEX_TEMP --strip 1 -xzf reflex.src.tgz
 rm -f reflex.src.tgz 
-VERSION=$(cat TEMP/.pkg/version)
+VERSION=$(cat $REFLEX_TEMP/.pkg/version)
 if [ -z "$VERSION" ]; then
 	echo "Unable to determine version?"
 	exit 1
@@ -156,11 +170,11 @@ if [ -d $VERSION ]; then
 	msg "Replacing version $VERSION"
 	rm -rf $VERSION
 fi
-mv TEMP $VERSION
-rm -f current
-cmd "" ln -s $VERSION current
-cd current
-log=$base/install.log
+mv $REFLEX_TEMP $VERSION
+rm -f current reflex
+cmd "" ln -s $VERSION reflex
+cmd "" cd reflex
+log=$REFLEX_BASE/reflex-install.log
 true > $log
 QUOTES=(
   Adjusting+the+Chameleon+Circuit
@@ -173,17 +187,22 @@ nbr=$(($RANDOM % ${#QUOTES[@]}))
 quote=$(echo "${QUOTES[$nbr]}"|sed -e 's/+/ /g')
 
 echo "$quote..." 
-cmd "(log: $log)" ./install.sh local $USE_PYTHON >> $log
+
+if [ $TEE_LOG ]; then
+	cmd "(log: $log)" ./install.sh $action $USE_PYTHON | tee -a $log
+else
+	cmd "(log: $log)" ./install.sh $action $USE_PYTHON >> $log
+fi
 
 profile=$(detect_profile)
 sed -io -e '/#REACTOR-PATH/d' $profile
-echo "export PATH=\$PATH:$base/current/bin #REACTOR-PATH" >> $profile
+echo "export PATH=\$PATH:$REFLEX_BASE/reflex/bin #REACTOR-PATH" >> $profile
 
 if [ ! -f ~/.reflex/cfg ]; then
 	./bin/reflex setup wizard
 fi
 
-cd $base
+cd $REFLEX_BASE
 version_list() { ls -1 |egrep '^[0-9][0-9][0-9][0-9].'|sort -rn; }
 
 maxver=3
