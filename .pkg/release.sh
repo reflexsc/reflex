@@ -56,5 +56,6 @@ curl --data '{"tag_name": "'$VERSION'","target_commitish": "master","name": "'$V
 
 cd ../dist
 
-PYPI_DIST=pypitest ./build.sh $VERSION
+PYPI_DIST=pypi ./build.sh $VERSION
+#PYPI_DIST=pypitest ./build.sh $VERSION
 
