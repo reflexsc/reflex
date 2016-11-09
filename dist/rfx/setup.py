@@ -6,7 +6,7 @@ setup(
   description = 'Container Config and Secret Management - core lib',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
-  url = 'https://github.com/reflexsc/reflex', 
+  url = 'https://reflex.cold.org/',
   keywords = ['docker','config','secrets'],
   install_requires = [
     'urllib3',
