@@ -1,0 +1,30 @@
+
+Notes:
+
+test with pypitest:
+
+    change TEST_PYPI in .pkg/release.sh 
+	pip3 install -i https://testpypi.python.org/pypi -U rfx rfxcmd rfxengine
+
+installing:
+
+setup ~/.pypirc http://peterdowns.com/posts/first-time-with-pypi.html
+
+install twine:
+
+    pip3 install twine
+
+Configure package: https://packaging.python.org/distributing/#uploading-your-project-to-pypi
+
+Register package:
+
+	python3 setup.py build
+	twine  register -r pypitest dist/rfx-1611.0.tar.gz 
+
+Or:
+
+	twine  register -r pypi dist/rfx-1611.0.tar.gz 
+
+and then:
+
+	twine upload dist/*
