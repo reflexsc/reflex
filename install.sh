@@ -97,7 +97,7 @@ fi
 #
 # args
 #
-hosted_python=/app/python3-latest/bin/python
+hosted_python=/app/python-3/bin/python3
 reqargs=''
 python3=true
 clean=false
