@@ -2,7 +2,7 @@ from setuptools import setup
 setup(
   name = 'rfx',
   packages = ['rfx'],
-  version = "1611.0000",
+  version = "1611.0003",
   description = 'Container Config and Secret Management - core lib',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
