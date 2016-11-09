@@ -1,8 +1,13 @@
 from setuptools import setup
 setup(
   name = 'rfxengine',
-  packages = ['rfxengine'],
-  version = "1611.0003",
+  package_dir = {
+    'rfxengine.db': 'rfxengine/db',
+    'rfxengine.server': 'rfxengine/server',
+  },
+  packages = ['rfxengine', 'rfxengine.db', 'rfxengine.server'],
+
+  version = "1611.0004",
   description = 'Container Config and Secret Management - engine',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
