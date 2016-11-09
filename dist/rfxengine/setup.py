@@ -14,7 +14,7 @@ setup(
   ],
   entry_points = {
     'console_scripts': [
-      'reflex-engine=rfx.engine.cherry:main',
+      'reflex-engine=rfxengine.server.cherry:main',
     ]
   },
   classifiers = [],
