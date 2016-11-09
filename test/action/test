@@ -1,4 +1,4 @@
-#!/app/local/bin/virtual-python
+#!/usr/bin/env python3
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
@@ -199,21 +199,21 @@ def main():
     os.environ['BUILD_NUMBER'] = '1600.2020'
 
     tap.ok_run("action group", 'd7eac56881fc952a6a08a92cf318df75',
-               ["../../bin/action", "--notime", "--debug=test", "run", "group"] + addargs)
+               ["action", "--notime", "--debug=test", "run", "group"] + addargs)
 
     tap.ok_run("action build", '8bc134eee4620e7b13a1facbdcbf8a76',
-               ["../../bin/action", "--notime", "--debug=test", "run", "build"] + addargs)
+               ["action", "--notime", "--debug=test", "run", "build"] + addargs)
 
     tap.ok_run("action input", '86617166ffc61e820c02fbbd6b302243',
-               ["../../bin/action", "--notime", "--debug=test", "run", "input-run", "--config=happy value"] + addargs)
+               ["action", "--notime", "--debug=test", "run", "input-run", "--config=happy value"] + addargs)
 
     tap.ok_run("action varsub", '35ca3b56abf5ca997f52436f75e4ebc3',
-               ["../../bin/action", "--notime", "--debug=test", "run", "varsub"] + addargs)
+               ["action", "--notime", "--debug=test", "run", "varsub"] + addargs)
 
 	# with store-package this is the MD5
     #tap.ok_run("action roll-package", '5aad32443c0ce586c6dc3ac41033e907',
     tap.ok_run("action roll-package", '32520c19cd392d9b28496a17f888a2fb',
-               ["../../bin/action", "--notime", "--debug=test", "run", "roll-package"] + addargs)
+               ["action", "--notime", "--debug=test", "run", "roll-package"] + addargs)
 
     tap.ok_run("verify package", 'ded41bf4bebb2e61e41c01d628eac82a',
                'tar -tzf ' + depfile + '| sort -u', shell=True)

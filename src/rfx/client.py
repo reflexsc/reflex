@@ -36,7 +36,7 @@ import nacl.utils
 import jwt
 import rfx
 from rfx import json2data, json4human, json4store
-from rfxengine import trace
+#from rfxengine import trace
 
 ################################################################################
 class ClientError(Exception):

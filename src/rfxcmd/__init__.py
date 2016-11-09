@@ -697,7 +697,7 @@ Usage: """ + self.cmd + " " + "|".join(self._args[0][1]["set"]) + """ [..args]
 ################################################################################
 def main():
     try:
-        cmd = os.path.basename(__file__)
+        cmd = os.path.basename(sys.argv[0])
         cli_class = "Cli" + cmd.title()
         globals()[cli_class](cmd).start()
     except KeyboardInterrupt:
