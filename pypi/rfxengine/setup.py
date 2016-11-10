@@ -19,6 +19,7 @@ setup(
   entry_points = {
     'console_scripts': [
       'reflex-engine=rfxengine.server.cherry:main',
+      'get_mysql_connector.py=rfxengine.db.get_mysql_connector:main',
     ]
   },
   classifiers = [],

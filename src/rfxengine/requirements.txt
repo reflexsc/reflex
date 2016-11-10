@@ -1,6 +1,0 @@
-pynacl
-#mysqlclient
-#client
-#boto3
-#pymysql
-#mysql

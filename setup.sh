@@ -61,7 +61,7 @@ setup_env() {
 
     ################################################################################
     # validation
-    
+
     if [ ! -x "$python" ]; then
         echo "Cannot execute $python"
         exit 1
@@ -71,7 +71,7 @@ setup_env() {
         echo "$python is not python (?)"
         exit 1
     fi
-    
+
     if [[ ! $vers =~ ^python-3 ]]; then
         echo "python3 required for this build, you specified $vers"
         exit 1
@@ -85,13 +85,13 @@ setup_env() {
             do_cleanup
         fi
     fi
-    
+
     ################################################################################
     #
     # go for it
     #
     msg "$install install using $vers from $python"
-    
+
     # virtual environ
     if [ $virtualenv = true ]; then
     	if [ ! -d python ]; then
@@ -135,6 +135,8 @@ setup_development() {
 setup_mysql() {
     ################################################################################
     # reflex engine specific things
+	mysql_version=2.1.4
+
     owd=$(pwd)
 	if [ -f $owd/.pkg/did_mysql ]; then
 		msg "Skipping MySQL install -- appears to be already there."
@@ -142,25 +144,8 @@ setup_mysql() {
 		return
 	fi
 
-    msg "Manually building mysql connector" # cause most other stuff sucks"
+	$owd/src/rfxengine/db/get_mysql_connector.py
 
-    cd $owd/python
-    rm -rf mysql-connector-*
-    mkdir tmp$$
-    latest=tmp$$/mysql-connector-latest.tar.gz
-    mysql_url=https://dev.mysql.com/get/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz
-    curl -L -o $latest $mysql_url
-    tar -xzf $latest
-    
-    cd mysql-connector*
-    if [ $MYSQL_CAPI ]; then
-        noerr python setup.py install --with-mysql-capi=$MYSQL_CAPI
-    else
-        noerr python setup.py install
-    fi
-    cd ..
-    rm -rf mysql-connector-* tmp$$
-    
     touch $owd/.pkg/did_mysql
     touch $owd/.pkg/did_engine
 }
