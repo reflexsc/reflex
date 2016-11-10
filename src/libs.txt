@@ -1,4 +1,0 @@
-rfx
-rfxcmd
-rfxmon
-rfxengine

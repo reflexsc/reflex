@@ -84,17 +84,17 @@ export REFLEX_ENGINE_CONFIG="$config"
 [ $SERVICE ] && start_svc reflex-engine "--test"
 
 errs=0
-[ $DO_LINT ] && {
-    msg Lint Tests
-	./test.py lint "${test_opts[@]}"
- 	let errs+=$?
-}
-
-[ $DO_UNIT ] && {
-    msg Unit Tests
-	./test.py unit "${test_opts[@]}"
-	let errs+=$?
-}
+#[ $DO_LINT ] && {
+#    msg Lint Tests
+#	./test.py lint "${test_opts[@]}"
+# 	let errs+=$?
+#}
+#
+#[ $DO_UNIT ] && {
+#    msg Unit Tests
+#	./test.py unit "${test_opts[@]}"
+#	let errs+=$?
+#}
 
 if [ $SERVICE ]; then
 	# see if agent is ready yet
