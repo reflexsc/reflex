@@ -115,7 +115,7 @@ setup_install() {
 
 	pip=$(dirname $python)/pip3
 
-	pip install -U rfx rfxcmd rfxengine
+	pip install -U rfxcmd rfxengine
 }
 
 setup_development() {
