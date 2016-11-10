@@ -19,5 +19,6 @@ pylibs
 /python
 
 /.pkg/did_engine
+/.pkg/did_mysql
 /bin/virtual-python
 

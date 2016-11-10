@@ -46,7 +46,7 @@ do_cleanup() {
     msg "cleanup installation..."
     find . -type f -name "*.pyc" -exec rm {} \;
     find . -type f -name "__pycache__" -exec rm {} \;
-    rm -rf python dist virtual-python.spec
+    rm -rf python virtual-python.spec
     rm -f .pkg/did_*
 }
 
@@ -125,10 +125,10 @@ setup_development() {
 	setup_env $install $python
 
     owd=$(pwd)
-    cd $owd/dist/rfx; noerr $python setup.py develop
-    cd $owd/dist/rfxcmd; noerr $python setup.py develop
-    cd $owd/dist/rfxengine; noerr $python setup.py develop
-
+    cd $owd/pypi/rfx; noerr $python setup.py develop
+    cd $owd/pypi/rfxcmd; noerr $python setup.py develop
+    cd $owd/pypi/rfxengine; noerr $python setup.py develop
+	cd $owd
 	setup_mysql
 }
 
