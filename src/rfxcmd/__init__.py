@@ -117,7 +117,7 @@ class CliReflex(CliRoot):
             [
                 "scope", {
                     "type":"from-set",
-                    "set": ["setup", "update|upgrade", "apikey",
+                    "set": ["setup", "apikey",
                             "launch", "app", "engine|rxe", "action|act", "*"]
                 }
             ], [
@@ -140,7 +140,6 @@ Usage: """ + self.cmd + """ {scope} [...]
 
 => """ + self.cmd + """ setup {args}
 => """ + self.cmd + """ apikey {args}
-=> """ + self.cmd + """ update|upgrade
 => """ + self.cmd + """ launch env|app|config {args}    *
 => """ + self.cmd + """ action|act run|verify {action}  *
 => """ + self.cmd + """ action|act list|ls              *
@@ -171,15 +170,6 @@ Usage: """ + self.cmd + """ {scope} [...]
             print("default action would be triggered")
         sys.exit(0)
 
-################################################################################
-# pylint: disable=missing-docstring
-class CliUpdate(CliRoot):
-
-    ############################################################################
-    # pylint: disable=missing-docstring
-    def start(self, argv=None, opts=None):
-        control = ControlCli(base=new_base(opts))
-        control.update_cli()
 
 ################################################################################
 class CliSetup(CliRoot):
@@ -193,7 +183,7 @@ class CliSetup(CliRoot):
                 "action", {
                     "type": "from-set",
                     "set": ["l?ist|ls", "set", "get", "unset",
-                            "wiz?ard", "update|upgrade",
+                            "wiz?ard",
                             "demo"]
                 }
             ], [

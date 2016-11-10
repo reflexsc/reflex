@@ -42,18 +42,6 @@ class ControlCli(rfx.Base):
             self.base_url = self.cfg['REFLEX_URL']
 
     ############################################################
-    def update_cli(self): # pylint: disable=unused-argument
-        # todo: current version printed
-        answer = input("Update to latest version of reflex? [yes] ")
-        if answer.lower() not in ["yes", "y", ""]:
-            sys.exit(0)
-        if not rfx.BASEDIR:
-            sys.exit("Unable to find reflex basedir!")
-        os.chdir(rfx.BASEDIR)
-        action = Action(base=self)
-        action.do("update")
-
-    ############################################################
     def wizard_cli(self, argv, args): # pylint: disable=unused-argument
         for key in 'URL', 'APIKEY':
             if 'SET_REFLEX_' + key in os.environ.keys():
