@@ -1,6 +1,6 @@
 FROM python:3.5.2-alpine
 
-RUN apk add --no-cache libffi openssl
+RUN apk add --no-cache libffi openssl vim
 
 RUN apk add --no-cache --virtual .build-deps \
         bash curl tar gcc libc-dev libffi-dev \
