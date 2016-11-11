@@ -346,7 +346,10 @@ Options:
                 if lane not in mstrcfg.regions[region].lanes:
                     continue
                 match = re.search(r'([0-9]+)$', region)
-                shortcode = mstrcfg.lanes[lane].short + match.group(1)
+                if match:
+                    shortcode = mstrcfg.lanes[lane].short + match.group(1)
+                else:
+                    shortcode = mstrcfg.lanes[lane].short
                 print("Populate {} {} {} {} {}".format(args['product'], args['service'],
                                                        region, shortcode, args.get('--tenant', '')))
 

@@ -1,38 +1,15 @@
 FROM python:3.5.2-alpine
 
-RUN apk add --no-cache \
-		libffi \
-		openssl
+RUN apk add --no-cache libffi openssl
 
 RUN apk add --no-cache --virtual .build-deps \
-		gcc \
-		libc-dev \
-        libffi-dev \
-		linux-headers \
-		make
+        bash curl tar gcc libc-dev libffi-dev \
+        linux-headers make python3-dev
 
-WORKDIR /app/reflex
-COPY src/rfx/requirements.txt src/rfx/requirements.txt
-RUN /usr/local/bin/pip3 install -r src/rfx/requirements.txt
+# the actual reflex command
+RUN pip3 --no-cache-dir install rfxcmd
+RUN rm -rf ~/.pip/cache $PWD/build/
 
 RUN apk del .build-deps && rm -rf ~/.cache
-
-COPY bin ./bin
-COPY src ./src
-COPY .pkg/fix_shebang .
-
-RUN sh fix_shebang /usr/local/bin/python3 && rm fix_shebang
-
-RUN cd /usr/local/lib/python3.5/site-packages; \
-    for f in $(cat /app/reflex/src/libs.txt); do \
-        echo "Linking $f"; \
-        rm -f $f; \
-        ln -s /app/reflex/src/$f; \
-    done 
-
-RUN cd /usr/local/bin; \
-    for f in $(cd /app/reflex/bin; ls -1); do \
-        ln -s /app/reflex/bin/$f; \
-    done
 
 CMD ["reflex"]

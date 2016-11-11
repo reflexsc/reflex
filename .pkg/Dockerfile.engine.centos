@@ -1,39 +1,22 @@
-FROM revenant/centos7-python3
+FROM centos:7
 
-RUN yum -y install libffi libffi-devel openssl \
-	 mariadb mariadb-libs gcc curl make
+RUN echo "clean_requirements_on_remove=1" >> /etc/yum.conf
 
-WORKDIR /app/reflex
-COPY src/rfx/requirements.txt src/rfx/requirements.txt
-COPY src/rfxengine/requirements.txt src/rfxengine/requirements.txt
+# 3
+RUN yum -y install epel-release
+# 4
+RUN yum -y install libffi openssl python34 mariadb mariadb-libs
+# 5
+RUN yum -y install gcc gcc-c++ make curl libffi-devel python34-devel
+RUN curl -O https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py
 
-ENV APP_BASE=/app/python-3
-RUN $APP_BASE/bin/pip3 install -r src/rfx/requirements.txt
+RUN pip3 --no-cache-dir install -U rfxengine
+RUN get_mysql_connector.py
+RUN rm -rf ~/.pip/cache $PWD/build/
 
-COPY .pkg/mysql-connector .
-RUN sh ./mysql-connector $APP_BASE/bin/python3
-
-COPY bin ./bin
-COPY src ./src
-
-COPY .pkg/fix_shebang .
-RUN sh fix_shebang $APP_BASE/bin/python3 && rm fix_shebang
-
-RUN cd $APP_BASE/lib/python3.5/site-packages; \
-    for f in $(cat /app/reflex/src/libs.txt); do \
-        echo "Linking $f"; \
-        rm -f $f; \
-        ln -s /app/reflex/src/$f; \
-    done 
-
-RUN cd /usr/local/bin; \
-    for f in $(cd /app/reflex/bin; ls -1); do \
-        ln -s /app/reflex/bin/$f; \
-    done
-
-RUN yum -y erase gcc make
-RUN yum clean all
+RUN yum -y history undo 5 ; true
+RUN yum -y clean all ; true
 
 EXPOSE 54000
 
-CMD ["/usr/local/bin/reflex-engine"]
+ENTRYPOINT ["/usr/bin/reflex-engine"]

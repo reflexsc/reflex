@@ -63,6 +63,42 @@ def setup():
     data = dictlib.Obj()
 
     ########################################
+    # master config for reflex tools
+    create(rcs.create, "config", {
+        "name":"reflex",
+        "type":"parameter",
+        "config": {
+            "regions": {
+                "local": {
+                    "lanes": [
+                        "tst",
+                        "qa",
+                        "prd",
+                        "sbx"
+                    ]
+                }
+            },
+            "lanes": {
+                "tst": {
+                    "short": "t",
+                    "full": "Test"
+                },
+                "qa": {
+                    "short": "q",
+                    "full": "QA"
+                },
+                "prd": {
+                    "short": "p",
+                    "full": "Production"
+                },
+                "sbx": {
+                    "short": "x",
+                    "full": "Sandbox"
+                }
+            }
+        }
+    })
+    ########################################
     create(rcs.create, "apikey", {
         "name":"kirk"
     })
