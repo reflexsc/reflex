@@ -22,13 +22,11 @@
 
 # pylint: disable=missing-docstring
 
-import sys
 import os
 import re
 #from builtins import input # pylint: disable=redefined-builtin
 import rfx
 from rfx.backend import Engine, EngineCli
-from rfx.action import Action
 
 ################################################################################
 class ControlCli(rfx.Base):

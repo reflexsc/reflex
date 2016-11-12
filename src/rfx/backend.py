@@ -117,7 +117,13 @@ class Engine(rfx.Base):
     ###########################################################################
     def get_object(self, obj_type, obj_target, **kwargs): #apikey=None, notify=True):
         """Uses build-in environmental connection information"""
-        return self.session.get(obj_type, obj_target)
+        if kwargs.get('raise_error') is True:
+            return self.session.get(obj_type, obj_target)
+        else:
+            try:
+                return self.session.get(obj_type, obj_target)
+            except: # pylint: disable=bare-except
+                return None
 
     ###########################################################################
     @threadlock

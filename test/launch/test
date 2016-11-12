@@ -158,18 +158,18 @@ def main():
 #        tap.ok_func_io("launch config", '1fb8a624687b37e846696078210a6e3e',
 #                       cli, cli.config_cli, test_name, args)
     tap.ok_run("launch env w/arg", '6f22a03ee05c009ad2541520eaed5d4e',
-               ["../../bin/launch", "--notime", "env", test_name])
+               ["launch", "--notime", "env", test_name])
 
     os.environ['REFLEX_SERVICE'] = test_name
     tap.ok_run("launch env w/env", '6f22a03ee05c009ad2541520eaed5d4e',
-               ["../../bin/launch", "--notime", "env"])
+               ["launch", "--notime", "env"])
     del os.environ["REFLEX_SERVICE"]
 
     tap.ok_run("launch config", '257efd588ffd81da170468eb3a420ddb',
-               ["../../bin/launch", "--notime", "config", test_name])
+               ["launch", "--notime", "config", test_name])
 
     tap.ok_run("launch service", '1cb671b1a1ef31074bddcb7258fb3676',
-               ["../../bin/launch", "--notime", "service", test_name])
+               ["launch", "--notime", "service", test_name])
 
     ###########################################################################
     # test an action driven launch 
@@ -225,10 +225,10 @@ def main():
     }, notify=False)
 
     tap.ok_run("launch service", '8af99380f8fa2e5a853b9573a2a45118',
-               ["../../bin/launch", "--notime", "--debug=test", "service", test_name])
+               ["launch", "--notime", "--debug=test", "service", test_name])
 
     tap.ok_run("launch service action", 'c115b7054016764de5f52806e1654eeb',
-               ["../../bin/launch", "--notime", "--debug=test", "service", test_name + ":variant"])
+               ["launch", "--notime", "--debug=test", "service", test_name + ":variant"])
 
     if not args.noclean:
         clean()

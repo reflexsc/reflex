@@ -223,7 +223,11 @@ case $action in
 
     ############################################################################
     env)
-        base=$(dirname $0)
+        if [ "$0" = "-bash" ]; then
+			base=.
+		else
+	        base=$(dirname $0)
+		fi
 	    source $base/python/bin/activate
         ;;
 

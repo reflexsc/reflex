@@ -32,6 +32,8 @@ import os
 import re
 import dictlib
 from builtins import input # pylint: disable=redefined-builtin
+import nacl.utils
+import base64
 import rfx
 from rfx.backend import EngineCli, Engine
 from rfx import client
@@ -236,6 +238,8 @@ Usage: """ + self.cmd + """ l?ist|ls
 class CliApp(CliRoot):
     """app command"""
 
+    cfg = None
+
     ############################################################################
     def __init__(self, cmd):
         self.cmd = cmd
@@ -298,64 +302,217 @@ Options:
         if not args or args.get('--help') and not self.args.argv:
             self.fail()
 
-        base = rfx.Base().cfg_load()
-        core = Engine(base=base)
-        mstrcfg = dictlib.Obj(core.get_object('config',
-                                              'reflex',
-                                              notify=False)['config'])
+        self.base = rfx.Base().cfg_load()
+        self.engine = Engine(base=self.base)
+
+        cfg = self.engine.TRAP(self.engine.get_object, 'config', 'reflex', notify=False)
+        if not cfg:
+            self.fail("Missing config.reflex.  Try setting up demo data `reflex setup demo`")
+
+        self.cfg = dictlib.Obj(cfg['config'])
 
         if args.get('action') == 'delete':
-            self._delete(args, base, core, mstrcfg)
+            self._delete(args)
         else:
-            self._create(args, base, core, mstrcfg)
+            self._create(args)
 
     ############################################################################
     # pylint: disable=unused-argument
-    def _delete(self, args, base, core, mstrcfg):
-        print(self)
-        print("Delete here")
+    def _delete(self, args):
+        print("Delete not finished")
 
     ############################################################################
     # pylint: disable=unused-argument
-    def _create(self, args, base, core, mstrcfg):
+    def _create(self, args):
         regions = []
         lanes = []
         if args.get('--regions'):
             for region in re.split(r'\s*,\s*', args['--regions']):
                 region = region.lower()
-                if region not in mstrcfg.regions:
+                if region not in self.cfg.regions:
                     self.fail("Invalid region: {}, Must be one of: {}"
-                              .format(region, ", ".join(mstrcfg.regions.keys())))
+                              .format(region, ", ".join(self.cfg.regions.keys())))
                 regions.append(region)
 
         if args.get('--lanes'):
             for lane in re.split(r'\s*,\s*', args['--lanes']):
-                if lane not in mstrcfg.lanes:
+                if lane not in self.cfg.lanes:
                     self.fail("Invalid lane: {}, Must be one of: {}"
-                              .format(lane, ", ".join(mstrcfg.lanes.keys())))
+                              .format(lane, ", ".join(self.cfg.lanes.keys())))
                 lanes.append(lane)
 
         if not lanes:
-            self.fail("Must specify at least one lane")
+            self.fail("Must specify at least one lane:\n\n\t" + 
+                      ", ".join(self.cfg.lanes.keys()) + "\n\n" +
+                      "Change options with: `engine config edit reflex`")
 
         if not regions:
-            self.fail("Must specify at least one region")
+            self.fail("Must specify at least one region:\n\n\t"+
+                      ", ".join(self.cfg.regions.keys()) + "\n\n" +
+                      "Change options with: `engine config edit reflex`")
 
         for region in regions:
             for lane in lanes:
-                if lane not in mstrcfg.regions[region].lanes:
+                if lane not in self.cfg.regions[region].lanes:
                     continue
-                match = re.search(r'([0-9]+)$', region)
-                if match:
-                    shortcode = mstrcfg.lanes[lane].short + match.group(1)
-                else:
-                    shortcode = mstrcfg.lanes[lane].short
-                print("Populate {} {} {} {} {}".format(args['product'], args['service'],
-                                                       region, shortcode, args.get('--tenant', '')))
+                self._create_for(args['product'], args['service'],
+                                 region, lane, args.get('--tenant', ''))
+
+
+################################################################################
+#def trap(func, *args, **kwargs):
+#    try:
+#        return func(*args, **kwargs)
+#    except Exception as err:
+#        traceback.print_exc()
+#        print(str(err))
+#        return None
+#
+################################################################################
+
+    def _template(self, otype, target, template, default):
+        obj = self.engine.cache_get_object(otype, target, raise_error=False)
+        if obj:
+            print("Using existing {} {}".format(otype, target))
+        elif template:
+            obj = self.engine.cache_get_object(otype, template, raise_error=False)
+            if obj:
+                print("Using template {} {}: {}".format(otype, target, template))
+            else:
+                print("Using defaults for {} {}".format(otype, target))
+                obj = default
+        else:
+            print("Using defaults for {} {}".format(otype, target))
+            obj = default
+        return obj
+    
+    ################################################################################
+    # todo: allow for templates in config
+    def _create_for(self, product, service, region, lane, tenant):
+        print("Populate {} {} {} {} {}".format(product, service, region, lane, tenant))
+
+        match = re.search(r'([0-9]+)$', region)
+        if match:
+            shortlane = self.cfg.lanes[lane].short + match.group(1)
+        else:
+            shortlane = self.cfg.lanes[lane].short
+
+        pipe_name = product + '-' + service
+        svc_name = pipe_name + '-' + lane
+        env_name = svc_name
+        nginx_name = pipe_name + '-' + lane.lower()
+    
+        tenant = tenant.lower()
+        top_config = ''
+        if not tenant:
+            tenant = 'multitenant'
+    
+        if tenant == 'multitenant':
+            multitenant = False
+            top_config = env_name
+        else:
+            multitenant = True
+            top_config = env_name + '-' + tenant
+            svc_name = top_config
+            nginx_name += '-' + tenant
+    
+        ######################################
+        ## start with the pipeline
+        pipe_o = self._template('pipeline', pipe_name, '', {
+            "contacts": {
+                "slack": {
+                    "channel": "name-this-channel",
+                    "driver": "slack"
+                }
+            },
+            "launch": {
+                "cfgdir": "/data/" + product + "/config",
+                "exec": [
+                    "/app/" + product + "/" + service + "/launch"
+                ],
+                "rundir": "/app/" + product + "/" + service
+            },
+            "name": pipe_name,
+            "title": product.capitalize() + " " + service.upper()
+        })
+    
+        ######################################
+        ## define the service
+        svc_o = self._template('service', svc_name, '', {
+            "name": svc_name,
+            "region": region,
+            "pipeline": pipe_name,
+            "nginx": nginx_name.lower(),
+            "docker-link": True,
+            "config": svc_name,
+            "tenant": tenant, # will be multitenant if not single tenant
+            "lane": lane.lower()
+        })
+    
+        ######################################
+        # and a pipeline base config object
+        cfg_o = self._template('config', pipe_name, '', {
+            "name": pipe_name,
+            "sensitive": {
+                "parameters": {
+                }
+            },
+            "setenv": {},
+            "type": "parameter"
+        })
+    
+        ######################################
+        ## a service config object
+        grp_key = base64.b64encode(nacl.utils.random(64))
+    
+        cfg_env_o = self._template('config', env_name, '', {
+            "name": env_name,
+            "extends": [pipe_name],
+            "sensitive": {
+                "parameters": {
+                    "APP_GRP_SEED": grp_key,
+                    "ENVIRON-NAME": lane.upper(),
+                    "LANE": lane.lower(),
+                    "LANE-SUFFIX": "-%{LANE}"
+                }
+            },
+            "setenv": {},
+            "type": "parameter"
+        })
+    
+        ######################################
+        ## if multitenant, also a tenant config
+        if multitenant:
+            cfg_tenant_o = self._template('config', top_config, '', {
+                'extends': [env_name],
+                'sensitive':{'parameters':{}},
+                'type':'parameter',
+                'setenv':{}
+            })
+    
+        ######################################
+        # store changes
+        svc_o['config'] = top_config
+
+        # top_config = env_name
+        trap = self.engine.TRAP
+        trap(self.engine.cache_update_object, 'pipeline', pipe_name, pipe_o)
+        trap(self.engine.cache_update_object, 'service', svc_name, svc_o)
+        trap(self.engine.cache_update_object, 'config', pipe_name, cfg_o)
+        trap(self.engine.cache_update_object, 'config', env_name, cfg_env_o)
+
+        if multitenant:
+            trap(self.engine.cache_update_object, 'config', top_config, cfg_tenant_o)
+
+        return {
+            'pipeline': pipe_name,
+            'service': svc_name,
+            'config': top_config
+        }
 
 ################################################################################
 class CliEngine(CliRoot):
-    """core command"""
+    """engine command"""
 
     ############################################################################
     def __init__(self, cmd):
