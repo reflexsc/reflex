@@ -108,7 +108,7 @@ class ConfigProcessor(VerboseBase):
 
     cfgdir = ''
     did = None
-    rx_var = re.compile(r"%\{([a-zA-Z0-9_-]+)\}") # macro_expand
+    rx_var = re.compile(r"%\{([a-zA-Z0-9_.-]+)\}") # macro_expand
     expanded_vars = None
     engine = None
 
@@ -176,8 +176,9 @@ class ConfigProcessor(VerboseBase):
             match_key = match.group(1)
             if match_key in os.environ:
                 return os.environ[match_key]
-            if match_key != source and match_key in dictionary:
-                return str(dictionary[match_key])
+            dict_match = dictlib.dig_get(dictionary, match_key, None)
+            if match_key != source and dict_match:
+                return str(dict_match)
             self.NOTIFY("Unable to find expansion match for key '" + match_key + "'")
 
         # loop to recurse properly (handling macros in macros)
