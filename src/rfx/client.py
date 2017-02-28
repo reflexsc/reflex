@@ -39,6 +39,11 @@ from rfx import json2data, json4human, json4store
 #from rfxengine import trace
 
 ################################################################################
+class Unauthorized(Exception):
+    """Client Error"""
+    pass
+
+################################################################################
 class ClientError(Exception):
     """Client Error"""
     pass
@@ -96,13 +101,15 @@ class Session(rfx.Base):
                     json4human(dict(result.headers)),
                     json2data(result.content.decode())))
 
-            raise ClientError("Unable to authorize session")
+            raise Unauthorized("Unable to authorize session")
 
     ############################################################################
     def _call(self, func, target, *args, **kwargs):
         """Call Reflex Engine, wrapped with authentication and session management"""
         try:
             self._login()
+        except Unauthorized as err:
+            self.ABORT("Unauthorized: " + str(err))
         except requests.exceptions.ConnectionError:
             self.ABORT("Unable to connect to REFLEX_URL ({})".format(self.cfg['REFLEX_URL']))
 

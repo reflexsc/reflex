@@ -6,8 +6,8 @@
     "setenv": {
     },
     "actions": {
-        "launch-monitor": {
-            "exec": ["./bin/agent", "start", "monitor", "--cfgin"],
+        "launch-test": {
+            "exec": ["/bin/env"],
             "type": "system",
             "config": "stdin"
         },

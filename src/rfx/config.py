@@ -111,9 +111,10 @@ class ConfigProcessor(VerboseBase):
     rx_var = re.compile(r"%\{([a-zA-Z0-9_.-]+)\}") # macro_expand
     expanded_vars = None
     engine = None
+    peers = None
 
     ############################################################################
-    def __init__(self, verbose=True, base=None, engine=None):
+    def __init__(self, verbose=True, base=None, engine=None, peers=None):
         super(ConfigProcessor, self).__init__(verbose=verbose)
         if not base: # sorry, we need rfx.Base
             raise ValueError("Missing Reflex Base (base=)")
@@ -123,6 +124,11 @@ class ConfigProcessor(VerboseBase):
         self.engine = engine # allows for overriding during testing
         self.verbose = verbose
         self.did = dictlib.Obj(exp=dict(), imp=dict(), ext=dict())
+        if peers:
+            self.peers = peers
+        else:
+            self.peers = dict()
+
 
     ############################################################################
     # pylint: disable=invalid-name
@@ -214,6 +220,8 @@ class ConfigProcessor(VerboseBase):
         # pass3 put values back in their place
         for target in procvars:
             tobj = deep_get(conf, target)
+            if not isinstance(tobj, dict):
+                self.ABORT("Target {} is not a dictionary".format(dict))
             for key in tobj:
                 tobj[key] = allvars[key]
 
@@ -514,6 +522,13 @@ class Config(VerboseBase):
         )
 
         self.engine = engine
+        self.peers = base.peers # should come in from ConfigProcessor
+        if self.peers:
+            self.conf['peers'] = self.peers
+            self.conf.setenv['LAUNCH_PEERS'] = ",".join([key + "@" + value
+                                                         for key, value in self.peers.items()])
+            self.conf.setenv['LAUNCH_PEER_NAMES'] = ",".join(list(self.peers.keys()))
+            self.conf.setenv['LAUNCH_PEER_IPS'] = ",".join(list(self.peers.values()))
 
     def load(self):
         obj = self.engine.get_object('config', self.conf.name)

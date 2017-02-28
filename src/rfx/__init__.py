@@ -165,9 +165,12 @@ class Base(Colorize):
                                stderr=subprocess.PIPE)
         sub.wait()
         if sub.returncode > 0:
-            return 80
-        width = sub.stdout.read().split()[1]
-        self.term_width = int(width) or 80
+            return
+        try:
+            width = sub.stdout.read().split()[1]
+            self.term_width = int(width) or 80
+        except IndexError: # pylint: disable=broad-except
+            self.NOTIFY("Unable to calculate terminal width")
 
     ############################################################
     def cfg_load(self):

@@ -24,18 +24,9 @@
 Launch Control
 """
 
-#import tarfile
-#import re
-#import io
-#try:
-#    import StringIO as strio # pylint: disable=import-error
-#except: # pylint: disable=bare-except
-#    import io as strio # pylint: disable=reimported,ungrouped-imports
 import os
-#import sys
 import traceback
-#import ujson
-
+import socket
 import dictlib
 import rfx
 from rfx.config import ConfigProcessor
@@ -48,23 +39,31 @@ from rfx.action import Action
 class App(rfx.Base):
     """Manage configuration files for containers"""
 
-    launch_group = {}
-    launch_service = {}
-    launch_pipeline = {}
+    launch_service = None
+    launch_pipeline = None
     launch_config = None
     launch_action = None
     launch_target = ''
-    launch_env = {}
-    launch_exec = []
+    launch_env = None
+    launch_exec = None
     launch_rundir = ''
     launch_cfgdir = ''
     launch_type = 'exec'
+    launch_peers = None
 
     ############################################################################
     # pylint: disable=super-init-not-called
     def __init__(self, base=None):
         rfx.Base.__inherit__(self, base)
         self.dbo = Engine(base=base)
+        self.rcs = rfx.client.Session(base=base)
+        self.my_host = socket.gethostname()
+        self.my_ip = socket.gethostbyname(self.my_host)
+        self.launch_peers = dict()
+        self.launch_exec = list()
+        self.launch_env = dict()
+        self.launch_pipeline = dict()
+        self.launch_service = dict()
 
     ############################################################################
     def __repr__(self):
@@ -99,9 +98,14 @@ class App(rfx.Base):
         service = name_parts[0]
         if len(name_parts) > 1:
             action = name_parts[1]
-        self.launch_service = self.dbo.get_object('service', service)
-        self.launch_pipeline = self.dbo.get_object('pipeline',
-                                                   self.launch_service['pipeline'])
+        try:
+            self.launch_service = self.rcs.get('service', service)
+        except rfx.client.ClientError as err:
+            if "Endpoint or object not found" in str(err):
+                self.ABORT("Cannot find service: " + service)
+
+        self.launch_pipeline = self.rcs.get('pipeline',
+                                            self.launch_service['pipeline'])
         os.environ["APP_PIPELINE"] = self.launch_pipeline['name']
         os.environ["APP_SERVICE"] = self.launch_service['name']
 
@@ -111,7 +115,6 @@ class App(rfx.Base):
             launch = self.launch_pipeline.get('launch', {})
             if not envkey in os.environ and cfgkey in launch:
                 value = self.sed_env(launch[cfgkey], {}, '')
-        #        os.environ[envkey] = value # may not be necessary
                 setattr(self, cfgkey, value)
 
         setcfg('APP_CFG_BASE', 'cfgdir')
@@ -142,7 +145,7 @@ class App(rfx.Base):
     # pylint: disable=unused-argument
     def _load_reflex_engine_config(self, target, commit=False):
         """get a from Reflex Engine"""
-        cproc = ConfigProcessor(base=self, engine=self.dbo)
+        cproc = ConfigProcessor(base=self, engine=self.dbo, peers=self.launch_peers)
         conf = cproc.flatten(self.launch_service['config'])
         if commit:
             cproc.commit(conf, dest=self.launch_cfgdir)
@@ -221,6 +224,7 @@ class App(rfx.Base):
 
         os.environ["APP_RUN_BASE"] = self.launch_rundir
         os.environ["APP_CFG_BASE"] = self.launch_cfgdir
+        self._load_peers()
         self._load_reflex_engine_config(self.launch_service['config'], commit=commit)
 
         return self
@@ -232,6 +236,7 @@ class App(rfx.Base):
         data is stored within the immutable package as an action.
         """
 
+        self._launch_update_instance()
         self.launch_action.do(self.launch_target)
 
     ############################################################################
@@ -248,17 +253,57 @@ class App(rfx.Base):
             self.NOTIFY("Unable to find launch program: " +
                         self.launch_exec[0])
         msg = "Launch Env:\n"
-        for key in self.launch_config.setenv: # setenv_expanded:
-            if key == 'APP_GRP_SEED':
-                value = 'xxxxxx' # keep this out of logs
-            else:
-                value = self.launch_config.setenv[key]
-            msg += "  {0}={1}\n".format(key, value)
-        self.NOTIFY(msg) # this keeps it as one 'message' for splunk
+        debug = self.do_DEBUG()
+        for key in self.launch_config.setenv:
+            value = ''
+            if debug:
+                value = '={}'.format(self.launch_config.setenv[key])
+            msg += "  " + key + value
+        self.NOTIFY(msg) # keep it as one 'message' for log handlers
         self.NOTIFY("Launch working directory:\n  " + self.launch_rundir)
         self.NOTIFY("Launch exec:\n  '" + "', '".join(self.launch_exec) + "'")
-
+        self._launch_update_instance()
         os.execv(self.launch_exec[0], self.launch_exec)
+
+    ############################################################################
+    def _load_peers(self):
+        """Query Reflex engine for peers to self"""
+        # python dict/list comprehension syntax - barf
+        self.launch_peers = {d['name']: d['address']['ip0']
+                             for d in self.rcs.list('instance',
+                                                    match=self.launch_service['name'] + "*",
+                                                    cols=['address', 'status', 'name'])
+                             if d['name'] != self.my_host}
+
+    def _launch_update_instance(self):
+        try:
+            myname = socket.gethostname()
+            myips = socket.gethostbyname_ex(myname)[2]
+            addrs = {}
+            for idx, ipnbr in enumerate(myips):
+                addrs["ip" + str(idx)] = ipnbr
+            update = {
+                "status": "ok",
+                "service": self.launch_service['name'],
+                "name": myname,
+                "address": addrs
+            }
+            existing = None
+            try:
+                existing = self.rcs.get('instance', myname)
+            except: # pylint: disable=bare-except
+                pass
+            if existing:
+                self.rcs.patch('instance', myname, update)
+            else:
+                self.rcs.update('instance', myname, update)
+            self.NOTIFY("Updating instance " + myname)
+        except Exception: # pylint: disable=bare-except
+            if self.do_DEBUG():
+                self.NOTIFY("Unable to update instance:")
+                self.DEBUG(traceback.format_exc())
+            else:
+                self.NOTIFY("Unable to update instance, try --debug for more info")
 
 ################################################################################
 class LaunchCli(App):
@@ -303,12 +348,14 @@ class LaunchCli(App):
         Supports two types: exec and action
         """
         service = self.get_target(*argv)
+        debug = self.do_DEBUG()
         try:
             self.launch_service_prep(service, commit=True)
             for key in sorted(self.launch_config.setenv): # .items():
                 value = self.launch_config.setenv[key]
                 os.environ[key] = value
-                self.NOTIFY("export {}={}".format(key, value))
+                if debug:
+                    self.NOTIFY("export {}={}".format(key, value))
             getattr(self, "_launch_" + self.launch_type)(service)
 
         except Exception as err: # pylint: disable=broad-except

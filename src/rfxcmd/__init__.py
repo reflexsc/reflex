@@ -1,4 +1,4 @@
-#!/app/local/bin/virtual-python
+#!/usr/bin/env python3
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
