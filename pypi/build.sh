@@ -17,7 +17,7 @@ fi
 for d in rfx rfxcmd rfxengine; do
     echo $d
     cd $base/$d
-    sed -i -e 's/version = .*$/version = "'$VER'",/' setup.py
+    sed --in-place -e 's/version = .*$/version = "'$VER'",/' setup.py
     rm -rf dist
     python3 setup.py sdist
     twine upload $PYPI_DIST dist/*

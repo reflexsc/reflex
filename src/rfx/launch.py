@@ -252,14 +252,11 @@ class App(rfx.Base):
         if not os.path.isfile(self.launch_exec[0]):
             self.NOTIFY("Unable to find launch program: " +
                         self.launch_exec[0])
-        msg = "Launch Env:\n"
-        debug = self.do_DEBUG()
-        for key in self.launch_config.setenv:
-            value = ''
-            if debug:
-                value = '={}'.format(self.launch_config.setenv[key])
-            msg += "  " + key + value
-        self.NOTIFY(msg) # keep it as one 'message' for log handlers
+        if self.do_DEBUG():
+            msg = "Launch Env:\n"
+            for key, value in self.launch_config.setenv:
+                msg += "  {}={}".format(key, value)
+            self.NOTIFY(msg) # keep it as one 'message' for log handlers
         self.NOTIFY("Launch working directory:\n  " + self.launch_rundir)
         self.NOTIFY("Launch exec:\n  '" + "', '".join(self.launch_exec) + "'")
         self._launch_update_instance()

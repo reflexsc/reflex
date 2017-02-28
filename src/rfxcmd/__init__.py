@@ -169,7 +169,7 @@ Usage: """ + self.cmd + """ {scope} [...]
             obj = globals()["Cli" + scope.title()]
             obj(self.cmd + " " + scope).start(argv=self.args.argv, opts=args)
         else:
-            print("default action would be triggered")
+            self.fail() #print("default action would be triggered")
         sys.exit(0)
 
 

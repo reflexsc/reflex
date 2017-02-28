@@ -209,10 +209,10 @@ class RCObject(rfx.Base):
         return policies
 
     ############################################################################
-    @db_interface
-    def name2id(self, target, dbi=None):
-        """wraps name2id_direct with db_interface decorator"""
-        return self.name2id_direct(target, dbi)
+#    @db_interface
+#    def name2id(self, target, dbi=None):
+#        """wraps name2id_direct with db_interface decorator"""
+#        return self.name2id_direct(target, dbi)
 
     ############################################################################
     def name2id_direct(self, target, dbi):
@@ -233,19 +233,19 @@ class RCObject(rfx.Base):
 
         def get_name(name):
             """helper"""
-            return dbi.do_getone("SELECT ID FROM " + self.table +
+            return dbi.do_getone("SELECT ID, NAME FROM " + self.table +
                                  " WHERE name = ?", name, output=list)
 
         if isinstance(target, int):
-            result = dbi.do_getone("SELECT ID FROM " + self.table +
+            result = dbi.do_getone("SELECT ID, NAME FROM " + self.table +
                                    " WHERE id = ?", target, output=list)
             if not result and name:
                 result = get_name(name)
         else:
             result = get_name(target)
         if result:
-            return result[0]
-        return 0
+            return result
+        return None
 
     ############################################################################
     # pylint: disable=no-self-use
@@ -289,7 +289,7 @@ class RCObject(rfx.Base):
         """
         sql = "SELECT * FROM " + self.table
         if isinstance(target, str):
-            idnbr = self.name2id_direct(target, dbi)
+            idnbr = self.name2id_direct(target, dbi)[0]
         elif not isinstance(target, int):
             raise InvalidParameter("Invalid target type specified?")
         else:
@@ -399,7 +399,7 @@ class RCObject(rfx.Base):
 
         obj_id = self.name2id_direct(target, dbi)
         if obj_id:
-            deleted = dbi.do_count("DELETE FROM " + self.table + " WHERE id = ?", obj_id)
+            deleted = dbi.do_count("DELETE FROM " + self.table + " WHERE id = ?", obj_id[0])
         else:
             raise ObjectNotFound("Target not found")
         self.obj = dict(id=obj_id)
@@ -629,7 +629,7 @@ class RCObject(rfx.Base):
     def update(self, attrs, dbi=None):
         """Update data from self into db.  Use on pre-existing objects"""
         if not self.obj.get('id') and self.obj.get('name'):
-            self.obj['id'] = self.name2id_direct(self.obj['name'], dbi)
+            self.obj['id'] = self.name2id_direct(self.obj['name'], dbi)[0]
         return self._put(attrs, dbi=dbi)
 
     ############################################################################
@@ -744,10 +744,10 @@ class RCObject(rfx.Base):
         """
         Internal function called for a single table and target.
         """
-        obj_id = table.name2id_direct(target, dbi)
+        obj = table.name2id_direct(target, dbi)
         target = target.split(".", 1)[0]
-        if obj_id:
-            return (target + "." + str(obj_id), '')
+        if obj:
+            return (obj[1] + "." + str(obj[0]), '')
         else:
             return (target + ".notfound",
                     table.table + ":" + target + " not found")
@@ -796,10 +796,10 @@ class RCObject(rfx.Base):
         """
         descendants = list()
         if isinstance(Pipeline, class_obj):
-            pipe_id = class_obj.name2id_direct(target, dbi)
+            pipe = class_obj.name2id_direct(target, dbi)
             svc_obj = Service(clone=self.master)
             sql = "SELECT id, name FROM Service WHERE pipeline_id = ?"
-            for svc_id, svc_name in dbi.do_getlist(sql, pipe_id):
+            for svc_id, svc_name in dbi.do_getlist(sql, pipe[0]):
                 descendants.append([svc_id, svc_name])
                 descendants += self.descendants(svc_obj, svc_id)
             return list(set(descendants))

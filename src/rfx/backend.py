@@ -196,6 +196,7 @@ class EngineCli(rfx.Base):
     def __init__(self, base=None):
         if base:
             rfx.Base.__inherit__(self, base)
+        self.rcs = rfx.client.Session(debug=self.debug, base=self)
 
     ###########################################################################
     # pylint: disable=too-many-locals, too-many-branches, too-many-statements
@@ -232,8 +233,7 @@ class EngineCli(rfx.Base):
         new = [show]
 
         try:
-            rcs = rfx.client.Session(debug=self.debug, base=self)
-            objs = rcs.list(obj_type, cols=cols, match=limit_expr)
+            objs = self.rcs.list(obj_type, cols=cols, match=limit_expr)
         except rfx.client.ClientError as err:
             self.ABORT(str(err))
 
@@ -272,18 +272,19 @@ class EngineCli(rfx.Base):
     def copy_cli(self, obj_type, obj_source, obj_dest):
         """copy an object.  see --help"""
         try:
-            Engine(base=self).get_object(obj_type, obj_dest)
+            self.rcs.get(obj_type, obj_dest)
             self.ABORT("Destination object '{0}' already exists!".format(obj_dest))
         except rfx.client.ClientError:
             pass
 
         try:
-            obj = Engine(base=self).get_object(obj_type, obj_source)
+            obj = self.rcs.get(obj_type, obj_source)
         except rfx.client.ClientError as err:
             self.ABORT(str(err))
 
         if 'id' in obj:
             del obj['id']
+        print(obj)
 
         self.OUTPUT("Copy {0} {1} to {2}".format(obj_type, obj_source, obj_dest))
         obj['name'] = obj_dest
@@ -402,6 +403,8 @@ class EngineCli(rfx.Base):
         os.unlink(localfile)
 
         answer = input("Commit changes? [y] ")
+        # incase of a rename
+        obj_name = data.get('name')
         if not len(answer) or re.match("^(yes|y)$", answer, flags=re.IGNORECASE):
             try:
                 dbo.update_object(obj_type, obj_name, data)

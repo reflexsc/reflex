@@ -55,7 +55,8 @@ github_api="https://api.github.com/repos/reflexsc/reflex/releases?access_token=$
 curl --data '{"tag_name": "'$VERSION'","target_commitish": "master","name": "'$VERSION'","body": "Release of version '"$VERSION"'","draft": false,"prerelease": false}'  $github_api
 
 cd ../pypi
-
+echo PYPI_DIST=pypi ./build.sh $VERSION
 PYPI_DIST=pypi ./build.sh $VERSION
+
 #PYPI_DIST=pypitest ./build.sh $VERSION
 
