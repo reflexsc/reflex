@@ -525,10 +525,13 @@ class Config(VerboseBase):
         self.peers = base.peers # should come in from ConfigProcessor
         if self.peers:
             self.conf['peers'] = self.peers
-            self.conf.setenv['LAUNCH_PEERS'] = ",".join([key + "@" + value
-                                                         for key, value in self.peers.items()])
-            self.conf.setenv['LAUNCH_PEER_NAMES'] = ",".join(list(self.peers.keys()))
-            self.conf.setenv['LAUNCH_PEER_IPS'] = ",".join(list(self.peers.values()))
+            for iplabel in ('0', '1'):
+                peers = self.peers['ip' + iplabel]
+
+                self.conf.setenv['LAUNCH_PEERS' + iplabel] = \
+                    ",".join([key + "@" + value for key, value in peers.items()])
+                self.conf.setenv['LAUNCH_PEER' + iplabel + '_NAMES'] = ",".join(list(peers.keys()))
+                self.conf.setenv['LAUNCH_PEER' + iplabel + '_IPS'] = ",".join(list(peers.values()))
 
     def load(self):
         obj = self.engine.get_object('config', self.conf.name)

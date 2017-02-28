@@ -265,12 +265,17 @@ class App(rfx.Base):
     ############################################################################
     def _load_peers(self):
         """Query Reflex engine for peers to self"""
-        # python dict/list comprehension syntax - barf
-        self.launch_peers = {d['name']: d['address']['ip0']
-                             for d in self.rcs.list('instance',
-                                                    match=self.launch_service['name'] + "*",
-                                                    cols=['address', 'status', 'name'])
-                             if d['name'] != self.my_host}
+
+        self.launch_peers = dict(ip0=dict(), ip1=dict())
+        for inst in self.rcs.list('instance',
+                                  match=self.launch_service['name'] + "*",
+                                  cols=['address', 'status', 'name']):
+            if inst['name'] == self.my_host:
+                continue
+            for iplabel in self.launch_peers:
+                ipnbr = inst['address'].get(iplabel, '')
+                if ipnbr:
+                    self.launch_peers[iplabel][inst['name']] = ipnbr
 
     def _launch_update_instance(self):
         try:
@@ -295,7 +300,7 @@ class App(rfx.Base):
             else:
                 self.rcs.update('instance', myname, update)
             self.NOTIFY("Updating instance " + myname)
-        except Exception: # pylint: disable=bare-except
+        except Exception: # pylint: disable=broad-except
             if self.do_DEBUG():
                 self.NOTIFY("Unable to update instance:")
                 self.DEBUG(traceback.format_exc())
