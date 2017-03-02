@@ -174,6 +174,7 @@ class Master(rfx.Base):
         if 'crypto' in kwargs:
             self.crypto = dict()
             for name in kwargs['crypto']:
+                self.NOTIFY("crypto initializing key=" + name)
                 self.crypto[name] = dict()
                 if len(name) != 3:
                     raise ValueError("Crypto names must be 3 characters long")
@@ -193,6 +194,8 @@ class Master(rfx.Base):
             if not defaults:
                 raise ValueError("No default crypto key defined?")
             self.default_key = list(defaults.keys())[0]
+        self.NOTIFY("crypto default key={}".format(self.default_key))
+
 
     ############################################################################
     def connect(self):

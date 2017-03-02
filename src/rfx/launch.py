@@ -273,6 +273,8 @@ class App(rfx.Base):
             if inst['name'] == self.my_host:
                 continue
             for iplabel in self.launch_peers:
+                if inst.get('status', 'failed') != 'ok':
+                    continue
                 ipnbr = inst['address'].get(iplabel, '')
                 if ipnbr:
                     self.launch_peers[iplabel][inst['name']] = ipnbr

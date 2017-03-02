@@ -829,7 +829,7 @@ Usage: """ + self.cmd + " " + "|".join(self._args[0][1]["set"]) + """ [..args]
 
 => """ + self.cmd + """ list
 => """ + self.cmd + """ delete {name}
-=> """ + self.cmd + """ create {name}={role}
+=> """ + self.cmd + """ create {name}
 
    Where NAME identifies the user, and scope is one of: super, sensitive, write, read
 

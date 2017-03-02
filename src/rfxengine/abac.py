@@ -122,7 +122,7 @@ class Policy(object):
             if eval(self.policy_expr, context, attrs):
                 return True
         except KeyError as err:
-            log("policy error, missing key", error=str(err))
+            log("policy failure id={} missing key={}".format(self.policy_id, err))
 
         return False
 

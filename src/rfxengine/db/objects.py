@@ -686,6 +686,7 @@ class RCObject(rfx.Base):
             key = self.master.default_key
             return '__$' + key + crypto[key]['cipher'].key_encrypt(data)
         else:
+            self.NOTIFY("crypto ERROR no keys!")
             return '__$___' + data
 
     ############################################################################

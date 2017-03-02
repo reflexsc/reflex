@@ -201,7 +201,13 @@ class Server(rfx.Base):
                 'sessions': 300,
                 'groups': 300
             },
-            'secrets': [],
+            'crypto': {
+#                '000': {
+# dd if=/dev...
+#                    'key': "",
+#                    'default': True,
+#                }
+            },
             'db': {
                 'database': 'reflex_engine',
                 'user': 'root'
@@ -246,7 +252,7 @@ class Server(rfx.Base):
             conf['test_mode'] = False
 
         # db connection
-        self.dbm = mxsql.Master(config=conf.db, base=self)
+        self.dbm = mxsql.Master(config=conf.db, base=self, crypto=conf.get('crypto'))
 
         # configure the cache
         self.dbm.cache = rfxengine.memstate.Cache(**conf.cache.__export__())

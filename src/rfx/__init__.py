@@ -201,6 +201,9 @@ class Base(Colorize):
         except IOError as err:
             self.NOTIFY("Unable to load config!")
             self.DEBUG("Reason: " + str(err))
+
+        if not self.cfg.get('REFLEX_URL') or not self.cfg.get('REFLEX_APIKEY'):
+            self.NOTIFY("neither REFLEX_URL nor REFLEX_APIKEY configured, try: reflex setup wizard")
         return self
 
     ############################################################

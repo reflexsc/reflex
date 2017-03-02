@@ -24,7 +24,7 @@
 
 import os
 import re
-#from builtins import input # pylint: disable=redefined-builtin
+import traceback
 import rfx
 from rfx.backend import Engine, EngineCli
 
@@ -92,23 +92,13 @@ class ControlCli(rfx.Base):
 
     ############################################################
     def apikey_cli(self, argv, args, cli):
-        #self.NOTIFY("Specify Administrative Token (end with newline):")
-        #admkey = input("Admin API Token: ")
-        #self.NOTIFY("")
-        admkey = self.cfg.get('REFLEX_APIKEY')
-
         action = args.get('action')
         target = " ".join(argv)
 
         dbo = Engine(base=self)
 
         try:
-            if action in ('delete', 'create'):
-                if not len(target):
-                    cli.fail("No target specified for " + action)
-                getattr(self, "apikey_cli__" + action)(dbo, admkey, target, cli)
-            else:
-                self.apikey_cli__list(dbo, admkey, cli)
+            getattr(self, "apikey_cli__" + action)(dbo, target, cli)
         except rfx.CannotContinueError as err:
             err = str(err)
             if ": 401" in err:
@@ -117,26 +107,26 @@ class ControlCli(rfx.Base):
 
     ############################################################
     # pylint: disable=no-self-use,unused-argument
-    def apikey_cli__delete(self, dbo, admkey, target, cli):
-        dbo.delete_object("apikey", target, apikey=admkey)
+    def apikey_cli__delete(self, dbo, target, cli):
+        dbo.delete_object("apikey", target) # , apikey=admkey)
 
     ############################################################
-    def apikey_cli__list(self, dbo, admkey, cli): # pylint: disable=unused-argument
+    def apikey_cli__list(self, dbo, target, cli):
         ecli = EngineCli(base=self)
         ecli.list_cli("apikey", {'--show': 'name'}, [])
 
     ############################################################
-    def apikey_cli__create(self, dbo, admkey, target, cli):
-        keyval = target.split("=", 1)
-        if len(keyval) != 2:
-            cli.fail("Must make assignment as {name}={scope}")
-        (name, scope) = keyval
-        if scope in ["super", "sensitive", "write", "read"]:
-            res = dbo.create_object("apikey",
-                                    {"name":name, "scope":scope},
-                                    apikey=admkey)
-            self.NOTIFY("Created name={0}, id={1}, secret apikey:\n\n{2}\n"
-                        .format(name, res['id'],
-                                res.get('apikey', res.get('token', 'n/a'))))
-        else:
-            cli.fail("Scope is missing or wrong")
+    def apikey_cli__create(self, dbo, target, cli):
+        try:
+            dbo.create_object("apikey", {"name":target})
+            apikey = dbo.get_object('apikey', target)
+            self.NOTIFY("new apikey:\n\n\t{}.{}"
+                        .format(apikey.get('name', 'invalid'),
+                                apikey.get('secrets', ['invalid'])[0]))
+        except Exception: # pylint disable=broad-except
+            self.NOTIFY("Unable to properly create apikey!")
+            if self.do_DEBUG():
+                self.NOTIFY(traceback.format_exc(0))
+                self.NOTIFY("(try --debug=* for more info)")
+            else:
+                self.NOTIFY(traceback.format_exc())
