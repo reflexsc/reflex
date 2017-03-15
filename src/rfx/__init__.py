@@ -32,6 +32,9 @@ import sys
 import time
 import re
 import copy
+import fcntl # get_my_ips
+import struct # get_my_ips
+import socket # get_my_ips
 import threading
 import traceback
 import subprocess
@@ -82,6 +85,21 @@ def threadlock(func):
     return threadlock_wrapper
 
 ################################################################
+def get_my_ips():
+    """highly os specific - works only in modern linux kernels"""
+    ips = list()
+    for ifdev in sorted(os.listdir("/sys/class/net")):
+        if ifdev == "lo":
+            continue
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        ips.append(socket.inet_ntoa(fcntl.ioctl(
+            sock.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifdev[:15])
+        )[20:24]))
+    return ips
+
+################################################################
 # pylint: disable=too-few-public-methods
 class Colorize(object):
     """Enhance an object with ANSI colorizing"""
@@ -123,6 +141,9 @@ class Base(Colorize):
     timestamp = False
     term_width = 80
     lock = None # used with threadsafe=True init arg
+    my_ip = ''
+    my_ips = None
+    my_host = ''
 
     # global static. DO NOT CHANGE. This should be enhanced with a local secret file
     secret_seed = "Y+8CcVDNH/HWt1nDuNPrdl0npPQYwrPZ3ZqSMtutbso="
@@ -154,6 +175,22 @@ class Base(Colorize):
         # implement a mutex if requested
         if kwargs.get('threadsafe'):
             self.lock = threading.Lock()
+
+    ############################################################
+    def get_my_nameip(self):
+        """Try to get my own IP, capture errors"""
+        self.my_host = socket.gethostname()
+        try:
+            self.my_ips = get_my_ips()
+            self.my_ip = self.my_ips[0]
+        except: # pylint: disable=bare-except
+            try:
+                self.my_ip = socket.gethostbyname(self.my_host)
+                self.my_ips = [self.my_ip]
+            except: # pylint: disable=bare-except
+                self.NOTIFY("Not able to identify my own address")
+                self.my_ip = ''
+                self.my_ips = []
 
     ############################################################
     # terminal size

@@ -27,7 +27,6 @@ import os
 import traceback
 import subprocess
 import sys
-import socket # gethostbyname
 import ujson as json
 #import boto3
 #from boto3.s3.transfer import S3Transfer
@@ -50,7 +49,6 @@ class Action(rfx.Base):
     action_dirs = ['.pkg/', '.reflex/', '.rfx', '.']
     config_files = ['config.json', 'actions.json']
     config = {}
-    my_ip = ''
     dbo = None
     extcfg = None
     s3cfg = None
@@ -85,7 +83,7 @@ class Action(rfx.Base):
         if 'test' not in self.debug:
             self.colorize = kwargs.get('colorize', True)
             try:
-                self.my_ip = socket.gethostbyname(socket.gethostname())
+                self.get_my_nameip()
             except: # pylint: disable=bare-except
                 pass
 

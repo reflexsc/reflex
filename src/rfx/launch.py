@@ -57,13 +57,13 @@ class App(rfx.Base):
         rfx.Base.__inherit__(self, base)
         self.dbo = Engine(base=base)
         self.rcs = rfx.client.Session(base=base)
-        self.my_host = socket.gethostname()
-        self.my_ip = socket.gethostbyname(self.my_host)
+        self.get_my_nameip()
         self.launch_peers = dict()
         self.launch_exec = list()
         self.launch_env = dict()
         self.launch_pipeline = dict()
         self.launch_service = dict()
+
 
     ############################################################################
     def __repr__(self):

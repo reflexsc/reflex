@@ -123,7 +123,7 @@ class ControlCli(rfx.Base):
             self.NOTIFY("new apikey:\n\n\t{}.{}"
                         .format(apikey.get('name', 'invalid'),
                                 apikey.get('secrets', ['invalid'])[0]))
-        except Exception: # pylint disable=broad-except
+        except Exception: # pylint: disable=broad-except
             self.NOTIFY("Unable to properly create apikey!")
             if self.do_DEBUG():
                 self.NOTIFY(traceback.format_exc(0))
