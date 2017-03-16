@@ -284,7 +284,6 @@ class EngineCli(rfx.Base):
 
         if 'id' in obj:
             del obj['id']
-        print(obj)
 
         self.OUTPUT("Copy {0} {1} to {2}".format(obj_type, obj_source, obj_dest))
         obj['name'] = obj_dest

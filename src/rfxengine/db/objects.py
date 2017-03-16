@@ -245,7 +245,7 @@ class RCObject(rfx.Base):
             result = get_name(target)
         if result:
             return result
-        return None
+        return (0, target)
 
     ############################################################################
     # pylint: disable=no-self-use
@@ -397,9 +397,9 @@ class RCObject(rfx.Base):
         if not self.authorized("write", attrs, sensitive=False, raise_error=False):
             raise PolicyFailed("Unable to get permission to read object")
 
-        obj_id = self.name2id_direct(target, dbi)
+        obj_id = self.name2id_direct(target, dbi)[0]
         if obj_id:
-            deleted = dbi.do_count("DELETE FROM " + self.table + " WHERE id = ?", obj_id[0])
+            deleted = dbi.do_count("DELETE FROM " + self.table + " WHERE id = ?", obj_id)
         else:
             raise ObjectNotFound("Target not found")
         self.obj = dict(id=obj_id)

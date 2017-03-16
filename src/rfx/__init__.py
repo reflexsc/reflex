@@ -95,7 +95,7 @@ def get_my_ips():
         ips.append(socket.inet_ntoa(fcntl.ioctl(
             sock.fileno(),
             0x8915,  # SIOCGIFADDR
-            struct.pack('256s', ifdev[:15])
+            struct.pack('256s', ifdev[:15].encode())
         )[20:24]))
     return ips
 
