@@ -175,7 +175,7 @@ class Session(rfx.Base):
         return self._call(requests.get, obj_type + "/" + str(obj_target))
 
     ############################################################################
-    def list(self, obj_type, match=None, cols=None):
+    def list(self, obj_type, match=None, cols=None, raise_error=True):
         """
         session LIST.  Match is a glob pattern (optional), cols is a list
         of column names
@@ -189,7 +189,13 @@ class Session(rfx.Base):
         querystr = obj_type + "/"
         if args:
             querystr += "?" + "&".join(args)
-        return self._call(requests.get, querystr)
+        if raise_error:
+            return self._call(requests.get, querystr)
+        else:
+            try:
+                return self._call(requests.get, querystr)
+            except: 
+                return list()
 
     ############################################################################
     def create(self, obj_type, obj_data):

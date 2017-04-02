@@ -263,7 +263,7 @@ class RCObject(rfx.Base):
     @db_interface
     def exists(self, target, dbi=None):
         """Does an object exist?  Lightweight test, return obj ID or 0"""
-        return self.name2id_direct(target, dbi)
+        return self.name2id_direct(target, dbi)[0]
 
     ############################################################################
     def dump(self):
@@ -395,7 +395,7 @@ class RCObject(rfx.Base):
 
         self.policies = self._get_policies(dbi=dbi)
         if not self.authorized("write", attrs, sensitive=False, raise_error=False):
-            raise PolicyFailed("Unable to get permission to read object")
+            raise PolicyFailed("Unable to get permission to delete object")
 
         obj_id = self.name2id_direct(target, dbi)[0]
         if obj_id:
@@ -706,18 +706,35 @@ class RCObject(rfx.Base):
 
     ############################################################################
     def authorized(self, action, attrs, sensitive=False, raise_error=False):
-        """Cross reference ABAC policy for attrs and action"""
+        """
+        Cross reference ABAC policy for attrs and action.  To evaluate policies
+        for debugging, add --debug=abac.
+        """
 
         attrs['action'] = action
         attrs['sensitive'] = sensitive
         attrs['obj_type'] = self.table
         attrs['obj'] = self.obj
-        for act in (action, 'admin'):
+        abac_debug = False
+        if self.do_DEBUG(module="abac"):
+            abac_debug = True
+            self.DEBUG("<POLICY> attributes={}".format(attrs), module="abac")
+        if action != 'admin':
+            actions = [action, 'admin']
+        else:
+            actions = ['admin']
+        for act in actions:
             for policy_id in self.policies[act]:
+                if abac_debug:
+                    self.DEBUG("<POLICY> action={} policy=\"{}\""
+                               .format(act, self.policies[act][policy_id].policy_expr),
+                               module="abac")
                 if self.policies[act][policy_id].allowed(attrs):
+                    if abac_debug:
+                        self.DEBUG("<POLICY> Success!", module="abac")
                     return True
         if raise_error:
-            raise PolicyFailed("Unable to get permission")
+            raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
         return False
 
     ############################################################################
@@ -1496,10 +1513,9 @@ def policyscope_map_for(pscope, dbi, context, table, target_id):
                           SET obj = ?, policy_id = ?, target_id = ?,
                               pscope_id = ?, action = ?
                        """, table, pscope['policy_id'], target_id,
-                       pscope['policy_id'], action)
+                       pscope['id'], action)
     except: # pylint: disable=bare-except
-        if do_DEBUG():
-            log("error", traceback=traceback.format_exc())
+        log("policymap_error", traceback=traceback.format_exc())
 
 ################################################################################
 class Policyscope(RCObject):
@@ -1603,21 +1619,21 @@ class Policyscope(RCObject):
     def changed(self, attrs, dbi=None):
         errors = super(Policyscope, self).changed(attrs, dbi=dbi)
 
-        # direct since we changed
-        scopelist = policyscope_get_direct(self.master.cache,
-                                           dbi,
-                                           self.obj['type'])
-
         # invalidate all cached data for policy maps
         self.master.cache.clear_type('policymap')
 
+        # first cleanup previous mappings from this policyscope
+        dbi.do("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
         if self.obj['type'] == 'targetted':
+            scopelist = policyscope_get_direct(self.master.cache,
+                                               dbi,
+                                               self.obj['type'])
             for table in Schema.tables:
                 if not table.policy_map:
                     continue
                 tobj = table(master=self.master)
 
-                # build the list in memory, so we can re-use the cursor
+                # build the list in memory, so we can re-use the cursor later
                 memarray = list()
                 cursor = dbi.do("SELECT id,name FROM " + tobj.table)
                 for row in cursor:
@@ -1630,17 +1646,18 @@ class Policyscope(RCObject):
 
         else: # global
             context = dict(obj={}, obj_type='')
-            for pscope in scopelist:
-                for table in Schema.tables:
-                    if not table.policy_map:
-                        continue
-                    obj = table(master=self.master)
-                    context['obj'] = obj
-                    context['obj_type'] = obj.table
-                    dbi.do("""DELETE FROM PolicyFor
-                              WHERE obj = ? AND pscope_id = ? AND policy_id = ?
-                           """, obj.table, pscope['id'], pscope['policy_id'])
-                    policyscope_map_for(pscope, dbi, context, obj.table, 0)
+            #for pscope in scopelist:
+            for table in Schema.tables:
+                if not table.policy_map:
+                    continue
+                obj = table(master=self.master)
+                context['obj'] = obj
+                context['obj_type'] = obj.table
+                policyscope_map_for(self.obj, dbi, context, obj.table, 0)
+
+            #        dbi.do("""DELETE FROM PolicyFor
+            #                  WHERE obj = ? AND pscope_id = ? AND policy_id = ?
+            #               """, obj.table, pscope['id'], pscope['policy_id'])
 
         return errors
 

@@ -295,7 +295,7 @@ class EngineCli(rfx.Base):
         """get an object.  see --help"""
         obj_name = parsed['name']
         try:
-            obj = Engine(base=self).get_object(obj_type, obj_name)
+            obj = Engine(base=self).get_object(obj_type, obj_name, raise_error=True)
             if argv and len(argv[0]):
                 key = argv[0]
                 if key[:4] == 'obj.':

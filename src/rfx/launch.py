@@ -103,6 +103,7 @@ class App(rfx.Base):
         except rfx.client.ClientError as err:
             if "Endpoint or object not found" in str(err):
                 self.ABORT("Cannot find service: " + service)
+            self.ABORT("Cannot continue: " + str(err))
 
         self.launch_pipeline = self.rcs.get('pipeline',
                                             self.launch_service['pipeline'])
@@ -269,7 +270,8 @@ class App(rfx.Base):
         self.launch_peers = dict(ip0=dict(), ip1=dict())
         for inst in self.rcs.list('instance',
                                   match=self.launch_service['name'] + "*",
-                                  cols=['address', 'status', 'name']):
+                                  cols=['address', 'status', 'name'],
+                                  raise_error=False):
             if inst['name'] == self.my_host:
                 continue
             for iplabel in self.launch_peers:
