@@ -336,7 +336,11 @@ class EngineCli(rfx.Base):
         """delete an object.  see --help"""
         obj_name = parsed['name']
         try:
-            Engine(base=self).delete_object(obj_type, obj_name)
+            result = Engine(base=self).delete_object(obj_type, obj_name)
+            if result['status'] == 'deleted':
+                self.NOTIFY("Deleted " + obj_type.capitalize() + " '" + obj_name + "'")
+            else:
+                self.NOTIFY("Unable to delete: {}".format(result))
         except Exception as err: # pylint: disable=broad-except
             self.ABORT("Cannot delete object '{0}': {1}".format(obj_name, err))
 
@@ -433,24 +437,21 @@ class EngineCli(rfx.Base):
             extract = extract[4:]
 
         extracted = set()
+        extracted_objs = dict()
 
-        for obj in Engine(base=self).list_objects(obj_type):
+        for obj in Engine(base=self).session.list(obj_type, cols='*'):
             if not name_rx.search(obj['name']):
                 continue
             context = {'obj': dictlib.Obj(**obj), 'True': True, 'False': False}
             try:
                 # pylint: disable=eval-used
-                print("? {}".format(limit))
                 if not eval(limit, {'__builtins__':{}, 'rx': re}, context):
-                    print("not for " + obj['name'])
                     continue
             except KeyError:
                 print("key error")
                 continue
             except: # pylint: disable=bare-except
                 traceback.print_exc()
-
-            self.NOTIFY("Matched '{}'".format(obj['name']))
 
             value = dictlib.dig_get(obj, extract)
             if not value:
@@ -461,10 +462,16 @@ class EngineCli(rfx.Base):
             else:
                 extracted.add(value)
 
+            extracted_objs[obj['name']] = value
+
         if parsed.get('--format', 'txt') == 'txt':
-            self.OUTPUT(" ".join(extracted))
+            self.OUTPUT(" ".join(extracted) + "\n")
+        if parsed.get('--format', 'txt') == 'list':
+            # pylint: disable=consider-iterating-dictionary
+            for obj in sorted(extracted_objs.keys()):
+                self.OUTPUT("{}: {}".format(obj, extracted_objs[obj]))
         else:
-            self.OUTPUT(ujson.dumps(extracted))
+            self.OUTPUT(ujson.dumps(extracted) + "\n")
 
     ###########################################################################
     # pylint: disable=unused-argument

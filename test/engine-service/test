@@ -72,16 +72,21 @@ config='
    "housekeeper": 2,
    "policies": 1
  },
- "secrets":["'$JWT_SECRET'"],
  "db": {
     "database": "reflex_engine",
     "user": "root"
+ },
+ "crypto": {
+    "000": {
+      "key": "'$(dd if=/dev/urandom bs=32 count=1|base64 -w0)'",
+      "default": true
+    }
  }
 }
 '
 
 export REFLEX_ENGINE_CONFIG="$config"
-[ $SERVICE ] && start_svc reflex-engine "--test"
+[ $SERVICE ] && start_svc reflex-engine "--test --debug=abac"
 
 errs=0
 #[ $DO_LINT ] && {

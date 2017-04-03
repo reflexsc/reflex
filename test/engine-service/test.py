@@ -792,7 +792,7 @@ def test_full_stack(schema, base, tester, baseurl):
                  r"'status': 'created'")
 
     # map the policy global
-    tester.okcmp("Reflex Policymatch Create global", tester, tester.rcs,
+    tester.okcmp("Reflex Policyscope Create global", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-read-configs",
                      "policy_id": 101,
@@ -813,7 +813,7 @@ def test_full_stack(schema, base, tester, baseurl):
                  r"'sensitive': 'encrypted")
 
     # map the sensitive policy just to the individual items (it is targetted)
-    tester.okcmp("Reflex Policymatch Create sensitive", tester, tester.rcs,
+    tester.okcmp("Reflex Policyscope Create sensitive", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-read-sensitive",
                      "policy_id": 102,

@@ -99,12 +99,17 @@ class Rest(object):
             cherrypy.response.status = 403
             return {"status": "failed", "message": "Forbidden"}
         except (ValueError, exceptions.InvalidParameter, Error) as err:
-            cherrypy.response.status = err.args[1]
-            if isinstance(err.args[0], dict):
-                status = err.args[0]
-                status.update({'status': 'failed'})
+            status = {"status": "failed"}
+            cherrypy.response.status = 400
+            if type(err) in (list, tuple, Error):
+                cherrypy.response.status = err.args[1]
+                if isinstance(err.args[0], dict):
+                    status = err.args[0]
+                    status.update({'status': 'failed'})
+                else:
+                    status['message'] = err.args[0]
             else:
-                status = {"status": "failed", "message": err.args[0]}
+                status['message'] = str(err)
             return status
         except Exception as err:
             log("error", traceback=traceback.format_exc())

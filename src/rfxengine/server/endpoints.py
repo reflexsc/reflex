@@ -291,7 +291,7 @@ class Object(server.Rest, Attributes):
                 errs = []
                 if errs:
                     raise server.Error(",".join(errs), 400)
-            # todo: sanitize match
+                # todo: sanitize match
                 data = obj.list_cols(attrs, cols, match=kwargs.get('match'))
             else:
                 data = obj.list_buffered(attrs, match=kwargs.get('match'))

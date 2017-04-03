@@ -194,7 +194,7 @@ class Session(rfx.Base):
         else:
             try:
                 return self._call(requests.get, querystr)
-            except: 
+            except: # pylint: disable=bare-except
                 return list()
 
     ############################################################################

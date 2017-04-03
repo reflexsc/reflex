@@ -108,12 +108,12 @@ class TAP(rfx.Base):
         if value:
             self._tap_good += 1
             self.NOTIFY(tstamp + msg, color='green')
-            self.log(">>> " + msg + "\n\n")
+            self.log("==> " + msg + "\n\n")
             return True
         else:
             self._tap_bad += 1
             self.NOTIFY(tstamp + "not " + msg, color='red')
-            self.log(">>> not " + msg + "\n\n")
+            self.log("==> not " + msg + "\n\n")
             return False
 
     ###########################################################################
@@ -129,9 +129,7 @@ class TAP(rfx.Base):
         sub.wait()
         output = sub.stdout.read()
         self.log_header(label)
-        self.log("================ Output ================\n")
-        self.log(output)
-        self.log("========================================\n")
+        self.log_output("OUTPUT", output)
         if sub.returncode > 0:
             self._debug_output(output, force=True)
             self.OUTPUT(label + " return code failure ({})".format(sub.returncode))
@@ -155,6 +153,20 @@ class TAP(rfx.Base):
         return self._ok_output_compare(label, output, *expected)
 
     ###########################################################################
+    def log_output(self, label, output):
+        """
+        Log a block of text
+        """
+        def hdr(label):
+            length = int((80 - (len(label))) / 2)
+            self.log(("<" * length) + label + (">" * length) + "\n")
+        self.log("\n")
+        hdr(" BEGIN " + label + " ")
+        self.log(output)
+        hdr(" END " + label + " ")
+        self.log("\n")
+
+    ###########################################################################
     def _debug_output(self, output, force=False):
         """
         Print output if we are debugging it
@@ -162,7 +174,7 @@ class TAP(rfx.Base):
         if force or self.do_DEBUG(module='test'):
             if isinstance(output, bytes): # grr python 2/3
                 output = output.decode()
-            self.OUTPUT("---- OUTPUT ----\n" + output + "\n----- END ----")
+            self.log_output("OUTPUT", output)
 
     ###########################################################################
     def ok_func(self, label, func, *args, **kwargs):
@@ -253,9 +265,7 @@ class TAP(rfx.Base):
         cksum = md5(output)
         self._debug_output(output)
         self.log_header(label)
-        self.log("=================== OUTPUT ====================\n")
-        self.log(output)
-        self.log("===============================================\n")
+        self.log_output("OUTPUT", output)
 
         if cksum != expected:
             self.OUTPUT("Expected: {} != found: {}".format(expected, cksum))

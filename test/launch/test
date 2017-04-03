@@ -80,9 +80,11 @@ def main():
     bpath = Action.action_dirs[0]
 
     def clean():
+        tap.log("==== Cleaning... ignore these errors:\n")
         tap.TRAP(db.delete_object, "pipeline", test_name, notify=False)
         tap.TRAP(db.delete_object, "service", test_name, notify=False)
         tap.TRAP(db.delete_object, "config", test_name, notify=False)
+        tap.log("==== Done Cleaning\n")
 
     def rm(file):
         try:
@@ -104,7 +106,7 @@ def main():
         clean()
         tap.ok_func("Create Pipeline", db.create_object, "pipeline", {
             'name': test_name,
-            'title': 'Ephemer Test',
+            'title': 'Reflex Test',
             'launch': {
                 'type': 'exec',
                 'rundir': '.',
@@ -123,7 +125,6 @@ def main():
             'name': test_name,
             'pipeline': test_name,
             'config': test_name,
-            'title': 'Ephemer Test',
             'versions': False
         }, notify=False)
 
@@ -157,15 +158,15 @@ def main():
 #                       cli, cli.env_cli, test_name, args)
 #        tap.ok_func_io("launch config", '1fb8a624687b37e846696078210a6e3e',
 #                       cli, cli.config_cli, test_name, args)
-    tap.ok_run("launch env w/arg", '6f22a03ee05c009ad2541520eaed5d4e',
+    tap.ok_run("launch env w/arg", 'fd7cae61a5e95151fc41db89f9e5a2e2',
                ["launch", "--notime", "env", test_name])
 
     os.environ['REFLEX_SERVICE'] = test_name
-    tap.ok_run("launch env w/env", '6f22a03ee05c009ad2541520eaed5d4e',
+    tap.ok_run("launch env w/env", 'fd7cae61a5e95151fc41db89f9e5a2e2',
                ["launch", "--notime", "env"])
     del os.environ["REFLEX_SERVICE"]
 
-    tap.ok_run("launch config", '257efd588ffd81da170468eb3a420ddb',
+    tap.ok_run("launch config", 'fa3f311e15c1ac24b049c1afab5b5f91',
                ["launch", "--notime", "config", test_name])
 
     tap.ok_run("launch service", '1cb671b1a1ef31074bddcb7258fb3676',
@@ -217,6 +218,7 @@ def main():
 
     tap.ok_func("Update Pipeline", db.update_object, "pipeline", test_name, {
         'name': test_name,
+        'title': 'Reflex Service Test',
         'launch': {
             'type': 'action',
             'target': 'launch',
@@ -224,10 +226,10 @@ def main():
         'versions': False
     }, notify=False)
 
-    tap.ok_run("launch service", '8af99380f8fa2e5a853b9573a2a45118',
+    tap.ok_run("launch service", '9495b569cd55f6a4045ef9c589092a07',
                ["launch", "--notime", "--debug=test", "service", test_name])
 
-    tap.ok_run("launch service action", 'c115b7054016764de5f52806e1654eeb',
+    tap.ok_run("launch service action", 'bb598a26560f92ddb1b487dc0e37f03b',
                ["launch", "--notime", "--debug=test", "service", test_name + ":variant"])
 
     if not args.noclean:

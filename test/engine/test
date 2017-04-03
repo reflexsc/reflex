@@ -89,10 +89,10 @@ def main():
     if not args.nounit:
         tap.unit(rfx_lib, "backend.py", exit_on_fail=True)
 
-    rxe_cmd = "../../bin/rxe"
+    rxe_cmd = "engine"
     for obj in ['service']:
         tap.ok_run_compare("Create {} object".format(obj),
-                           [rxe_cmd, '--content', '{}', obj,
+                           [rxe_cmd, '--content', '{"pipeline": "_rfx_test_", "config":"_rfx_test_"}', obj,
                             'create', '_rfx_test_'],
                            r'''"name":"_rfx_test_",''')
         tap.ok_run_compare("List {} objects".format(obj),

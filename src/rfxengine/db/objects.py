@@ -43,7 +43,7 @@ from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
                                  NoChanges, CipherException, InvalidParameter,\
                                  PolicyFailed
-from rfxengine import abac, log, do_DEBUG
+from rfxengine import abac, log, do_DEBUG #, trace
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
 import dictlib
@@ -346,6 +346,8 @@ class RCObject(rfx.Base):
 
             if col.stored == "data":
                 value = data.get(name, None)
+            elif name == "updated_at" and dbin.get("unix_timestamp(updated_at)", None):
+                value = dbin.get("unix_timestamp(updated_at)")
             else:
                 value = dbin.get(col.stored, None)
 
@@ -473,28 +475,33 @@ class RCObject(rfx.Base):
         self.policies = self._get_policies(dbi=dbi)
         self.authorized("read", attrs, sensitive=False, raise_error=True)
 
-        keys = []
+        cols = set(cols)
+        keys = set()
         args = []
         added_data = False
         if 'id' not in cols: # needed for get_policies
-            cols.append('id')
+            cols.add('id')
+
+        # special case '*'
+        if "*" in cols:
+            cols = set(self.omap.keys())
+
         for item in cols:
             if item == "updated_at":
-                keys.append("unix_timestamp(updated_at)")
+                keys.add("unix_timestamp(updated_at)")
             else:
                 col = self.omap.get(item)
                 if not col or col.stored == 'data':
                     if not added_data:
-                        keys.append("data")
+                        keys.add("data")
                         added_data = True
                 else:
-                    keys.append(col.stored)
+                    keys.add(col.stored)
 
         sql = "SELECT " + ",".join(keys) + " FROM " + self.table
         if match:
             sql += " WHERE name like ?"
             args += [match.replace("*", "%")] # translate from glob
-
         sql += " ORDER BY name"
         if limit:
             sql += " LIMIT ?"
@@ -745,11 +752,11 @@ class RCObject(rfx.Base):
             name[.id]
 
         If .id is an integer it should map to an existing object, and is given
-        lookup preference (ignoring name).  It may also be .notfound, at which
-        point it is a bad reference, but is left in the array. Example:
+        lookup preference (ignoring name).  It may also be .0, at which
+        point it is a bad reference, but is left in the name. Example:
 
-            fin-kfs.14314
-            fin-kfs.notfound
+            tardis-1.14314
+            tardis-2.0
 
         Returns array of errors (if there were any).  An empty array is success.
         """
@@ -764,7 +771,7 @@ class RCObject(rfx.Base):
         """
         obj = table.name2id_direct(target, dbi)
         target = target.split(".", 1)[0]
-        if obj:
+        if obj[0]:
             return (obj[1] + "." + str(obj[0]), '')
         else:
             return (target + ".notfound",
@@ -849,19 +856,23 @@ class RCObject(rfx.Base):
         Any actions or updates required on change of this object
         """
         scopelist = policyscope_get_cached(self.master.cache, dbi, 'targetted')
-        self.map_targetted_policies(scopelist, dbi=dbi)
-        return list()
-
-    #############################################################################
-    def map_targetted_policies(self, scopelist, dbi=None):
-        """
-        Review policies and scope to this object
-        """
-
         self._delete_policyfor(dbi)
         context = dict(obj=self.obj, obj_type=self.table)
         for pscope in scopelist:
             policyscope_map_for(pscope, dbi, context, self.table, self.obj['id'])
+        #self.map_targetted_policies(scopelist, dbi=dbi)
+        return list()
+
+    #############################################################################
+#    def map_targetted_policies(self, scopelist, dbi=None):
+#        """
+#        Review policies and scope to this object
+#        """
+#
+#        self._delete_policyfor(dbi)
+#        context = dict(obj=self.obj, obj_type=self.table)
+#        for pscope in scopelist:
+#            policyscope_map_for(pscope, dbi, context, self.table, self.obj['id'])
 
 ################################################################################
 class Pipeline(RCObject):
@@ -1641,12 +1652,15 @@ class Policyscope(RCObject):
 
                 # now map out the policies
                 for row in memarray:
-                    tobj.obj = row
-                    tobj.map_targetted_policies(scopelist, dbi=dbi)
+                    context = dict(obj=row, obj_type=table.table)
+                    # we need to do the entire scopelist becuase map_targetted
+                    # removes all matching this target
+           #         tobj.map_targetted_policies(scopelist, dbi=dbi)
+                    for pscope in scopelist:
+                        policyscope_map_for(pscope, dbi, context, table.table, row['id'])
 
         else: # global
             context = dict(obj={}, obj_type='')
-            #for pscope in scopelist:
             for table in Schema.tables:
                 if not table.policy_map:
                     continue
@@ -1654,10 +1668,6 @@ class Policyscope(RCObject):
                 context['obj'] = obj
                 context['obj_type'] = obj.table
                 policyscope_map_for(self.obj, dbi, context, obj.table, 0)
-
-            #        dbi.do("""DELETE FROM PolicyFor
-            #                  WHERE obj = ? AND pscope_id = ? AND policy_id = ?
-            #               """, obj.table, pscope['id'], pscope['policy_id'])
 
         return errors
 
