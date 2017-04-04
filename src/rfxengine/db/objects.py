@@ -357,10 +357,9 @@ class RCObject(rfx.Base):
                 raise InvalidParameter("Object load: missing '" + col.stored + "'")
 
             if col.encrypt:
-                if attrs is True or not self.authorized("read",
-                                                        attrs,
-                                                        sensitive=True,
-                                                        raise_error=False):
+                if attrs is True:
+                    value = json2data(self.decrypt(value))
+                elif not self.authorized("read", attrs, sensitive=True, raise_error=False):
                     value = {'encrypted': 'values'}
                 elif isinstance(value, str) and value[:3] == '__$':
                     value = json2data(self.decrypt(value))
