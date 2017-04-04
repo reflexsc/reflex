@@ -581,7 +581,7 @@ class RCObject(rfx.Base):
 
             # encode or encrypt the value
             if col.encrypt:
-                if value == {'encrypted': 'values'}
+                if isinstance(value, dict) and value.get('encrypted') == 'values':
                     continue # ignore
                 self.authorized('write', attrs, sensitive=True, raise_error=doabac)
                 value = self.encrypt(json4store(value))
@@ -1186,7 +1186,7 @@ class Group(RCObject):
     def validate(self):
         errors = super(Group, self).validate()
 
-        if self.obj['type'] not in ('Apikey', 'Pipeline'):
+        if self.obj['type'] not in ('Apikey', 'Pipeline', "set"):
             raise InvalidParameter("Invalid type=" + self.obj['type'] +
                                    " not one of: Apikey, Pipeline")
 
@@ -1197,22 +1197,27 @@ class Group(RCObject):
         """map out my relationships"""
         errors = super(Group, self).map_soft_relationships(dbi)
 
-        # todo: look for better option
-        # pylint: disable=eval-used
-        class_obj = eval(self.obj['type'])(clone=self)
-        mapped = set()
-        noid = set()
-        for target in self.obj['group']:
-            (target, error) = self._map_soft_relationship_name2id(dbi,
-                                                                  class_obj,
-                                                                  target)
-            if error:
-                errors.append(error)
-            mapped.add(target)
-            noid.add(target.split(".")[0])
+        # just a list of strings
+        if self.obj['type'] == 'set':
+            self.obj['group'] = list(set([x.lower() for x in self.obj['group']]))
+            self.obj['_grp'] = self.obj['group']
+        else:
+            # todo: look for better option
+            # pylint: disable=eval-used
+            class_obj = eval(self.obj['type'])(clone=self)
+            mapped = set()
+            noid = set()
+            for target in self.obj['group']:
+                (target, error) = self._map_soft_relationship_name2id(dbi,
+                                                                      class_obj,
+                                                                      target)
+                if error:
+                    errors.append(error)
+                mapped.add(target)
+                noid.add(target.split(".")[0])
 
-        self.obj['group'] = list(mapped)
-        self.obj['_grp'] = list(noid)
+            self.obj['group'] = list(mapped)
+            self.obj['_grp'] = list(noid)
 
         return errors
 
