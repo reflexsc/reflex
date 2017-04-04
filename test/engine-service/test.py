@@ -805,12 +805,12 @@ def test_full_stack(schema, base, tester, baseurl):
     tester.okcmp("Reflex Client Get (limited w/success)", tester, tester.rcs,
                  [rcs_pond.get, "config", "tardis-main"], {},
                  r"'name': 'tardis-main'",
-                 r"'sensitive': 'encrypted'")
+                 r"'sensitive': {'encrypted'")
 
     tester.okcmp("Reflex Client Get List (pond sensitive cols w/o)", tester, tester.rcs,
                  [rcs_pond.list, "config"], {'cols': ["name","sensitive"]},
                  r"tardis-main-sub",
-                 r"'sensitive': 'encrypted")
+                 r"'sensitive': {'encrypted")
 
     # map the sensitive policy just to the individual items (it is targetted)
     tester.okcmp("Reflex Policyscope Create sensitive", tester, tester.rcs,
@@ -847,7 +847,7 @@ def test_full_stack(schema, base, tester, baseurl):
 
     tester.okcmp("Reflex Client Get (limited w/fail)", tester, tester.rcs,
                  [rcs_pond.get, "config", "tardis-main"], {},
-                 r"""sensitive': 'encrypted"""
+                 r"""sensitive': {'encrypted"""
                  )
 
     # test a list as master, amy pond, and after policy is deleted
