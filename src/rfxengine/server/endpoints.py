@@ -247,7 +247,7 @@ class Token(server.Rest, abac.AuthService):
             cookie['sid']['path'] = self.server.conf.server.route_base
             cookie['sid']['max-age'] = self.server.conf.auth.expires or 300
             cookie['sid']['version'] = 1
-            log("login", apikey=token.obj['id'])
+            log("login", apikey=token.obj['id'], token=token.obj['name'])
 
         except Exception as err: # pylint: disable=broad-except
             if self.server.do_DEBUG():

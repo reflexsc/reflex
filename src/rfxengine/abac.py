@@ -113,12 +113,7 @@ class Policy(object):
 
         # pylint: disable=eval-used
         try:
-            context = {
-                '__builtins__':{},
-                'true': True,
-                'false': False,
-                'rx': re.search
-            }
+            context = abac_context()
             if eval(self.policy_expr, context, attrs):
                 return True
         except KeyError as err:
@@ -127,6 +122,18 @@ class Policy(object):
         return False
 
 ################################################################################
+def abac_context():
+    def debug_hook(*args):
+        print("<ABAC DEBUG>", *args)
+
+    return {
+        '__builtins__':{},
+        'true': True,
+        'false': False,
+        'rx': re.search,
+        'debug': debug_hook
+    }
+
 def _attrs_skeleton(**kwargs):
     attrs = dictlib.Obj(
         cert_cn='',

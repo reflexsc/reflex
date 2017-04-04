@@ -361,7 +361,7 @@ class RCObject(rfx.Base):
                                                         attrs,
                                                         sensitive=True,
                                                         raise_error=False):
-                    value = 'encrypted'
+                    value = {'encrypted': 'values'}
                 elif isinstance(value, str) and value[:3] == '__$':
                     value = json2data(self.decrypt(value))
 
@@ -581,7 +581,7 @@ class RCObject(rfx.Base):
 
             # encode or encrypt the value
             if col.encrypt:
-                if value == 'encrypted':
+                if value == {'encrypted': 'values'}
                     continue # ignore
                 self.authorized('write', attrs, sensitive=True, raise_error=doabac)
                 value = self.encrypt(json4store(value))
@@ -857,9 +857,9 @@ class RCObject(rfx.Base):
         """
         scopelist = policyscope_get_cached(self.master.cache, dbi, 'targetted')
         self._delete_policyfor(dbi)
-        context = dict(obj=self.obj, obj_type=self.table)
+        attribs = dict(obj=self.obj, obj_type=self.table)
         for pscope in scopelist:
-            policyscope_map_for(pscope, dbi, context, self.table, self.obj['id'])
+            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
         #self.map_targetted_policies(scopelist, dbi=dbi)
         return list()
 
@@ -870,9 +870,9 @@ class RCObject(rfx.Base):
 #        """
 #
 #        self._delete_policyfor(dbi)
-#        context = dict(obj=self.obj, obj_type=self.table)
+#        attribs = dict(obj=self.obj, obj_type=self.table)
 #        for pscope in scopelist:
-#            policyscope_map_for(pscope, dbi, context, self.table, self.obj['id'])
+#            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
 
 ################################################################################
 class Pipeline(RCObject):
@@ -1514,11 +1514,11 @@ def policyscope_get_direct(cache, dbi, mtype):
     return scopelist
 
 ################################################################################
-def policyscope_map_for(pscope, dbi, context, table, target_id):
+def policyscope_map_for(pscope, dbi, attribs, table, target_id):
     """"map poicyscope objects into PolicyFor table"""
     try:
         # pylint: disable=eval-used
-        if eval(pscope['matches'], {'__builtins__':{}, 'rx': re}, context):
+        if eval(pscope['matches'], abac.abac_context(), attribs):
             for action in pscope['actions'].split(","):
                 dbi.do("""REPLACE INTO PolicyFor
                           SET obj = ?, policy_id = ?, target_id = ?,
@@ -1652,22 +1652,22 @@ class Policyscope(RCObject):
 
                 # now map out the policies
                 for row in memarray:
-                    context = dict(obj=row, obj_type=table.table)
+                    attribs = dict(obj=row, obj_type=table.table)
                     # we need to do the entire scopelist becuase map_targetted
                     # removes all matching this target
            #         tobj.map_targetted_policies(scopelist, dbi=dbi)
                     for pscope in scopelist:
-                        policyscope_map_for(pscope, dbi, context, table.table, row['id'])
+                        policyscope_map_for(pscope, dbi, attribs, table.table, row['id'])
 
         else: # global
-            context = dict(obj={}, obj_type='')
+            attribs = dict(obj={}, obj_type='')
             for table in Schema.tables:
                 if not table.policy_map:
                     continue
                 obj = table(master=self.master)
-                context['obj'] = obj
-                context['obj_type'] = obj.table
-                policyscope_map_for(self.obj, dbi, context, obj.table, 0)
+                attribs['obj'] = obj
+                attribs['obj_type'] = obj.table
+                policyscope_map_for(self.obj, dbi, attribs, obj.table, 0)
 
         return errors
 
