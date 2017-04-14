@@ -14,6 +14,13 @@ else
 	PYPI_DIST="-r pypitest"
 fi
 
+if [ ! -x ./clean.sh ]; then
+    echo "cannot find clean script"
+	exit 1
+fi
+
+./clean.sh || exit 1
+
 for d in rfx rfxcmd rfxengine; do
     echo $d
     cd $base/$d

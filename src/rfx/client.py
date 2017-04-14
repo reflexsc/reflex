@@ -35,8 +35,7 @@ import requests
 import nacl.utils
 import jwt
 import rfx
-from rfx import json2data, json4human, json4store
-#from rfxengine import trace
+from rfx import threadlock, json2data, json4human, json4store
 
 ################################################################################
 class Unauthorized(Exception):
@@ -57,12 +56,14 @@ class Session(rfx.Base):
     session_expires = 0
     apikey_name = None
     apikey_secret = None
+    _cache = None
 
     def __init__(self, **kwargs):
         super(Session, self).__init__(**kwargs)
         base = kwargs.get('base')
         if base:
             rfx.Base.__inherit__(self, base)
+        self._cache = dict()
 
     ############################################################################
     def _login(self, force=False):
@@ -218,3 +219,64 @@ class Session(rfx.Base):
     def delete(self, obj_type, obj_target):
         """session DELETE"""
         return self._call(requests.delete, obj_type + "/" + str(obj_target))
+
+    ############################################################################
+    @threadlock
+    def cache_get(self, obj_type, obj_target, **kwargs):
+        """
+        Cache wrapper around .get()
+        """
+        if obj_type in self._cache:
+            if obj_target in self._cache[obj_type]:
+                return self._cache[obj_type][obj_target]
+        else:
+            self._cache[obj_type] = dict()
+        try:
+            obj = self.get(obj_type, obj_target, **kwargs)
+        except ClientError:
+            self._cache[obj_type][obj_target] = None
+            raise
+        self._cache[obj_type][obj_target] = obj
+        return obj
+
+    ############################################################################
+    @threadlock
+    def cache_update(self, obj_type, obj_target, payload, **kwargs):
+        """
+        Cache wrapper around .update()
+        """
+        value = self.update(obj_type, obj_target, payload, **kwargs)
+        if value:
+            if obj_type in self._cache:
+                if obj_target in self._cache[obj_type]:
+                    del self._cache[obj_type][obj_target]
+        return value
+
+    ###########################################################################
+    @threadlock
+    def cache_list(self, obj_type, **kwargs):
+        """
+        Cache wrapper around .list()
+        """
+        if not obj_type in self._cache:
+            self._cache[obj_type] = {}
+
+        objs = self.list(obj_type, **kwargs)
+        for obj in objs:
+            oname = obj.get('name')
+            if oname:
+                self._cache[obj_type][oname] = obj
+
+        return objs
+
+    ###########################################################################
+    @threadlock
+    def cache_reset(self):
+        """Clear the cache"""
+        self._cache = dict()
+
+    ###########################################################################
+    def cache_drop(self, obj_type, obj_target):
+        """Drop an object from the cache, if it exists"""
+        if obj_type in self._cache and obj_target in self._cache[obj_type]:
+            del self._cache[obj_type][obj_target]
