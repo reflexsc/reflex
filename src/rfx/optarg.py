@@ -25,6 +25,7 @@ Powerfully easy argument parsing
 """
 
 import sys
+import copy
 
 ################################################################################
 class ArgParse(Exception):
@@ -224,7 +225,7 @@ class Args(object):
         if isinstance(argv, list):
             self.argv = argv
         else:
-            self.argv = sys.argv[1:].copy()
+            self.argv = copy.copy(sys.argv[1:])
 
         unparsed_args = list()
         unparsed_opts = list()

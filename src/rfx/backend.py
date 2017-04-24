@@ -31,7 +31,12 @@ import re
 import logging
 import sys
 import traceback
-from builtins import input # pylint: disable=redefined-builtin
+try:
+    from builtins import input # pylint: disable=redefined-builtin
+    get_input = input # pylint: disable=invalid-name
+except: # pylint: disable=bare-except
+    get_input = raw_input # pylint: disable=invalid-name, undefined-variable
+
 import ujson
 import dictlib
 import rfx
@@ -405,7 +410,7 @@ class EngineCli(rfx.Base):
 
         os.unlink(localfile)
 
-        answer = input("Commit changes? [y] ")
+        answer = get_input("Commit changes? [y] ")
         # incase of a rename
         obj_name = data.get('name')
         if not len(answer) or re.match("^(yes|y)$", answer, flags=re.IGNORECASE):
@@ -502,7 +507,7 @@ class EngineCli(rfx.Base):
                     linenbr += 1
             self.NOTIFY("Unable to parse: " + str(err))
             if ask2continue:
-                answer = input("Return to editor? [y] ")
+                answer = get_input("Return to editor? [y] ")
                 if not re.match("^(no|n)$", answer, flags=re.IGNORECASE):
                     return None
             if cleanfile:

@@ -31,7 +31,12 @@ import sys
 import os
 import re
 import dictlib
-from builtins import input # pylint: disable=redefined-builtin
+import copy
+try:
+    from builtins import input # pylint: disable=redefined-builtin
+    get_input = input
+except:
+    get_input = raw_input
 import nacl.utils
 import base64
 import rfx
@@ -82,8 +87,8 @@ class CliRoot(object):
     # pylint: disable=unused-argument
     def __init__(self, cmd):
         if self.args:
-            self._args = self.args.args.copy()
-            self._opts = self.args.opts.copy()
+            self._args = copy.copy(self.args.args)
+            self._opts = copy.copy(self.args.opts)
 
     ############################################################################
     def syntax(self):
@@ -230,8 +235,8 @@ Usage: """ + self.cmd + """ l?ist|ls
 
     def setup_demo(self, args):
         if not args.get('--confirm'):
-            input("This will populate your engine with demo data.\n" +
-                  "Press [Enter/Return] to continue...")
+            get_input("This will populate your engine with demo data.\n" +
+                      "Press [Enter/Return] to continue...")
         rfxcmd.demo.setup()
 
 ################################################################################

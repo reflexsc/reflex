@@ -157,7 +157,7 @@ class TAP(rfx.Base):
         """
         Log a block of text
         """
-        def hdr(label):
+        def hdr(label): # pylint: disable=missing-docstring
             length = int((80 - (len(label))) / 2)
             self.log(("<" * length) + label + (">" * length) + "\n")
         self.log("\n")

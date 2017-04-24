@@ -1656,7 +1656,8 @@ class Policyscope(RCObject):
 
                 # now map out the policies
                 for row in memarray:
-                    attribs = dict(obj=row, obj_type=table.table)
+                    # this should be skeleton
+                    attribs = dict(obj=row, obj_type=table.table, groups=attrs.groups)
                     # we need to do the entire scopelist becuase map_targetted
                     # removes all matching this target
            #         tobj.map_targetted_policies(scopelist, dbi=dbi)
@@ -1664,7 +1665,8 @@ class Policyscope(RCObject):
                         policyscope_map_for(pscope, dbi, attribs, table.table, row['id'])
 
         else: # global
-            attribs = dict(obj={}, obj_type='')
+            # this should be skeleton
+            attribs = dict(obj={}, obj_type='', groups=attrs.groups)
             for table in Schema.tables:
                 if not table.policy_map:
                     continue

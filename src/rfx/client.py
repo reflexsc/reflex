@@ -183,7 +183,10 @@ class Session(rfx.Base):
         """
         args = []
         if match:
-            args.append("match=" + urllib.parse.quote(match))
+            try: # stupid python2
+                args.append("match=" + urllib.parse.quote(match))
+            except: # pylint: disable=bare-except, no-member
+                args.append("match=" + urllib.pathname2url(match))
         if cols:
             args.append("cols=" + ",".join(cols))
 
