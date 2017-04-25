@@ -259,7 +259,7 @@ class Base(Colorize):
         try:
             key = crypto.Key(self.cfg_secret())
             with open(cfg_file, 'wb') as out_file:
-                os.chmod(cfg_file, mode=0o0600)
+                os.chmod(cfg_file, 0o0600)
                 # future safe: so we can handle different versions and keys
                 out_file.write("0000".encode())
                 cipher = crypto.Cipher(key)
