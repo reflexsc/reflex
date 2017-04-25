@@ -249,7 +249,7 @@ class Base(Colorize):
         base = os.environ['HOME'] + '/.reflex'
         if not os.path.exists(base):
             os.mkdir(base)
-            os.chmod(base, mode=0o0700)
+            os.chmod(base, 0o0700)
         elif not os.path.isdir(base):
             self.ABORT("Config folder {} is not a directory!"
                        .format(base))
