@@ -920,7 +920,7 @@ class Pipeline(RCObject):
         self.omap['launch'] = RCMap(stored="data",
                                     dtype=dict,
                                     stype="opt")
-        self.omap['monitor'] = RCMap(stored="data", dtype=dict, stype="opt")
+        self.omap['monitor'] = RCMap(stored="data", dtype=list, stype="opt")
         super(Pipeline, self).__init__(*args, **kwargs)
 
 ################################################################################

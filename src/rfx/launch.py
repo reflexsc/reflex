@@ -225,7 +225,11 @@ class App(rfx.Base):
 
         os.environ["APP_RUN_BASE"] = self.launch_rundir
         os.environ["APP_CFG_BASE"] = self.launch_cfgdir
-        self._load_peers()
+        try:
+            self._load_peers()
+        except rfx.client.ClientError as err:
+            self.NOTIFY("Unable to load peers: " + str(err))
+
         self._load_reflex_engine_config(self.launch_service['config'], commit=commit)
 
         return self
@@ -338,11 +342,17 @@ class LaunchCli(App):
         """
 
         name = self.get_target(*argv)
+        export = "export "
+        if args.get('--noexport', False):
+            export = ""
+
         try:
             self.launch_service_prep(name, commit=False)
             for key in sorted(self.launch_config.setenv): #_expanded:
-                value = json4store(self.launch_config.setenv[key])
-                self.OUTPUT('export {}={}'.format(key, value))
+                value = self.launch_config.setenv[key]
+                if export:
+                    value = json4store(value)
+                self.OUTPUT('{}{}={}'.format(export, key, value))
         except rfx.NotFoundError:
             self.ABORT(traceback.format_exc(0))
 

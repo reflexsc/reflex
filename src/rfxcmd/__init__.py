@@ -764,6 +764,10 @@ class CliLaunch(CliRoot):
                     "set": ["service|app", "env", "config|cfg"]
                 }
             ], [
+                "--noexport", {
+                    "type": "set-true",
+                }
+            ], [
                 "--commit", {
                     "type": "set-true",
                 }
