@@ -6,10 +6,18 @@
     "setenv": {
     },
     "actions": {
-        "launch-test": {
-            "exec": ["/bin/env"],
+        "tst-group": {
+            "actions": [ "tst-env", "tst-exec", "tst-env" ],
+			"type": "group"
+		},
+        "tst-env": {
+            "cmd": ["/bin/env"],
             "type": "system",
             "config": "stdin"
+        },
+        "tst-exec": {
+            "cmd": ["/usr/bin/echo", "this is the end"],
+            "type": "exec"
         },
         "update": {
             "type": "script",
