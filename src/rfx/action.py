@@ -35,6 +35,23 @@ from rfx import json4store
 from rfx.backend import Engine
 
 ################################################################################
+# evaluate to fully qualified exe, incase env={} and default PATH
+def _executable(exe):
+    """logic wrapper to simplify finding execuable"""
+    if exe[0][:1] != "/" and exe[0][:2] != "./":
+        path = self.env.get('PATH', None)
+        if path is None:
+            return False
+        for path in os.environ.get('PATH', '').split(os.pathsep):
+            fqpath = os.path.join(path, exe[0])
+            if os.access(fqpath, os.X_OK):
+                exe[0] = fqpath
+                return exe
+    elif os.access(exe[0], os.X_OK):
+        return exe
+    return False
+
+################################################################################
 # pylint: disable=too-many-instance-attributes
 class Action(rfx.Base):
     """
@@ -201,7 +218,13 @@ class Action(rfx.Base):
                 path = self.action_fqpath + '/' + target
             return self._do__cmd(target, action, [path], env=env)
         elif action['type'] == 'system':
-            return self._do__cmd(target, action, action['exec'], env=env)
+            # backwards compatible, deprecated use of "exec" vs "cmd"
+            cmd = action.get("exec", None)
+            if not cmd:
+                cmd = action.get("cmd")
+            return self._do__cmd(target, action, cmd, env=env)
+        elif action['type'] == 'exec':
+            return self._do__cmd(target, action, action['cmd'], env=env, exec=True)
         else:
             try:
                 func = getattr(self, '_do__' + action['type'].replace('-', '_'))
@@ -394,6 +417,8 @@ class Action(rfx.Base):
 
         exc = list(args)[0]
         self.DEBUG("run: {}".format(exc))
+        self.notifyfd.flush()
+        self.outputfd.flush()
         sub = subprocess.Popen(exc, shell=shell, stdout=subprocess.PIPE,
                                stderr=stderr, env=self.env)
         output, outerr = sub.communicate()
@@ -415,28 +440,12 @@ class Action(rfx.Base):
 
     ############################################################################
     # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches
-    def _do__cmd(self, target, action, exc, env=dict(), echo=False):
+    def _do__cmd(self, target, action, exc, env=dict(), echo=False, exec=False):
         """
         Execute a sub process as part of a action, and handle the subsequent step
 
         if env=False, do not use the reflex environ settings, just the default os
         """
-
-        # evaluate to fully qualified exe, incase env={} and default PATH
-        def executable(exe):
-            """logic wrapper to simplify finding execuable"""
-            if exe[0][:1] != "/" and exe[0][:2] != "./":
-                path = self.env.get('PATH', None)
-                if path is None:
-                    return False
-                for path in os.environ.get('PATH', '').split(os.pathsep):
-                    fqpath = os.path.join(path, exe[0])
-                    if os.access(fqpath, os.X_OK):
-                        exe[0] = fqpath
-                        return exe
-            elif os.access(exe[0], os.X_OK):
-                return exe
-            return False
 
         if not env:
             env = self.env
@@ -447,7 +456,7 @@ class Action(rfx.Base):
             env_exc.append(self.sed_env(elem, {}, '', env=env))
 
         # pull first arg from env{PATH}
-        fqexc = executable(env_exc)
+        fqexc = _executable(env_exc)
         if not fqexc:
             raise ValueError("Cannot execute: {}".format(exc[0]))
 
@@ -468,15 +477,21 @@ class Action(rfx.Base):
             self.NOTIFY("Execute:\n\n\t" + " ".join(formatted) + "\n")
 
         self.DEBUG("command: " + str(fqexc))
-        proc = subprocess.Popen(fqexc, stdin=subprocess.PIPE, env=env)
-        if extcfg:
-            proc.stdin.write(extcfg.encode())
-        proc.stdin.close()
-        proc.wait()
-        if proc.returncode > 0:
-            return self._do_failure(target, action, proc.returncode)
+        self.notifyfd.flush()
+        self.outputfd.flush()
+        if exec:
+            os.execv(fqexc[0], fqexc)
+            # this is the end
         else:
-            return self._do_success(target, action)
+            proc = subprocess.Popen(fqexc, stdin=subprocess.PIPE, env=env)
+            if extcfg:
+                proc.stdin.write(extcfg.encode())
+            proc.stdin.close()
+            proc.wait()
+            if proc.returncode > 0:
+                return self._do_failure(target, action, proc.returncode)
+            else:
+                return self._do_success(target, action)
 
     ############################################################################
     # pylint: disable=unused-argument

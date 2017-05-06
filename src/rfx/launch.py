@@ -105,6 +105,7 @@ class App(rfx.Base):
                 self.ABORT("Cannot find service: " + service)
             self.ABORT("Cannot continue: " + str(err))
 
+        # TODO: Add trap and error handling if pipeline privs fail
         self.launch_pipeline = self.rcs.get('pipeline',
                                             self.launch_service['pipeline'])
         os.environ["APP_PIPELINE"] = self.launch_pipeline['name']
