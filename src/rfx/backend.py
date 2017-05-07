@@ -191,7 +191,6 @@ class Engine(rfx.Base):
         """Clear the cache"""
         self.cache = {}
 
-
 ###############################################################################
 class EngineCli(rfx.Base):
     """Basic CLI for Engine Class"""
@@ -349,14 +348,25 @@ class EngineCli(rfx.Base):
         except Exception as err: # pylint: disable=broad-except
             self.ABORT("Cannot delete object '{0}': {1}".format(obj_name, err))
 
+    ###############################################################################
+    def _valid_name(self, obj_name):
+        if re.search(r'[^a-z0-9_-]', obj_name, flags=re.IGNORECASE):
+            return "Invalid name ({}), May only contain a-z0-9_-" \
+                   .format(obj_name)
+        return None
+
     ###########################################################################
     # pylint: disable=unused-argument
     def edit_cli(self, obj_type, parsed, argv, pause=True):
         """edit a commplete object.  see --help"""
         obj_name = parsed['name']
-        if re.search("[^a-z0-9-]", obj_name, flags=re.IGNORECASE):
-            self.ABORT("Invalid {0} name ({1}), May only contain a-z0-9-"
-                       .format(obj_type, obj_name))
+        msg = self._valid_name(obj_name)
+        if msg:
+            self.ABORT(msg)
+
+        #if re.search("[^a-z0-9_-]", obj_name, flags=re.IGNORECASE):
+        #    self.ABORT("Invalid {0} name ({1}), May only contain a-z0-9_-"
+        #               .format(obj_type, obj_name))
         scratchdir = os.path.expanduser("~") + "/.rfx.scratch"
         if not os.path.exists(scratchdir):
             os.mkdir(scratchdir)
@@ -407,12 +417,12 @@ class EngineCli(rfx.Base):
                 data = self._json_load_handle_error(read_fd.read(),
                                                     ask2continue=True,
                                                     cleanfile=localfile)
-
         os.unlink(localfile)
 
         answer = get_input("Commit changes? [y] ")
         # incase of a rename
         obj_name = data.get('name')
+
         if not len(answer) or re.match("^(yes|y)$", answer, flags=re.IGNORECASE):
             try:
                 dbo.update_object(obj_type, obj_name, data)
@@ -498,7 +508,11 @@ class EngineCli(rfx.Base):
     ###########################################################################
     def _json_load_handle_error(self, content, ask2continue=False, cleanfile=None):
         try:
-            return ujson.loads(content)
+            data = ujson.loads(content)
+            msg = self._valid_name(data.get('name'))
+            if msg:
+                raise ValueError(msg)
+            return data
         except ValueError as err:
             if content:
                 linenbr = 1
