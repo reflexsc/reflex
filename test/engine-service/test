@@ -63,6 +63,7 @@ port=54321
 config='
 {
  "heartbeat": 10,
+ "requestid": true,
  "server": {
    "route_base": "/api",
    "port": '$port',

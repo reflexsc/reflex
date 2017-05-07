@@ -128,10 +128,12 @@ class Server(rfx.Base):
     dbm = None
     stat = dictlib.Obj(heartbeat=dictlib.Obj(count=0, last=0))
     mgr = None
+    cherry = None
 
     def __init__(self, *args, **kwargs):
         super(Server, self).__init__(*args, **kwargs)
         base = kwargs.get('base')
+        self.cherry = cherrypy
         if base:
             rfx.Base.__inherit__(self, base)
 
@@ -195,6 +197,7 @@ class Server(rfx.Base):
                 'host': '0.0.0.0'
             },
             'heartbeat': 10,
+            'requestid': False,
             'cache': {
                 'housekeeper': 60,
                 'policies': 300,

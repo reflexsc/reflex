@@ -372,11 +372,13 @@ def test_integration(schema, base, tester):
 def test_functional(schema, base, tester, baseurl):
     schema.initialize(verbose=False, reset=False)
     tester.okcmp("REST Health Check", tester, tester.fcall,
-                 [requests.get, baseurl + "/health"], {},
+                 [requests.get, baseurl + "/health"],
+                 {"X-Request-Id": "test-request-id1"},
                  r'Response \[204\]')
 
     tester.okcmp("Unauthorized", tester, tester.fcall,
-                 [requests.get, baseurl + "/config"], {},
+                 [requests.get, baseurl + "/config"],
+                 {"X-Request-Id": "test-request-id2"},
                  r'Response \[401\]')
 
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
@@ -671,7 +673,9 @@ def test_functional(schema, base, tester, baseurl):
         tester.okcmp("REST create " + obj, tester, tester.rest_useauth,
                      [requests.post, baseurl + "/" + obj],
                      {"data": json4store(samples[obj].mcreate),
-                      'headers':{'Content-Type':'application/json'}},
+                      'headers':{'Content-Type':'application/json',
+                                 'X-Request-Id': 'test-request-id1',
+                      }},
                      *samples[obj].mcreate_expect)
         tester.okcmp("REST create " + obj + " (w/failure)", tester, tester.rest_useauth,
                      [requests.post, baseurl + "/" + obj],

@@ -77,6 +77,15 @@ def log(*args, **kwargs):
     """
     try:
         if SERVER:
+            if SERVER.conf.requestid:
+                try:
+                    # note: danger: this should be injected by traffic management,
+                    # enable it with config requestid=true
+                    reqid = SERVER.cherry.request.headers.get('X-Request-Id')
+                    if reqid:
+                        kwargs['reqid'] = reqid
+                except: # pylint: disable=broad-except
+                    pass
             SERVER.NOTIFY(*args, **kwargs)
         else:
             print("{} {}".format(args, kwargs))

@@ -25,7 +25,7 @@ boilerplate for CherryPy bits.
 plus basic REST handlers.
 """
 
-import logging # for testing
+#import logging # for testing
 import re
 import time
 import traceback
