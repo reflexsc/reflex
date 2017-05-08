@@ -1524,8 +1524,8 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id):
         # pylint: disable=eval-used
         if eval(pscope['matches'], abac.abac_context(), attribs):
             for action in pscope['actions'].split(","):
-                log("policymap name={} policy={} target={}"
-                    .format(pscope['name'], pscope['policy_id'], target_id))
+                log("policymap id={} policy={} target={}"
+                    .format(pscope['id'], pscope['policy_id'], target_id))
                 dbi.do("""REPLACE INTO PolicyFor
                           SET obj = ?, policy_id = ?, target_id = ?,
                               pscope_id = ?, action = ?
