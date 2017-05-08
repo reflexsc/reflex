@@ -92,7 +92,8 @@ def main():
     rxe_cmd = "engine"
     for obj in ['service']:
         tap.ok_run_compare("Create {} object".format(obj),
-                           [rxe_cmd, '--content', '{"pipeline": "_rfx_test_", "config":"_rfx_test_"}', obj,
+                           [rxe_cmd, '--content',
+                            '{"pipeline": "_rfx_test_", "name": "_rfx_test_", "config":"_rfx_test_"}', obj,
                             'create', '_rfx_test_'],
                            r'''"name":"_rfx_test_",''')
         tap.ok_run_compare("List {} objects".format(obj),

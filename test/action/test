@@ -198,16 +198,16 @@ def main():
 
     os.environ['BUILD_NUMBER'] = '1600.2020'
 
-    tap.ok_run("action group", 'd7eac56881fc952a6a08a92cf318df75',
+    tap.ok_run("action group", 'cf3ff0a749f851e131d7aad5f99cbd52',
                ["action", "--notime", "--debug=test", "run", "group"] + addargs)
 
-    tap.ok_run("action build", '8bc134eee4620e7b13a1facbdcbf8a76',
+    tap.ok_run("action build", '91ba552cfc2a3d2e6ade9e856de90575',
                ["action", "--notime", "--debug=test", "run", "build"] + addargs)
 
-    tap.ok_run("action input", '86617166ffc61e820c02fbbd6b302243',
+    tap.ok_run("action input", '4ff8a715e65d78c6174a29707e860887',
                ["action", "--notime", "--debug=test", "run", "input-run", "--config=happy value"] + addargs)
 
-    tap.ok_run("action varsub", '35ca3b56abf5ca997f52436f75e4ebc3',
+    tap.ok_run("action varsub", 'a8d960f43e844632478aef9d16f6040e',
                ["action", "--notime", "--debug=test", "run", "varsub"] + addargs)
 
 	# with store-package this is the MD5

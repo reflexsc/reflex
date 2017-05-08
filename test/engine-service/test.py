@@ -373,12 +373,12 @@ def test_functional(schema, base, tester, baseurl):
     schema.initialize(verbose=False, reset=False)
     tester.okcmp("REST Health Check", tester, tester.fcall,
                  [requests.get, baseurl + "/health"],
-                 {"X-Request-Id": "test-request-id1"},
+                 {}, # "X-Request-Id": "test-request-id1"},
                  r'Response \[204\]')
 
     tester.okcmp("Unauthorized", tester, tester.fcall,
                  [requests.get, baseurl + "/config"],
-                 {"X-Request-Id": "test-request-id2"},
+                 {}, # "X-Request-Id": "test-request-id2"},
                  r'Response \[401\]')
 
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
