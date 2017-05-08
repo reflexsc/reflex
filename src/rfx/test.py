@@ -97,7 +97,7 @@ class TAP(rfx.Base):
             return False
 
     ###########################################################################
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name, no-else-return
     def ok(self, label, value):
         """
         Basic TAPS evaluation
@@ -249,8 +249,7 @@ class TAP(rfx.Base):
             rx = trim(rx)
             if re.search(rx, output):
                 return not negate
-            else:
-                return negate
+            return negate
 
         truth = list(map(rxsearch, expected))
         # pylint: disable=redefined-variable-type
@@ -270,8 +269,7 @@ class TAP(rfx.Base):
         if cksum != expected:
             self.OUTPUT("Expected: {} != found: {}".format(expected, cksum))
             return self.ok(label, False)
-        else:
-            return self.ok(label, True)
+        return self.ok(label, True)
 
     ###########################################################################
     def ok_func_cksum(self, label, expected, func, *args, **kwargs):

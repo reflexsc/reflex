@@ -77,18 +77,22 @@ def log(*args, **kwargs):
     """
     try:
         if SERVER:
-            if SERVER.conf.requestid:
-                try:
+            try:
+                if SERVER.conf.requestid:
                     # note: danger: this should be injected by traffic management,
                     # enable it with config requestid=true
                     reqid = SERVER.cherry.request.headers.get('X-Request-Id')
                     if reqid:
                         kwargs['reqid'] = reqid
-                except: # pylint: disable=broad-except
-                    pass
+            except: # pylint: disable=broad-except
+                pass
             SERVER.NOTIFY(*args, **kwargs)
         else:
-            print("{} {}".format(args, kwargs))
+            sys.stdout.write(" ".join(args))
+            for key, value in kwargs.items():
+                sys.stdout.write("{}={}".format(key,value))
+            sys.stdout.write("\n")
+            sys.stdout.flush()
     except Exception: # pylint: disable=broad-except
         with open("log_failed", "ta") as out:
             out.write("\n\n--------------------------------------------------\n\n")

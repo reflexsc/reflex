@@ -68,9 +68,9 @@ class VerboseBase(rfx.Base):
         super(VerboseBase, self).__init__(*args, **kwargs)
 
     # pylint: disable=invalid-name
-    def NOTIFY(self, msg, **kwargs):
+    def NOTIFY(self, *msg, **kwargs):
         if self.verbose:
-            return super(VerboseBase, self).NOTIFY(msg, **kwargs)
+            return super(VerboseBase, self).NOTIFY(*msg, **kwargs)
 
     # pylint: disable=invalid-name
     def DEPRECATE(self, msg):
@@ -132,9 +132,9 @@ class ConfigProcessor(VerboseBase):
 
     ############################################################################
     # pylint: disable=invalid-name
-    def NOTIFY(self, msg, **kwargs):
+    def NOTIFY(self, *msg, **kwargs):
         if self.verbose:
-            return super(ConfigProcessor, self).NOTIFY(msg, **kwargs)
+            return super(ConfigProcessor, self).NOTIFY(*msg, **kwargs)
 
     ############################################################
     def macro_expand_dict(self, dictionary):

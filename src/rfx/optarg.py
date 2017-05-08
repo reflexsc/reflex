@@ -45,8 +45,7 @@ def opt_key(optname, optinfo):
     """
     if optinfo.get('key'):
         return optinfo.get('key')
-    else:
-        return strip_opt(optname)
+    return strip_opt(optname)
 
 ################################################################################
 def arg_key(argname, arginfo):
@@ -60,8 +59,7 @@ def arg_key(argname, arginfo):
     """
     if arginfo.get('key'):
         return arginfo.get('key')
-    else:
-        return argname
+    return argname
 
 ################################################################################
 def from_set(name, info, value):
@@ -229,7 +227,7 @@ class Args(object):
 
         unparsed_args = list()
         unparsed_opts = list()
-        while len(self.argv):
+        while self.argv:
             arg = self.argv[0]
             self.argv = self.argv[1:]
 
@@ -266,7 +264,7 @@ class Args(object):
         if opttype in ('set-value', 'set-add', 'from-set'):
             if '=' in arg:
                 arg, value = arg.split("=", 1)
-            elif len(self.argv):
+            elif self.argv:
                 value = self.argv[0]
                 self.argv = self.argv[1:]
             else:

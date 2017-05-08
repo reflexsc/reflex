@@ -326,7 +326,7 @@ class LaunchCli(App):
         Pull the target from either the first arg, environment, or abort.
         """
         env_service = os.environ.get("REFLEX_SERVICE")
-        if argv and len(argv[0]):
+        if argv and argv[0]:
             return argv[0]
         elif not env_service:
             self.ABORT("No target defined (either as argument or set as REFLEX_SERVICE)")

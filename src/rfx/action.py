@@ -35,23 +35,6 @@ from rfx import json4store
 from rfx.backend import Engine
 
 ################################################################################
-# evaluate to fully qualified exe, incase env={} and default PATH
-def _executable(exe):
-    """logic wrapper to simplify finding execuable"""
-    if exe[0][:1] != "/" and exe[0][:2] != "./":
-        path = self.env.get('PATH', None)
-        if path is None:
-            return False
-        for path in os.environ.get('PATH', '').split(os.pathsep):
-            fqpath = os.path.join(path, exe[0])
-            if os.access(fqpath, os.X_OK):
-                exe[0] = fqpath
-                return exe
-    elif os.access(exe[0], os.X_OK):
-        return exe
-    return False
-
-################################################################################
 # pylint: disable=too-many-instance-attributes
 class Action(rfx.Base):
     """
@@ -128,7 +111,7 @@ class Action(rfx.Base):
 
         paths = [os.getcwd()]
         env_root = self.env.get('APP_RUN_ROOT', '')
-        if len(env_root):
+        if env_root:
             paths = [env_root + "/"] + paths
 
         def get_path():
@@ -430,7 +413,7 @@ class Action(rfx.Base):
         return {'code': sub.returncode, 'out': output, 'err': outerr or ''}
 
     ############################################################################
-    def _do__group(self, target, action):
+    def _do__group(self, ignore, action):
         """
         Run a group of actions in sequence.
         """
@@ -438,8 +421,25 @@ class Action(rfx.Base):
         for target in action.get('actions', []):
             self.do(target)
 
+    ################################################################################
+    # evaluate to fully qualified exe, incase env={} and default PATH
+    def _executable(self, exe):
+        """logic wrapper to simplify finding execuable"""
+        if exe[0][:1] != "/" and exe[0][:2] != "./":
+            path = self.env.get('PATH', None)
+            if path is None:
+                return False
+            for path in os.environ.get('PATH', '').split(os.pathsep):
+                fqpath = os.path.join(path, exe[0])
+                if os.access(fqpath, os.X_OK):
+                    exe[0] = fqpath
+                    return exe
+        elif os.access(exe[0], os.X_OK):
+            return exe
+        return False
+
     ############################################################################
-    # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches
+    # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches,redefined-builtin
     def _do__cmd(self, target, action, exc, env=dict(), echo=False, exec=False):
         """
         Execute a sub process as part of a action, and handle the subsequent step
@@ -456,7 +456,7 @@ class Action(rfx.Base):
             env_exc.append(self.sed_env(elem, {}, '', env=env))
 
         # pull first arg from env{PATH}
-        fqexc = _executable(env_exc)
+        fqexc = self._executable(env_exc)
         if not fqexc:
             raise ValueError("Cannot execute: {}".format(exc[0]))
 
@@ -490,8 +490,7 @@ class Action(rfx.Base):
             proc.wait()
             if proc.returncode > 0:
                 return self._do_failure(target, action, proc.returncode)
-            else:
-                return self._do_success(target, action)
+            return self._do_success(target, action)
 
     ############################################################################
     # pylint: disable=unused-argument

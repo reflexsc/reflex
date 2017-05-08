@@ -36,7 +36,7 @@ class ControlCli(rfx.Base):
     def __init__(self, base=None):
         if base:
             rfx.Base.__inherit__(self, base)
-        if 'REFLEX_URL' in self.cfg.keys() and len(self.cfg['REFLEX_URL']):
+        if 'REFLEX_URL' in self.cfg.keys() and self.cfg['REFLEX_URL']:
             self.base_url = self.cfg['REFLEX_URL']
 
     ############################################################
@@ -55,7 +55,7 @@ class ControlCli(rfx.Base):
             self.NOTIFY("set var=value")
             return
         param = match.group(1)
-        if len(match.group(2)):
+        if match.group(2):
             value = match.group(2)
         else:
             value = input("Input Value: ")
