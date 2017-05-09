@@ -183,7 +183,7 @@ class ConfigProcessor(VerboseBase):
             if match_key in os.environ:
                 return os.environ[match_key]
             dict_match = dictlib.dig_get(dictionary, match_key, None)
-            if match_key != source and dict_match:
+            if match_key != source and dict_match != None:
                 return str(dict_match)
             self.NOTIFY("Unable to find expansion match for key '" + match_key + "'")
 
