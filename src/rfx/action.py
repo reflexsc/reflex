@@ -207,7 +207,7 @@ class Action(rfx.Base):
                 cmd = action.get("cmd")
             return self._do__cmd(target, action, cmd, env=env)
         elif action['type'] == 'exec':
-            return self._do__cmd(target, action, action['cmd'], env=env, exec=True)
+            return self._do__cmd(target, action, action['cmd'], env=env, doexec=True)
         else:
             try:
                 func = getattr(self, '_do__' + action['type'].replace('-', '_'))
@@ -439,8 +439,8 @@ class Action(rfx.Base):
         return False
 
     ############################################################################
-    # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches,redefined-builtin
-    def _do__cmd(self, target, action, exc, env=dict(), echo=False, exec=False):
+    # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches
+    def _do__cmd(self, target, action, exc, env=dict(), echo=False, doexec=False):
         """
         Execute a sub process as part of a action, and handle the subsequent step
 
@@ -479,7 +479,7 @@ class Action(rfx.Base):
         self.DEBUG("command: " + str(fqexc))
         self.notifyfd.flush()
         self.outputfd.flush()
-        if exec:
+        if doexec:
             os.execv(fqexc[0], fqexc)
             # this is the end
         else:
