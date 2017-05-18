@@ -408,7 +408,7 @@ class Action(rfx.Base):
         if isinstance(output, bytes): # grr python 2/3
             output = output.decode()
         if isinstance(outerr, bytes): # grr python 2/3
-            output = outerr.decode()
+            outerr = outerr.decode()
 
         return {'code': sub.returncode, 'out': output, 'err': outerr or ''}
 
