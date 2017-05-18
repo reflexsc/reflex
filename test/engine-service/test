@@ -86,8 +86,11 @@ config='
 }
 '
 
-export REFLEX_ENGINE_CONFIG="$config"
-[ $SERVICE ] && start_svc reflex-engine "--test --debug=abac"
+if [ $SERVICE ]; then
+    export REFLEX_ENGINE_CONFIG="$config"
+	echo $config | reflex-engine --test --debug=abac >engine.log 2>&1 &
+    trap "kill_matching reflex-$name; exit 1" 0 15
+fi
 
 errs=0
 #[ $DO_LINT ] && {
