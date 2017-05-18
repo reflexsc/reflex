@@ -255,11 +255,7 @@ class CliApp(CliRoot):
                     "set": ["del?ete|rm", "cre?ate|add"]
                 }
             ], [
-                "product", {
-                    "type":"set-value",
-                }
-            ], [
-                "service", {
+                "app/pipeline", {
                     "type":"set-value",
                 }
             ], [
@@ -286,17 +282,18 @@ class CliApp(CliRoot):
     # pylint: disable=missing-docstring
     def syntax(self):
         return """
-Usage: """ + self.cmd + """ {action} {product} {service} [options]
+Usage: """ + self.cmd + """ {action} {app/pipeline} [options]
 
   {action} is one of del?ete|rm|cre?ate|add
-  {product} is the top level product to be configured
-  {service} is the service within the product
+  {app/pipeline} is the top level pipeline
 
 Options:
 
-  --r?egions={region(s)} - comma list of regions
-  --l?anes={lanes}       - list of service environments (i.e. prd, stg)
-  --t?enant={name}       - name of tenanant (a-z only)
+  --r?egions={region(s)} - comma list of regions <required>
+  --l?anes={lanes}       - list of service environments (i.e. prd, stg) <required>
+  --t?enant={name}       - name of tenanant (a-z only) <optional>
+
+Regions and Lanes are configured in the config:reflex object.
 
 """
 
@@ -334,9 +331,14 @@ Options:
         if args.get('--regions'):
             for region in re.split(r'\s*,\s*', args['--regions']):
                 region = region.lower()
-                if region not in self.cfg.regions:
-                    self.fail("Invalid region: {}, Must be one of: {}"
-                              .format(region, ", ".join(self.cfg.regions.keys())))
+                cfgregions = self.cfg.regions
+                if region not in cfgregions:
+                    found = [x for x in cfgregions if cfgregions[x]['nbr'] == region]
+                    if found:
+                        region = found[0] # don't assign the same nbr to multiple regions
+                    else:
+                        self.fail("Invalid region: {}, Must be one of: {}"
+                                  .format(region, ", ".join(self.cfg.regions.keys())))
                 regions.append(region)
 
         if args.get('--lanes'):
@@ -360,7 +362,7 @@ Options:
             for lane in lanes:
                 if lane not in self.cfg.regions[region].lanes:
                     continue
-                self._create_for(args['product'], args['service'],
+                self._create_for(args['app/pipeline'],
                                  region, lane, args.get('--tenant', ''))
 
 
@@ -393,19 +395,15 @@ Options:
     
     ################################################################################
     # todo: allow for templates in config
-    def _create_for(self, product, service, region, lane, tenant):
-        print("Populate {} {} {} {} {}".format(product, service, region, lane, tenant))
+    def _create_for(self, pipeline, region, lane, tenant):
 
-        match = re.search(r'([0-9]+)$', region)
-        if match:
-            shortlane = self.cfg.lanes[lane].short + match.group(1)
-        else:
-            shortlane = self.cfg.lanes[lane].short
+        shortlane = self.cfg.lanes[lane].short + str(self.cfg.regions[region].nbr)
 
-        pipe_name = product + '-' + service
-        svc_name = pipe_name + '-' + lane
+        svc_name = pipeline + '-' + shortlane
         env_name = svc_name
-        nginx_name = pipe_name + '-' + lane.lower()
+        common_name = pipeline + '-' + lane.lower()
+
+        print("Populate {} {} {} {} {}".format(pipeline, lane, svc_name, common_name, tenant))
     
         tenant = tenant.lower()
         top_config = ''
@@ -419,45 +417,26 @@ Options:
             multitenant = True
             top_config = env_name + '-' + tenant
             svc_name = top_config
-            nginx_name += '-' + tenant
+            common_name += '-' + tenant
     
         ######################################
         ## start with the pipeline
-        pipe_o = self._template('pipeline', pipe_name, '', {
-            "contacts": {
-                "slack": {
-                    "channel": "name-this-channel",
-                    "driver": "slack"
-                }
-            },
+        pipe_o = self._template('pipeline', pipeline, '', {
             "launch": {
-                "cfgdir": "/data/" + product + "/config",
+                "cfgdir": "/data/" + pipeline + "/config",
                 "exec": [
-                    "/app/" + product + "/" + service + "/launch"
+                    "/app/" + pipeline + "/launch"
                 ],
-                "rundir": "/app/" + product + "/" + service
+                "rundir": "/app/" + pipeline
             },
-            "name": pipe_name,
-            "title": product.capitalize() + " " + service.upper()
-        })
-    
-        ######################################
-        ## define the service
-        svc_o = self._template('service', svc_name, '', {
-            "name": svc_name,
-            "region": region,
-            "pipeline": pipe_name,
-            "nginx": nginx_name.lower(),
-            "docker-link": True,
-            "config": svc_name,
-            "tenant": tenant, # will be multitenant if not single tenant
-            "lane": lane.lower()
+            "name": pipeline,
+            "title": pipeline.capitalize() + " " + svc_name
         })
     
         ######################################
         # and a pipeline base config object
-        cfg_o = self._template('config', pipe_name, '', {
-            "name": pipe_name,
+        cfg_o = self._template('config', pipeline, '', {
+            "name": pipeline,
             "sensitive": {
                 "parameters": {
                 }
@@ -472,7 +451,7 @@ Options:
     
         cfg_env_o = self._template('config', env_name, '', {
             "name": env_name,
-            "extends": [pipe_name],
+            "extends": [pipeline],
             "sensitive": {
                 "parameters": {
                     "APP_GRP_SEED": grp_key,
@@ -483,6 +462,20 @@ Options:
             },
             "setenv": {},
             "type": "parameter"
+        })
+    
+        ######################################
+        ## define the service
+        svc_o = self._template('service', svc_name, '', {
+            "name": svc_name,
+            "region": region,
+            "region-nbr": self.cfg.regions[region].nbr,
+            "pipeline": pipeline,
+            "common-name": common_name.lower(),
+            "docker-link": True,
+            "config": svc_name,
+            "tenant": tenant, # will be multitenant if not single tenant
+            "lane": lane.lower()
         })
     
         ######################################
@@ -501,16 +494,16 @@ Options:
 
         # top_config = env_name
         trap = self.engine.TRAP
-        trap(self.engine.cache_update_object, 'pipeline', pipe_name, pipe_o)
-        trap(self.engine.cache_update_object, 'service', svc_name, svc_o)
-        trap(self.engine.cache_update_object, 'config', pipe_name, cfg_o)
+        trap(self.engine.cache_update_object, 'pipeline', pipeline, pipe_o)
+        trap(self.engine.cache_update_object, 'config', pipeline, cfg_o)
         trap(self.engine.cache_update_object, 'config', env_name, cfg_env_o)
+        trap(self.engine.cache_update_object, 'service', svc_name, svc_o)
 
         if multitenant:
             trap(self.engine.cache_update_object, 'config', top_config, cfg_tenant_o)
 
         return {
-            'pipeline': pipe_name,
+            'pipeline': pipeline,
             'service': svc_name,
             'config': top_config
         }
