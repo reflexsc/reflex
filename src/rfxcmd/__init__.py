@@ -423,7 +423,7 @@ Regions and Lanes are configured in the config:reflex object.
         ## start with the pipeline
         pipe_o = self._template('pipeline', pipeline, '', {
             "launch": {
-                "cfgdir": "/data/" + pipeline + "/config",
+                "cfgdir": "/app/" + pipeline + "/config",
                 "exec": [
                     "/app/" + pipeline + "/launch"
                 ],

@@ -509,7 +509,6 @@ class EngineCli(rfx.Base):
     def _json_load_handle_error(self, content, ask2continue=False, cleanfile=None):
         try:
             data = ujson.loads(content)
-            print(data)
             msg = _valid_name(data.get('name'))
             if msg:
                 raise ValueError(msg)

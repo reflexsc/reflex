@@ -263,8 +263,8 @@ class App(rfx.Base):
             for key, value in self.launch_config.setenv:
                 msg += "  {}={}".format(key, value)
             self.NOTIFY(msg) # keep it as one 'message' for log handlers
-        self.NOTIFY("Launch working directory:\n  " + self.launch_rundir)
-        self.NOTIFY("Launch exec:\n  '" + "', '".join(self.launch_exec) + "'")
+        self.NOTIFY("Launch working directory=" + self.launch_rundir)
+        self.NOTIFY("Launch exec=['" + "','".join(self.launch_exec) + "']")
         self._launch_update_instance()
         os.execv(self.launch_exec[0], self.launch_exec)
 

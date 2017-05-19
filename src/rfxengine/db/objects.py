@@ -854,16 +854,16 @@ class RCObject(rfx.Base):
         """
         Any actions or updates required on change of this object
         """
-        scopelist = policyscope_get_cached(self.master.cache, dbi, 'targetted')
+        scopelist = policyscope_get_cached(self.master.cache, dbi, 'targeted')
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
         for pscope in scopelist:
             policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
-        #self.map_targetted_policies(scopelist, dbi=dbi)
+        #self.map_targeted_policies(scopelist, dbi=dbi)
         return list()
 
     #############################################################################
-#    def map_targetted_policies(self, scopelist, dbi=None):
+#    def map_targeted_policies(self, scopelist, dbi=None):
 #        """
 #        Review policies and scope to this object
 #        """
@@ -1543,7 +1543,7 @@ class Policyscope(RCObject):
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
      ADD>     policy_id int not null,
-     ADD>     type enum('targetted', 'global') not null default 'targetted',
+     ADD>     type enum('targeted', 'global', 'targetted') not null default 'targeted',
      ADD>     matches text not null,
      ADD>     actions varchar(64) not null,
      ADD>     data text,
@@ -1558,7 +1558,7 @@ class Policyscope(RCObject):
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
      ADD>     policy_id int not null,
-     ADD>     type enum('targetted', 'global') not null default 'targetted',
+     ADD>     type enum('targeted', 'global', 'targetted') not null default 'targeted',
      ADD>     matches text not null,
      ADD>     actions varchar(64) not null,
      ADD>     data text,
@@ -1614,8 +1614,8 @@ class Policyscope(RCObject):
         except TypeError as err:
             raise InvalidParameter("Cannot prepare match expression: " + str(err))
 
-        if self.obj['type'].lower() not in ('targetted', 'global'):
-            raise InvalidParameter("Policy Match Type is not one of: global, targetted")
+        if self.obj['type'].lower() not in ('targeted', 'global', 'targetted'):
+            raise InvalidParameter("Policy Match Type is not one of: global, targeted")
 
         actions = list()
         for action in re.split(r'\s*,\s*', self.obj['actions']):
@@ -1641,7 +1641,7 @@ class Policyscope(RCObject):
 
         # first cleanup previous mappings from this policyscope
         dbi.do("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
-        if self.obj['type'] == 'targetted':
+        if self.obj['type'] in ('targeted', 'targetted'):
             scopelist = policyscope_get_direct(self.master.cache,
                                                dbi,
                                                self.obj['type'])
