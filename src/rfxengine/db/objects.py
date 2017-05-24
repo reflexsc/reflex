@@ -37,13 +37,14 @@ import base64
 import traceback
 import hashlib # hashlib is fastest for hashing
 import nacl.utils # for keys -- faster than cryptography lib
+import nacl.pwhash # for password hashing
 from mysql.connector.errors import ProgrammingError, IntegrityError
 import rfx
 from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
                                  NoChanges, CipherException, InvalidParameter,\
                                  PolicyFailed
-from rfxengine import abac, log, do_DEBUG #, trace
+from rfxengine import abac, log, do_DEBUG, trace
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
 import dictlib
@@ -184,13 +185,13 @@ class RCObject(rfx.Base):
     def _get_policies_direct(self, target_id, key, cache, start, dbi=None):
         if target_id:
             result = dbi.do_getlist("""
-                SELECT action, id, name, policy, data, unix_timestamp(updated_at), target_id
+                SELECT action, result, id, name, policy, data, unix_timestamp(updated_at), target_id
                   FROM Policy, PolicyFor
                  WHERE id=policy_id AND obj = ? AND (target_id = ? OR target_id = 0)
               """, self.table, target_id)
         else:
             result = dbi.do_getlist("""
-                SELECT action, id, name, policy, data, unix_timestamp(updated_at), target_id
+                SELECT action, result, id, name, policy, data, unix_timestamp(updated_at), target_id
                   FROM Policy, PolicyFor
                  WHERE id=policy_id AND obj = ? AND target_id = 0
               """, self.table)
@@ -203,8 +204,8 @@ class RCObject(rfx.Base):
                                              policy.policy_id,
                                              policy,
                                              base_time=start)
-            pmap[policy.policy_type].append(policy.policy_id)
-            policies[policy.policy_type][policy.policy_id] = policy
+            pmap[policy.policy_action].append(policy.policy_id)
+            policies[policy.policy_action][policy.policy_id] = policy
         cache.set_cache('policymap', key, pmap, base_time=start)
         return policies
 
@@ -735,10 +736,14 @@ class RCObject(rfx.Base):
                     self.DEBUG("<POLICY> action={} policy=\"{}\""
                                .format(act, self.policies[act][policy_id].policy_expr),
                                module="abac")
-                if self.policies[act][policy_id].allowed(attrs):
+                pol = self.policies[act][policy_id]
+                if pol.allowed(attrs):
                     if abac_debug:
                         self.DEBUG("<POLICY> Success!", module="abac")
                     return True
+                trace("obj={} pol={} fail={}".format(self.obj, policy_id, pol.policy_fail))
+                if pol.policy_fail: # always drop out -- dangerous if misapplied
+                    return False
         if raise_error:
             raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
         return False
@@ -1185,9 +1190,9 @@ class Group(RCObject):
     def validate(self):
         errors = super(Group, self).validate()
 
-        if self.obj['type'] not in ('Apikey', 'Pipeline', "set"):
+        if self.obj['type'] not in ('Apikey', 'Pipeline', "set", "password"):
             raise InvalidParameter("Invalid type=" + self.obj['type'] +
-                                   " not one of: Apikey, Pipeline")
+                                   " not one of: Apikey, Pipeline, set or password")
 
         return errors
 
@@ -1200,7 +1205,16 @@ class Group(RCObject):
         if self.obj['type'] == 'set':
             self.obj['group'] = list(set([x.lower() for x in self.obj['group']]))
             self.obj['_grp'] = self.obj['group']
-        else:
+        elif self.obj['type'] == 'password':
+            words = list()
+            for pwd in self.obj['group']:
+                if pwd[:3] == '$7$':
+                    words.append(pwd)
+                else:
+                    words.append(nacl.pwhash.scryptsalsa208sha256_str(pwd.encode()).decode())
+            self.obj['group'] = words
+            self.obj['_grp'] = words
+        elif self.obj['type'] in ('Apikey', 'Pipeline'):
             # todo: look for better option
             # pylint: disable=eval-used
             class_obj = eval(self.obj['type'])(clone=self)
@@ -1217,6 +1231,8 @@ class Group(RCObject):
 
             self.obj['group'] = list(mapped)
             self.obj['_grp'] = list(noid)
+        else:
+            raise ValueError("Invalid type: " + self.obj['type'])
 
         return errors
 
@@ -1431,6 +1447,8 @@ class Policy(RCObject):
      ADD>     data text,
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
+     ADD>     result enum('pass', 'fail') not null default 'pass',
+     ADD>     order int not null default 1,
      ADD>     primary key(id)
      ADD> ) engine=InnoDB;
      ADD> INSERT INTO Policy SET id=100, name='master', policy='token_name=="master"', data='{}';
@@ -1444,9 +1462,10 @@ class Policy(RCObject):
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     index(id, updated_at),
+     ADD>     result enum('pass', 'fail') not null default 'pass',
+     ADD>     order int not null default 1,
      ADD>     index(id)
      ADD> ) engine=InnoDB;
-     ADD>
 
     DROP> DROP TRIGGER IF EXISTS archive_Policy;
      ADD> CREATE TRIGGER archive_Policy BEFORE UPDATE ON Policy
@@ -1460,6 +1479,8 @@ class Policy(RCObject):
     def __init__(self, *args, **kwargs):
         self.omap = dictlib.Obj()
         self.omap['policy'] = RCMap(stype="alter", stored='policy')
+        self.omap['result'] = RCMap(stype="opt", stored='result')
+        self.omap['order'] = RCMap(stype="opt", stored='order')
         super(Policy, self).__init__(*args, **kwargs)
 
     #############################################################################
@@ -1467,6 +1488,10 @@ class Policy(RCObject):
     # keep pre-rx version and post, for subsequent editing
     def validate(self):
         errors = super(Policy, self).validate()
+        self.obj['order'] = self.obj.get('order', 1).lower() # make a default
+        self.obj['result'] = self.obj.get('result', 'pass').lower() # make a default
+        if self.obj['result'] not in ('pass', 'fail'):
+            raise InvalidParameter("Result may be only pass or fail")
         try:
             compile(self.obj['policy'], '<policy>', 'eval')
             # Future note: put in an eval here with mock data
@@ -1734,6 +1759,8 @@ class Schema(rfx.Base):
                 new_master = True
 
             schema = []
+
+            # TODO: add MIGRATE (need a tracking table)
             for line in obj.__doc__.split("\n"):
                 if reset:
                     match = re.search(r'^\s+(ADD|DROP)> *(.*)$', line)

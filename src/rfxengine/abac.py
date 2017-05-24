@@ -49,7 +49,8 @@ class Policy(object):
     policy_expr = None
     policy_exec = None
     policy_id = 0
-    policy_type = None
+    policy_action = None
+    policy_fail = False
     policy_name = ''
     policy_data = None
     policy_timestamp = 0
@@ -58,9 +59,10 @@ class Policy(object):
     disallowed_rx = re.compile("lambda ", flags=re.IGNORECASE)
 
     # pylint: disable=too-many-arguments
-    def __init__(self, ptype, pid, pname, pexpr, pdata, ptimestamp, target_id):
+    def __init__(self, action, result, pid, pname, pexpr, pdata, ptimestamp, target_id):
         # matches array, as pulled from db.objects.RCObject._get_policy
-        self.policy_type = ptype
+        self.policy_action = action
+        self.policy_fail = result == 'fail'
         self.policy_id = pid
         self.policy_name = pname
         self.policy_expr = self.compile(pexpr)
