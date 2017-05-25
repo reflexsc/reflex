@@ -1,5 +1,0 @@
-documentation: status==202 means content received but nothing was changed.  This may or may not be Ok
-
-dictlib: lowercase option?   add to abac/headers for http?
-
-add relationship object type for things like Policymap.policy_id so it can still cross map the IDS with names.

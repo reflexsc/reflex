@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #$#HEADER-START
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 #
@@ -19,6 +20,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #$#HEADER-END
+# pylint: disable=no-member
 
 """
 Internal Monitoring subsystem.
@@ -36,20 +38,22 @@ try:
     import Queue as queue # pylint: disable=import-error
 except: # pylint: disable=bare-except
     import queue # pylint: disable=import-error,wrong-import-order
-import threading # pylint: disable=wrong-import-order
-import re # pylint: disable=wrong-import-order
-import time # pylint: disable=wrong-import-order
-import os # pylint: disable=wrong-import-order
-import traceback # pylint: disable=wrong-import-order
-import sys # pylint: disable=wrong-import-order
-import resource # pylint: disable=wrong-import-order
+import threading
+import re
+import time
+import os
+import traceback
+import sys
+import resource
+import base64
 import requests
 import requests.exceptions
 import ujson as json
 import dictlib
 import rfx
 from rfx import set_interval
-from rfx.backend import Engine
+#from rfx.backend import Engine
+import rfx.client
 
 ################################################################################
 # this is an odd limit
@@ -76,7 +80,7 @@ class Monitor(rfx.Base):
     heartbeat_stopper = None
     reporting_stopper = None
     thread_stopper = threading.Event()
-    engine = None
+    rcs = None
 
     ###########################################################################
     # pylint: disable=super-init-not-called
@@ -84,7 +88,7 @@ class Monitor(rfx.Base):
         if not base:
             raise ValueError("Missing reflex base definition")
         rfx.Base.__inherit__(self, base)
-        self.engine = Engine(base=base)
+        self.rcs = rfx.client.Session(base=base)
 
     ############################################################################
     def configure(self, config):
@@ -157,29 +161,21 @@ class Monitor(rfx.Base):
         self.thread_debug("Starting monitor refresh", module="update_monitors")
 
         # need to make a more efficient way of doing this via Reflex Engine
-        new_monitors = []
-        new_instances = {}
-        new_services = {}
-        new_pipelines = {}
-        debug = self.do_DEBUG()
-        def engine_get(self, cache, otype, oname):
-            """local cache wrapper around engine.get_object"""
-            if oname in cache:
-                return cache[oname]
-            obj = self.engine.get_object(otype, oname, notify=debug)
-            cache[oname] = obj
-            return obj
+        monitors = []
+        self.rcs.cache_reset()
 
-        for svc_name in self.config['monitor-services']:
+        svcs = self.rcs.cache_list('service',
+                                   cols=['pipeline', 'name',
+                                         'active-instances'])
+        for svc in svcs:
             try:
-                svc = engine_get(self, new_services, 'service', svc_name)
-                pipeline = engine_get(self, new_pipelines, 'pipeline', svc['pipeline'])
-                for mon in pipeline['monitor']:
+                pipeline = self.rcs.cache_get('pipeline', svc['pipeline'])
+                for mon in pipeline.get('monitor', []):
                     self.DEBUG("monitor {}".format(mon))
-                    mon['service'] = svc_name
+                    mon['service'] = svc['name']
                     mon['pipeline'] = svc['pipeline']
-                    for inst_name in svc['active-instances']:
-                        inst = engine_get(self, new_instances, 'instance', inst_name)
+                    for inst_name in svc.get('active-instances', []):
+                        inst = self.rcs.cache_get('instance', inst_name)
 
                         # todo: insert: macro flatten
 
@@ -187,19 +183,21 @@ class Monitor(rfx.Base):
                         mymon['instance'] = inst_name
                         mymon['target'] = inst['address']
                         mymon['title'] = svc['name'] + ": " + mon['name']
-                        new_monitors.append(mymon)
+                        monitors.append(mymon)
             except KeyboardInterrupt:
                 raise
             except: # pylint: disable=bare-except
                 self.NOTIFY("Error in processing monitor:", err=traceback.format_exc())
 
-        self.NOTIFY("Refreshed monitors", total_monitors=len(new_monitors))
+        self.NOTIFY("Refreshed monitors", total_monitors=len(monitors))
+        self.DEBUG("Monitors", monitors=monitors)
 
         # mutex / threadsafe?
-        self.monitors = new_monitors
-        self.instances = new_instances
-        self.services = new_services
-        self.pipelines = new_pipelines
+        self.monitors = monitors
+        cache = self.rcs._cache # pylint: disable=protected-access
+        self.instances = cache['instance']
+        self.services = cache['service']
+        self.pipelines = cache['pipeline']
         self.thread_debug("Refresh complete", module="update_monitors")
 
     ############################################################################
@@ -208,11 +206,16 @@ class Monitor(rfx.Base):
         Wrap debug to include thread information
         """
         if 'module' not in kwargs:
-            kwargs['module'] = "main"
+            kwargs['module'] = "Monitor"
+        if kwargs['module'] != 'Monitor' and self.do_DEBUG(module='Monitor'):
+            self.debug[kwargs['module']] = True
         if not self.do_DEBUG(module=kwargs['module']):
             return
         thread_id = threading.current_thread().name
-        kwargs['module'] = "[" + thread_id + "] " + kwargs['module']
+        key = "[" + thread_id + "] " + kwargs['module']
+        if not self.debug.get(key):
+            self.debug[key] = True
+        kwargs['module'] = key
         self.DEBUG(*args, **kwargs)
 
     ############################################################################
@@ -331,10 +334,9 @@ class Monitor(rfx.Base):
         if result['status'] != self.instances[monitor['instance']]['status']:
             # do some retry/counter steps on failure?
             self.instances[monitor['instance']]['status'] = result['status']
-            self.engine.delta_update_object('instance',
-                                            monitor['instance'],
-                                            {'status': result['status']}
-                                           )
+            self.rcs.patch('instance',
+                           monitor['instance'],
+                           {'status': result['status']})
 
     ############################################################################
     def reporting(self):
@@ -371,29 +373,61 @@ class Monitor(rfx.Base):
                 self.NOTIFY("No monitor results handled since last heartbeat!", service="heartbeat")
                 return
 
-        # ping statuscake
-        result = requests.get(self.config['heartbeat-hook'])
-        if result.status_code != 200:
-            self.NOTIFY("Heartbeat ping to statuscake failed!", level="ERROR")
+        # ping heartbeat as a webhook
+        if self.config.get('heartbeat-hook'):
+            result = requests.get(self.config.get('heartbeat-hook'))
+            if result.status_code != 200:
+                self.NOTIFY("Heartbeat ping to statuscake failed!", level="ERROR")
 
         # keep a static copy of the last run stats
         self.last_stats = self.stats.copy()
 
     ############################################################################
-    def start_agent(self):
+    def stop_agent(self):
+        """ TODO: ofind pid and kill """
+        pass
+
+    ############################################################################
+    def start_agent(self, cfgin=True):
         """
         CLI interface to start 12-factor service
         """
-        self.NOTIFY("Starting monitor Agent")
 
-        if 'APP_SERVICE' not in os.environ:
-            self.ABORT("Must be run via launch control service action call")
+        default_conf = {
+            "threads": {
+                "result": {
+                    "number": 0,
+                    "function": None
+                },
+                "worker": {
+                    "number": 0,
+                    "function": None
+                },
+            },
+            "interval": {
+                "refresh": 900,
+                "heartbeat": 300,
+                "reporting": 300,
+                "test": 60
+            },
+            "heartbeat-hook": False
+        }
+        indata = {}
+        if cfgin:
+            indata = json.load(sys.stdin)
+        elif os.environ.get("REFLEX_MONITOR_CONFIG"):
+            indata = os.environ.get("REFLEX_MONITOR_CONFIG")
+            if indata[0] != "{":
+                indata = base64.b64decode(indata)
+        else:
+            self.NOTIFY("Using default configuration")
 
-        engine_conf = json.load(sys.stdin)
-        conf = engine_conf['sensitive']['config']['monitor']
+        conf = dictlib.union(default_conf, indata)
+
         conf['threads']['result']['function'] = self.handler_thread
         conf['threads']['worker']['function'] = self.worker_thread
 
+        self.NOTIFY("Starting monitor Agent")
         try:
             self.configure(conf).start()
         except KeyboardInterrupt:
@@ -404,4 +438,3 @@ class Monitor(rfx.Base):
                 self.heartbeat_stopper.set()
             if self.reporting_stopper:
                 self.reporting_stopper.set()
-

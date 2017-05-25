@@ -26,6 +26,13 @@ Powerfully easy argument parsing
 
 import sys
 import copy
+# subprocess and input are used by password
+import subprocess
+try:
+    from builtins import input # pylint: disable=redefined-builtin
+    get_input = input # pylint: disable=invalid-name
+except: # pylint: disable=bare-except
+    get_input = raw_input # pylint: disable=invalid-name, undefined-variable
 
 ################################################################################
 class ArgParse(Exception):
@@ -138,7 +145,7 @@ class Args(object):
     sets).
 
     {info} has "type" defined, as one of:
-        "from-set", "set-value", "set-add", "set-true"
+        "from-set", "set-value", "set-add", "set-true", "set-password"
     if type is from-set, the additional key "set" is defined as an array,
     with strings being any match strings for optmatch()
 
@@ -278,6 +285,27 @@ class Args(object):
                     value = self.out[optkey]
                 else:
                     value = [value]
+
+        elif opttype == 'set-password':
+            if '=' in arg:
+                raise ArgParse(opt + " may only be queried via stdin")
+            # ugly hack, could do this better
+            current = self.out.get(optkey) or []
+            clen = len(current) + 1
+            subprocess.call(["stty", "-echo"])
+            try:
+                pwd = get_input("Password {}: ".format(clen))
+                print("")
+            except:
+                raise
+            finally:
+                subprocess.call(["stty", "echo"])
+
+            if current:
+                self.out[optkey].append(pwd)
+                value = self.out[optkey]
+            else:
+                value = [pwd]
 
         elif opttype == 'syntax':
             if caller:

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
-import requests
+"""get mysql connector"""
+
 import os
-import subprocess
 import sys
+import subprocess
 
 def noerr(cmd):
+    """noerr"""
     if subprocess.call(cmd, shell=True):
         sys.exit("Cannot continue")
 
 def main():
+    """main"""
     version = "2.1.4"
     download_url = "https://dev.mysql.com/get/Downloads/Connector-Python/"
 
@@ -22,7 +25,7 @@ def main():
 
     latest = "mysql-connector-python-" + version
     download_url += latest + ".tar.gz"
-    
+
     # could use requests lib instead
     noerr("curl --fail -L -O " + download_url)
     noerr("tar -xzf " + latest + ".tar.gz")
@@ -35,4 +38,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -31,6 +31,7 @@ A few unit tests are embedded, however, most of them are external.
 """
 
 import re
+#import random # uniqued
 import uuid
 import time
 import base64
@@ -44,12 +45,31 @@ from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
                                  NoChanges, CipherException, InvalidParameter,\
                                  PolicyFailed
-from rfxengine import abac, log, do_DEBUG, trace
+from rfxengine import abac, log, trace #, do_DEBUG
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
 import dictlib
 
 # todo: want to hook object and its relationships
+
+################################################################################
+# random id
+def uniqueid():
+    """generate a unique id"""
+    seed = 1 # random.getrandbits(32)
+    while True:
+        yield seed
+        seed += 1
+REQUESTID = uniqueid()
+
+def newrequest(self, name, target=None):
+    """log the start of a request"""
+    self.reqid = next(REQUESTID)
+    if not target:
+        if self.obj:
+            target = self.obj.get('name') or self.obj.get('id')
+    trace("rid={} {} {}".format(self.reqid, name, target))
+
 ################################################################################
 class RCMap(dictlib.Obj):
     """
@@ -109,6 +129,7 @@ class RCObject(rfx.Base):
     obj = None
     vardata = True
     start = 0
+    reqid = 0
 
     ## mapping.  RCMap changes position to named.  Positions:
     ##           use on alter, use on create, extract from dict
@@ -154,9 +175,8 @@ class RCObject(rfx.Base):
 
     ############################################################################
     def _get_policies(self, dbi=None):
-        policies = dict(read=dict(), write=dict(), admin=dict())
         if not self.policy_map:
-            return policies
+            return dict(read=list(), write=list(), admin=list())
 
         target_id = 0
         if self.obj and self.obj.get('id'):
@@ -172,31 +192,30 @@ class RCObject(rfx.Base):
         # if any single policy is expired, re-grab the entire set, as it has
         # dependent information
         for action in pmap:
-            for pol_id in pmap[action]:
-                policy = cache.get_cache('policy', pol_id, start=start)
-                if not policy:
+            for policy in pmap[action]:
+                #cached = cache.get_cache('policy', policy.policy_id, start=start)
+                #if not cached:
+                if policy.expires > start:
                     return self._get_policies_direct(target_id, key, cache, start, dbi=dbi)
-                policies[action][pol_id] = policy
 
-        return policies
+        return pmap
 
     ############################################################################
     # pylint: disable=too-many-arguments
     def _get_policies_direct(self, target_id, key, cache, start, dbi=None):
         if target_id:
             result = dbi.do_getlist("""
-                SELECT action, result, id, name, policy, data, unix_timestamp(updated_at), target_id
+                SELECT action, result, sort_order, id, name, policy, data, unix_timestamp(updated_at), target_id
                   FROM Policy, PolicyFor
                  WHERE id=policy_id AND obj = ? AND (target_id = ? OR target_id = 0)
               """, self.table, target_id)
         else:
             result = dbi.do_getlist("""
-                SELECT action, result, id, name, policy, data, unix_timestamp(updated_at), target_id
+                SELECT action, result, sort_order, id, name, policy, data, unix_timestamp(updated_at), target_id
                   FROM Policy, PolicyFor
                  WHERE id=policy_id AND obj = ? AND target_id = 0
               """, self.table)
 
-        policies = dict(read=dict(), write=dict(), admin=dict())
         pmap = dict(read=list(), write=list(), admin=list())
         for row in result:
             policy = abac.Policy(*row)
@@ -204,16 +223,14 @@ class RCObject(rfx.Base):
                                              policy.policy_id,
                                              policy,
                                              base_time=start)
-            pmap[policy.policy_action].append(policy.policy_id)
-            policies[policy.policy_action][policy.policy_id] = policy
-        cache.set_cache('policymap', key, pmap, base_time=start)
-        return policies
+            pmap[policy.policy_action].append(policy)
 
-    ############################################################################
-#    @db_interface
-#    def name2id(self, target, dbi=None):
-#        """wraps name2id_direct with db_interface decorator"""
-#        return self.name2id_direct(target, dbi)
+        for ptype in pmap:
+            if pmap[ptype]:
+                pmap[ptype].sort(key=lambda elem: elem.sort_key, reverse=True)
+
+        cache.set_cache('policymap', key, pmap, base_time=start)
+        return pmap
 
     ############################################################################
     def name2id_direct(self, target, dbi):
@@ -257,8 +274,7 @@ class RCObject(rfx.Base):
         name, obj_id = (target + ".").split(".")[:2]
         if obj_id and obj_id[:1] in "0123456789":
             return (name, int(obj_id))
-        else:
-            return (name, 0)
+        return (name, 0)
 
     ############################################################################
     @db_interface
@@ -288,6 +304,7 @@ class RCObject(rfx.Base):
         If a archive is specified, pull the archived version (value is the date)
         archive is only appropriate for tables supporting Archive.
         """
+        #newrequest(self, "GET", target=target)
         sql = "SELECT * FROM " + self.table
         if isinstance(target, str):
             idnbr = self.name2id_direct(target, dbi)[0]
@@ -373,7 +390,7 @@ class RCObject(rfx.Base):
                                      sensitive=True, raise_error=False):
                     value = json2data(value)
                 else:
-                    value = ["redacted"] # pylint: disable=redefined-variable-type
+                    value = ["redacted"]
             elif col.dtype != "value":
                 value = json2data(value)
 
@@ -394,7 +411,7 @@ class RCObject(rfx.Base):
         """
         Delete a specified object -- does not delete from Archive
         """
-
+        #newrequest(self, "DELETE", target=target)
         self.policies = self._get_policies(dbi=dbi)
         if not self.authorized("write", attrs, sensitive=False, raise_error=False):
             raise PolicyFailed("Unable to get permission to delete object")
@@ -423,6 +440,7 @@ class RCObject(rfx.Base):
         Use .list_iterated() for an iterator based list, but you must
         also provide the dbi.
         """
+        #newrequest(self, "LIST_BUF match={}".format(match))
         (sql, args) = self._list_prep(attrs, limit=limit, match=match, dbi=dbi)
 
         results = []
@@ -471,7 +489,7 @@ class RCObject(rfx.Base):
         """
         List objects, using an iterator, with a specific called set of columns.
         """
-
+        #newrequest(self, "LIST_COLS match={}".format(match))
         self.policies = self._get_policies(dbi=dbi)
         self.authorized("read", attrs, sensitive=False, raise_error=True)
 
@@ -637,12 +655,14 @@ class RCObject(rfx.Base):
         """Update data from self into db.  Use on pre-existing objects"""
         if not self.obj.get('id') and self.obj.get('name'):
             self.obj['id'] = self.name2id_direct(self.obj['name'], dbi)[0]
+        #newrequest(self, "UPDATE")
         return self._put(attrs, dbi=dbi)
 
     ############################################################################
     @db_interface
     def create(self, attrs, dbi=None, doabac=True):
         """Create data from self into db.  Use on new objects"""
+        #newrequest(self, "CREATE")
         if self.obj.get('id') and self.exists(self.obj['id']) \
            or self.exists(self.obj['name']):
             raise ObjectExists(self.table + " named `{name}` already exists"
@@ -692,9 +712,8 @@ class RCObject(rfx.Base):
         if crypto:
             key = self.master.default_key
             return '__$' + key + crypto[key]['cipher'].key_encrypt(data)
-        else:
-            self.NOTIFY("crypto ERROR no keys!")
-            return '__$___' + data
+        self.NOTIFY("crypto ERROR no keys!")
+        return '__$___' + data
 
     ############################################################################
     # Future: add layers to this, allowing for group level additional crypto
@@ -723,29 +742,37 @@ class RCObject(rfx.Base):
         attrs['obj_type'] = self.table
         attrs['obj'] = self.obj
         abac_debug = False
+        def dbg(*args):
+            """debugging"""
+            msg = "rid={} ABAC " + args[0]
+            msg = msg.format(self.reqid, *args[1:])
+            self.DEBUG(msg, module="abac")
+
         if self.do_DEBUG(module="abac"):
             abac_debug = True
-            self.DEBUG("<POLICY> attributes={}".format(attrs), module="abac")
+            pid = None
+            if self.obj:
+                pid = self.obj.get('id')
+            dbg("authorized({}, obj={}, id={}, sensitive={})", action,
+                self.table, pid, sensitive)
         if action != 'admin':
             actions = [action, 'admin']
         else:
             actions = ['admin']
         for act in actions:
-            for policy_id in self.policies[act]:
+            for policy in self.policies[act]:
                 if abac_debug:
-                    self.DEBUG("<POLICY> action={} policy=\"{}\""
-                               .format(act, self.policies[act][policy_id].policy_expr),
-                               module="abac")
-                pol = self.policies[act][policy_id]
-                if pol.allowed(attrs):
+                    dbg("policy? id={} act={} expr=\"{}\"", policy.policy_id,
+                        act, policy.policy_expr)
+                if policy.allowed(attrs, debug=abac_debug, base=self):
                     if abac_debug:
-                        self.DEBUG("<POLICY> Success!", module="abac")
+                        dbg("AUTHORIZED id={} act={}", policy.policy_id, act)
                     return True
-                trace("obj={} pol={} fail={}".format(self.obj, policy_id, pol.policy_fail))
-                if pol.policy_fail: # always drop out -- dangerous if misapplied
-                    return False
+                if raise_error and policy.policy_fail: # always drop out -- dangerous if misapplied
+                    raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine") # pylint: disable=line-too-long
         if raise_error:
             raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
+        dbg("NOT authorized")
         return False
 
     ############################################################################
@@ -777,9 +804,8 @@ class RCObject(rfx.Base):
         target = target.split(".", 1)[0]
         if obj[0]:
             return (obj[1] + "." + str(obj[0]), '')
-        else:
-            return (target + ".notfound",
-                    table.table + ":" + target + " not found")
+        return (target + ".notfound",
+                table.table + ":" + target + " not found")
 
     ############################################################################
     def _map_soft_relationship(self, dbi, table, key):
@@ -1301,7 +1327,7 @@ class Apikey(RCObject):
 
     ############################################################################
     def validate(self):
-        if not len(self.obj.get('name', '')):
+        if not self.obj.get('name', ''):
             raise InvalidParameter("Object load: missing 'name'")
         return []
 
@@ -1448,7 +1474,7 @@ class Policy(RCObject):
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     result enum('pass', 'fail') not null default 'pass',
-     ADD>     order int not null default 1,
+     ADD>     sort_order int not null default 1000,
      ADD>     primary key(id)
      ADD> ) engine=InnoDB;
      ADD> INSERT INTO Policy SET id=100, name='master', policy='token_name=="master"', data='{}';
@@ -1463,7 +1489,7 @@ class Policy(RCObject):
      ADD>     updated_by varchar(32) not null,
      ADD>     index(id, updated_at),
      ADD>     result enum('pass', 'fail') not null default 'pass',
-     ADD>     order int not null default 1,
+     ADD>     sort_order int not null default 1000,
      ADD>     index(id)
      ADD> ) engine=InnoDB;
 
@@ -1480,7 +1506,7 @@ class Policy(RCObject):
         self.omap = dictlib.Obj()
         self.omap['policy'] = RCMap(stype="alter", stored='policy')
         self.omap['result'] = RCMap(stype="opt", stored='result')
-        self.omap['order'] = RCMap(stype="opt", stored='order')
+        self.omap['order'] = RCMap(stype="opt", stored='sort_order')
         super(Policy, self).__init__(*args, **kwargs)
 
     #############################################################################
@@ -1488,7 +1514,7 @@ class Policy(RCObject):
     # keep pre-rx version and post, for subsequent editing
     def validate(self):
         errors = super(Policy, self).validate()
-        self.obj['order'] = self.obj.get('order', 1).lower() # make a default
+        self.obj['order'] = self.obj.get('order', 1000) # make a default
         self.obj['result'] = self.obj.get('result', 'pass').lower() # make a default
         if self.obj['result'] not in ('pass', 'fail'):
             raise InvalidParameter("Result may be only pass or fail")
@@ -1544,7 +1570,7 @@ def policyscope_get_direct(cache, dbi, mtype):
 
 ################################################################################
 def policyscope_map_for(pscope, dbi, attribs, table, target_id):
-    """"map poicyscope objects into PolicyFor table"""
+    """"map policyscope objects into PolicyFor table"""
     try:
         # pylint: disable=eval-used
         if eval(pscope['matches'], abac.abac_context(), attribs):
@@ -1760,7 +1786,7 @@ class Schema(rfx.Base):
 
             schema = []
 
-            # TODO: add MIGRATE (need a tracking table)
+            # xTODO: add MIGRATE (need a tracking table)
             for line in obj.__doc__.split("\n"):
                 if reset:
                     match = re.search(r'^\s+(ADD|DROP)> *(.*)$', line)

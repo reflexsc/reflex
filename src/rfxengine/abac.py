@@ -32,10 +32,11 @@ Be very careful.
 """
 
 import re
+import traceback
 import dictlib
 import cherrypy
 #from rfx import json4human
-from rfxengine import log, server
+from rfxengine import log, server#, trace
 from rfxengine import exceptions
 
 ################################################################################
@@ -48,6 +49,7 @@ class Policy(object):
     """
     policy_expr = None
     policy_exec = None
+    policy_order = 1
     policy_id = 0
     policy_action = None
     policy_fail = False
@@ -55,19 +57,23 @@ class Policy(object):
     policy_data = None
     policy_timestamp = 0
     policy_expires = 0
+    sort_key = ""
+    target_id = 0
 
     disallowed_rx = re.compile("lambda ", flags=re.IGNORECASE)
 
     # pylint: disable=too-many-arguments
-    def __init__(self, action, result, pid, pname, pexpr, pdata, ptimestamp, target_id):
+    def __init__(self, action, result, order, pid, pname, pexpr, pdata, ptimestamp, target_id):
         # matches array, as pulled from db.objects.RCObject._get_policy
         self.policy_action = action
         self.policy_fail = result == 'fail'
         self.policy_id = pid
+        self.policy_order = order
         self.policy_name = pname
         self.policy_expr = self.compile(pexpr)
         self.policy_data = pdata
         self.policy_timestamp = ptimestamp
+        self.sort_key = str(order) + ":" + str(ptimestamp)
         self.target_id = target_id
 
     ############################################################################
@@ -81,7 +87,7 @@ class Policy(object):
         return expression
 
     ############################################################################
-    def allowed(self, attrs):
+    def allowed(self, attrs, debug=False, base=None):
         """
         process an ABAC policy expression.  Context is provided as a dict
         to add to the namespace of the expression.
@@ -120,13 +126,18 @@ class Policy(object):
                 return True
         except KeyError as err:
             log("policy failure id={} missing key={}".format(self.policy_id, err))
-
+        except Exception as err: # pylint: disable=broad-except
+            if debug and base:
+                base.DEBUG("ABAC error={}, traceback={}"
+                           .format(err, traceback.format_exc()), module="abac")
         return False
 
 ################################################################################
 def abac_context():
+    """standard policy context"""
     def debug_hook(*args):
-        print("<ABAC DEBUG>", *args)
+        """debug hook"""
+        log("ABAC DEBUG", *args)
 
     return {
         '__builtins__':{},
@@ -136,6 +147,7 @@ def abac_context():
         'debug': debug_hook
     }
 
+################################################################################
 def _attrs_skeleton(**kwargs):
     attrs = dictlib.Obj(
         cert_cn='',
@@ -150,6 +162,7 @@ def _attrs_skeleton(**kwargs):
         attrs = dictlib.union(attrs, kwargs)
     return attrs
 
+################################################################################
 def attrs_skeleton(**kwargs):
     """Create a common format dictionary for attributes"""
     attrs = _attrs_skeleton(**kwargs)

@@ -13,6 +13,8 @@ import traceback
 import cherrypy
 import dictlib
 import jwt
+import nacl.pwhash
+import nacl.exceptions
 from rfx import json2data#, json4human#, json4store #, json2data
 from rfxengine import log, get_jti #, trace
 from rfxengine import server # pylint: disable=cyclic-import
@@ -114,7 +116,6 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                 self.auth_fail("No session defined")
             session_id = session.value
             auth_session = dbo.AuthSession(master=self.server.dbm)
-            # pylint: disable=redefined-variable-type
             auth_session = auth_session.get_session(token_name, session_id)
             if not auth_session:
                 self.auth_fail("Session not found")
@@ -149,7 +150,54 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
     def _groups(self, attrs):
         """http headers as dictobj"""
 
-        attrs['groups'] = dbo.Group(master=self.server.dbm).get_for_attrs()
+        groups = dbo.Group(master=self.server.dbm).get_for_attrs()
+        def pwin(hdrs, ingrp):
+            """closure for single password input in as X-Password"""
+            try:
+                grp = groups.get(ingrp)
+                pwd = base64.b64decode(hdrs['X-Password'])
+                if not grp:
+                    log("policy cannot find group={}".format(grp))
+                else:
+                    for pwhash in grp:
+                        pwhash = pwhash.encode()
+                        try:
+                            if nacl.pwhash.verify_scryptsalsa208sha256(pwhash, pwd):
+                                return True
+                        except nacl.exceptions.InvalidkeyError:
+                            pass
+            except Exception as err: # pylint: disable=broad-except
+                log("pwin() error=" + str(err))
+            return False
+
+        def pwsin(hdrs, ingrp):
+            """closure for multiple passwords input in as X-Passwords"""
+            # pylint: disable=too-many-nested-blocks
+            try:
+                grp = groups.get(ingrp)
+                pwds = json2data(base64.b64decode(hdrs['X-Passwords']))
+                if not grp:
+                    log("policy cannot find group={}".format(grp))
+                else:
+                    matches = 0
+                    for pwhash in grp:
+                        pwhash = pwhash.encode()
+                        for pwd in pwds:
+                            pwd = pwd.encode()
+                            try:
+                                if nacl.pwhash.verify_scryptsalsa208sha256(pwhash, pwd):
+                                    matches += 1
+                                    if matches == len(pwds):
+                                        return True
+                            except nacl.exceptions.InvalidkeyError:
+                                pass
+            except Exception as err: # pylint: disable=broad-except
+                log("pwsin() error=" + str(err))
+            return False
+
+        attrs['groups'] = groups
+        attrs['pwin'] = pwin
+        attrs['pwsin'] = pwsin
 
 ################################################################################
 class Health(server.Rest, abac.AuthService):

@@ -88,22 +88,26 @@ config='
 
 if [ $SERVICE ]; then
     export REFLEX_ENGINE_CONFIG="$config"
+	if ! which reflex-engine; then
+		echo "Cannot find reflex-engine executable"
+		exit 1
+	fi
 	echo $config | reflex-engine --test --debug=abac >engine.log 2>&1 &
     trap "kill_matching reflex-$name; exit 1" 0 15
 fi
 
 errs=0
-#[ $DO_LINT ] && {
-#    msg Lint Tests
-#	./test.py lint "${test_opts[@]}"
-# 	let errs+=$?
-#}
-#
-#[ $DO_UNIT ] && {
-#    msg Unit Tests
-#	./test.py unit "${test_opts[@]}"
-#	let errs+=$?
-#}
+[ $DO_LINT ] && {
+    msg Lint Tests
+	./test.py lint "${test_opts[@]}"
+ 	let errs+=$?
+}
+
+[ $DO_UNIT ] && {
+    msg Unit Tests
+	./test.py unit "${test_opts[@]}"
+	let errs+=$?
+}
 
 if [ $SERVICE ]; then
 	# see if agent is ready yet

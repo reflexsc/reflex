@@ -33,6 +33,14 @@ if [ -z "$GITHUB_TOKEN" ]; then
 	exit 1
 fi
 
+# because of vm perms problems, sometimes this fails
+pushd ../pypi
+if ! ./clean.sh ; then
+	echo "Unable to prepare for release!"
+	exit 1
+fi
+popd
+
 lastmonth=$(cat version|cut -d. -f1)
 lastbuild=$(cat version|cut -d. -f2)
 vmonth=$(date +%y%m)

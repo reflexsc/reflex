@@ -84,13 +84,13 @@ def log(*args, **kwargs):
                     reqid = SERVER.cherry.request.headers.get('X-Request-Id')
                     if reqid:
                         kwargs['reqid'] = reqid
-            except: # pylint: disable=broad-except
+            except: # pylint: disable=bare-except
                 pass
             SERVER.NOTIFY(*args, **kwargs)
         else:
             sys.stdout.write(" ".join(args))
             for key, value in kwargs.items():
-                sys.stdout.write("{}={}".format(key,value))
+                sys.stdout.write("{}={}".format(key, value))
             sys.stdout.write("\n")
             sys.stdout.flush()
     except Exception: # pylint: disable=broad-except

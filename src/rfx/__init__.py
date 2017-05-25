@@ -423,11 +423,8 @@ class Base(Colorize):
         if self.do_DEBUG(module=module):
             if err:
                 msg = msg + ": " + str(err)
-
             self.NOTIFY("DEBUG " + module + ": " + msg,
                         level="DEBUG", err=err, color=color, **kwargs)
-#            if data and self.logfmt == 'txt':
-#                sys.stderr.write(pprint.pformat(data, indent=1, width=80, depth=None) + "\n")
 
     ############################################################
     def ABORT(self, msg, err=None): # pylint: disable=invalid-name

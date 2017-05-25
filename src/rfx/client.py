@@ -48,6 +48,7 @@ class ClientError(Exception):
     pass
 
 ################################################################################
+# pylint: disable=too-many-instance-attributes
 class Session(rfx.Base):
     """Session object, which logs into Reflex Engine and manages the session"""
     session_jti = None
@@ -57,6 +58,7 @@ class Session(rfx.Base):
     apikey_name = None
     apikey_secret = None
     _cache = None
+    headers = None
 
     def __init__(self, **kwargs):
         super(Session, self).__init__(**kwargs)
@@ -64,6 +66,7 @@ class Session(rfx.Base):
         if base:
             rfx.Base.__inherit__(self, base)
         self._cache = dict()
+        self.headers = dict()
 
     ############################################################################
     def _login(self, force=False):
@@ -82,10 +85,10 @@ class Session(rfx.Base):
             exp=time.time() + 300
         ), self.apikey_secret)
 
-        result = requests.get(self.cfg['REFLEX_URL'] + "/token", headers={
-            "X-Apikey": key_jwt,
-            "Content-Type": "application/json"
-        })
+        headers = self.headers.copy()
+        headers["X-Apikey"] = key_jwt
+        headers["Content-Type"] = "application/json"
+        result = requests.get(self.cfg['REFLEX_URL'] + "/token", headers=headers)
 
         if result.status_code == 200:
             self.DEBUG("Authorized")
@@ -162,6 +165,8 @@ class Session(rfx.Base):
         dbg = self.do_DEBUG()
 
         kwargs['cookies']['sid'] = self.session_sid
+        if self.headers:
+            kwargs['headers'].update(self.headers)
         kwargs['headers']['X-ApiToken'] = auth_jwt
 
         if dbg:

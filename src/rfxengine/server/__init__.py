@@ -101,11 +101,11 @@ class Rest(object):
         except (ValueError, exceptions.InvalidParameter, Error) as err:
             status = {"status": "failed"}
             cherrypy.response.status = 400
-            if type(err) in (list, tuple, Error):
+            if type(err) in (list, tuple, Error): # pylint: disable=unidiomatic-typecheck
                 cherrypy.response.status = err.args[1]
                 if isinstance(err.args[0], dict):
                     status = err.args[0]
-                    status.update({'status': 'failed'})
+                    status.update({'status': 'failed'}) # pylint: disable=no-member
                 else:
                     status['message'] = err.args[0]
             else:

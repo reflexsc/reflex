@@ -32,6 +32,7 @@ import os
 import re
 import dictlib
 import copy
+import ujson as json
 try:
     from builtins import input # pylint: disable=redefined-builtin
     get_input = input
@@ -152,6 +153,7 @@ Usage: """ + self.cmd + """ {scope} [...]
 => """ + self.cmd + """ action|act list|ls              *
 => """ + self.cmd + """ app {args}                      *
 => """ + self.cmd + """ engine|rxe {args}               *
+=> """ + self.cmd + """ monitor {args}
 
    Try --help with one of the scopes, for additional information.
    * these scopes are available as standalone commands
@@ -176,6 +178,55 @@ Usage: """ + self.cmd + """ {scope} [...]
         else:
             self.fail() #print("default action would be triggered")
         sys.exit(0)
+
+################################################################################
+class CliMonitor(CliRoot):
+    """monitor agent"""
+
+    ############################################################################
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.args = Args(
+            [
+                "action", {
+                    "type": "from-set",
+                    "set": ["start", "stop"]
+                }
+            ], [
+                "--cfgin", {
+                    "type": "set-true",
+                }
+            ], [
+                "--debug|-d", {
+                    "type": "set-add",
+                }
+            ]
+        )
+        super(CliMonitor, self).__init__(cmd)
+
+    ############################################################################
+    # pylint: disable=missing-docstring
+    def syntax(self):
+        return """
+Usage: """ + self.cmd + """ start|stop
+
+"""
+
+    ############################################################################
+    # pylint: disable=missing-docstring
+    def start(self, argv=None, opts=None):
+        args = self.args.handle_parse(caller=self, argv=argv, opts=opts)
+        if not args or args.get('--help') and not self.args.argv:
+            self.fail()
+
+        try:
+            import rfxmon
+        except:
+            self.fail("Reflex Monitor module is not installed! Try:\n\n\tpip install rfxmon\n")
+        method = args.get('action') + "_agent"
+        callargs = {"cfgin":args.get("--cfgin")}
+
+        getattr(rfxmon.Monitor(base=new_base(args)), method)(**callargs)
 
 
 ################################################################################
@@ -541,6 +592,10 @@ class CliEngine(CliRoot):
                     "type":"set-value",
                 }
             ], [
+                "--p?assword|--pwd|-p", {
+                    "type":"set-password",
+                }
+            ], [
                 "--stdout|--out", {
                     "type":"set-value",
                 }
@@ -610,6 +665,9 @@ Arguments and options vary by action:
    create a cross sectinoal set-union of {key} values on all objects matching
    {name-filter} and {limit-expression}
 
+Additionally, --p?assword|--pwd|-p may be provided, to prompt for a password
+which is sent as an additional attribute for ABAC policies.  Multiple passwords
+may be prompted for by including --password multiple times
 """
 
     ############################################################################
@@ -620,8 +678,15 @@ Arguments and options vary by action:
             self.fail()
 
         base = new_base(parsed)
-
         cli = EngineCli(base=base)
+        words = parsed.get("--password")
+        if words:
+            if len(words) == 1:
+                value = base64.b64encode(words[0].encode()).decode()
+                cli.rcs.headers["X-Password"] = value
+            else:
+                value = base64.b64encode(json.dumps(words).encode()).decode()
+                cli.rcs.headers["X-Passwords"] = value
         objtype = parsed['object']
         action = parsed['action']
         if action == "list":

@@ -47,7 +47,7 @@ import rfxengine.db.mxsql
 from rfxengine.db.objects import Pipeline, Service, Config, Instance, Policy, Policyscope, Apikey, Build, Group, ObjectExists
 import rfx
 import rfxengine.abac as abac
-from rfxengine import memstate
+from rfxengine import memstate, trace
 from rfx.test import *
 from rfx import json4human, json4store, json2data
 from rfx import client
@@ -356,8 +356,8 @@ def test_integration(schema, base, tester):
             r"""
             "name":"test-policy"
             """)
-    tester.addcheck("Object Verify: Group", 
-            (Group, tname, {
+    tester.addcheck("Object Verify: Group w/Apikey", 
+            (Group, tname + "-apikey", {
                 'type': "Apikey",
                 'group': [ 'master', 'notest' ]
             }),
@@ -366,6 +366,36 @@ def test_integration(schema, base, tester):
             """,
             r"notest\.notfound",
             r"master\.100"
+            )
+    tester.addcheck("Object Verify: Group w/Pipeline", 
+            (Group, tname + "-pipeline", {
+                'type': "Pipeline",
+                'group': [ tname ]
+            }),
+            r"""
+            Altered data: \['group'\]
+            """,
+            r"test\.1"
+            )
+    tester.addcheck("Object Verify: Group w/set", 
+            (Group, tname + "-set", {
+                'type': "set",
+                'group': [ "a", "b", "c", "c" ]
+            }),
+            r"""
+            Altered data: \['group'\]
+            """,
+            r'"a"',
+            )
+    tester.addcheck("Object Verify: Group w/passwords", 
+            (Group, tname + "-password", {
+                'type': "password",
+                'group': [ "this pass", "that pass" ]
+            }),
+            r"""
+            Altered data: \['group'\]
+            """,
+            r'"\$7\$'
             )
 
 ###############################################################################
@@ -726,7 +756,6 @@ def test_full_stack(schema, base, tester, baseurl):
     os.environ['REFLEX_URL'] = tester.baseurl
     os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
     rcs_master = client.Session().cfg_load()
-    print(rcs_master.cfg)
 
     tester.okcmp("Reflex Apikey Create", tester, tester.rcs,
                  [rcs_master.create, "apikey", {
@@ -791,7 +820,7 @@ def test_full_stack(schema, base, tester, baseurl):
     tester.okcmp("Reflex Policy Create (pond sensitive)", tester, tester.rcs,
                  [rcs_master.create, "policy", {
                      "name": "pond-read-sensitive",
-                     "policy": 'token_name=="amy-pond"'
+                     "policy": 'token_name=="amy-pond" and sensitive==True'
                  }], {},
                  r"'status': 'created'")
 
@@ -846,12 +875,95 @@ def test_full_stack(schema, base, tester, baseurl):
                  r"'sensitive': {'config': 'real'}")
 
     tester.okcmp("Reflex Policy Drop", tester, tester.rcs,
-                 [rcs_master.delete, "policy", 102], {},
+                 [rcs_master.delete, "policy", "pond-read-sensitive"], {},
                  r"'status': 'deleted'")
 
     tester.okcmp("Reflex Client Get (limited w/fail)", tester, tester.rcs,
                  [rcs_pond.get, "config", "tardis-main"], {},
                  r"""sensitive': {'encrypted"""
+                 )
+
+    # insert policy test for fail instead of pass
+    tester.okcmp("Reflex Policy Create result=fail", tester, tester.rcs,
+                 [rcs_master.create, "policy", {
+                     "name": "pond-fail",
+                     "policy": 'token_name=="master"',
+                     "order": 100,
+                     "result": 'fail'
+                 }], {},
+                 r"'status': 'created'")
+
+    # map the sensitive policy just to the individual items (it is targetted)
+    tester.okcmp("Reflex Policyscope Create result=fail", tester, tester.rcs,
+                 [rcs_master.create, "policyscope", {
+                     "name": "pond-fail",
+                     "policy_id": 103,
+                     "actions": 'read',
+                     "type": 'targetted',
+                     "matches": 'obj_type == "Config"'
+                 }], {},
+                 r"'status': 'created'")
+
+    tester.okcmp("Reflex get forbidden w/fail", tester, tester.rcs,
+                 [rcs_pond.get, "config", "tardis-main"], {},
+                 r"rfx.client.ClientError: Forbidden"
+                 )
+
+    tester.okcmp("Reflex get forbidden wo/fail", tester, tester.rcs,
+                 [rcs_master.get, "config", "tardis-main"], {},
+                 r"name': 'tardis-main"
+                 )
+
+    tester.okcmp("Reflex drop fail policy", tester, tester.rcs,
+                 [rcs_master.delete, "policy", "pond-fail"], {},
+                 r"'status': 'deleted'")
+
+    # insert policy test for groups
+    tester.okcmp("Reflex Group Create Password", tester, tester.rcs,
+                 [rcs_master.create, "group", {
+                     "name": "da-codes",
+                     "type": "password",
+                     "group": ["word1", "pass2"],
+                 }], {},
+                 r"'status': 'created'")
+
+    # insert policy test for fail instead of pass
+    tester.okcmp("Reflex Policy Update (pond sensitive w/pass)", tester, tester.rcs,
+                 [rcs_master.patch, "policy", "pond-read-configs", {
+                     "policy": 'token_name=="amy-pond" and pwin(http_headers, "da-codes")',
+                     "order": 100
+                 }], {},
+                 r"'status': 'updated'")
+
+    tester.okcmp("Reflex get wo/pass", tester, tester.rcs,
+                 [rcs_pond.get, "config", "tardis-main"], {},
+                 r"rfx.client.ClientError: Forbidden"
+                 )
+
+    rcs_pond.headers["X-Password"] = base64.b64encode("pass2".encode()).decode()
+    tester.okcmp("Reflex get w/pass", tester, tester.rcs,
+                 [rcs_pond.get, "config", "tardis-main"], {},
+                 r"'sensitive': {'config': 'real'}"
+                 )
+
+    # insert policy test for fail instead of pass
+    tester.okcmp("Reflex Policy Update (pond sensitive w/2pass)", tester, tester.rcs,
+                 [rcs_master.patch, "policy", "pond-read-configs", {
+                     "policy": 'token_name=="amy-pond" and pwsin(http_headers, "da-codes")',
+                     "order": 100
+                 }], {},
+                 r"'status': 'updated'")
+
+    tester.okcmp("Reflex get w/1pass as fail", tester, tester.rcs,
+                 [rcs_pond.get, "config", "tardis-main"], {},
+                 r"rfx.client.ClientError: Forbidden"
+                 )
+
+    del(rcs_pond.headers["X-Password"])
+    rcs_pond.headers["X-Passwords"] = base64.b64encode(json.dumps(["pass2","word1"]).encode()).decode()
+    tester.okcmp("Reflex get w/2pass good", tester, tester.rcs,
+                 [rcs_pond.get, "config", "tardis-main"], {},
+                 r"'sensitive': {'config': 'real'}"
                  )
 
     # test a list as master, amy pond, and after policy is deleted

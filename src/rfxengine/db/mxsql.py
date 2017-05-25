@@ -165,7 +165,7 @@ class Interface(pool.Interface):
             elif output == dict:
                 result = row_to_dict(cursor, row)
             else:
-                result = decode_row(row) # pylint: disable=redefined-variable-type
+                result = decode_row(row)
 
             output.append(result)
 
@@ -183,7 +183,7 @@ class Interface(pool.Interface):
             if output == dict:
                 result = row_to_dict(cursor, cursor.next())
             else:
-                result = decode_row(cursor.next()) # pylint: disable=redefined-variable-type
+                result = decode_row(cursor.next())
         except StopIteration:
             result = dict()
 

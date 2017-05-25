@@ -205,6 +205,7 @@ class Server(rfx.Base):
                 'groups': 300
             },
             'crypto': {
+# pylint: disable=bad-continuation
 #                '000': {
 # dd if=/dev...
 #                    'key': "",
