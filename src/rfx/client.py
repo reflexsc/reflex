@@ -32,6 +32,7 @@ import urllib
 import time
 import base64
 import requests
+import dictlib
 import nacl.utils
 import jwt
 import rfx
@@ -118,12 +119,14 @@ class Session(rfx.Base):
             self.ABORT("Unable to connect to REFLEX_URL ({})".format(self.cfg['REFLEX_URL']))
 
         # enrich the arguments
-        if not kwargs.get('headers'):
-            kwargs['headers'] = {}
+        headers = self.headers.copy()
+        if kwargs.get('headers'):
+            headers = dictlib.union(headers, kwargs['headers'])
         if not kwargs.get('cookies'):
             kwargs['cookies'] = {}
-        if not kwargs['headers'].get('Content-Type'):
-            kwargs['headers']['Content-Type'] = "application/json"
+        if not headers.get('Content-Type'):
+            headers['Content-Type'] = "application/json"
+        kwargs['headers'] = headers
 
         query = self.cfg['REFLEX_URL'] + "/" + target
 
