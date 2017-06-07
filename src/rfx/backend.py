@@ -338,9 +338,8 @@ class EngineCli(rfx.Base):
     def create_cli(self, obj_type, parsed, argv):
         """create an object.  see --help"""
         obj_name = parsed['name']
-        dbo = Engine(base=self)
         content = self._get_default(obj_type, obj_name, parsed.get('--content'))
-        dbo.update_object(obj_type, obj_name, content)
+        self.rcs.update(obj_type, obj_name, content)
         self.get_cli(obj_type, parsed, [])
 
     ###########################################################################
@@ -349,7 +348,7 @@ class EngineCli(rfx.Base):
         """delete an object.  see --help"""
         obj_name = parsed['name']
         try:
-            result = Engine(base=self).delete_object(obj_type, obj_name)
+            result = self.rcs.delete(obj_type, obj_name)
             if result['status'] == 'deleted':
                 self.NOTIFY("Deleted " + obj_type.capitalize() + " '" + obj_name + "'")
             else:
@@ -374,10 +373,9 @@ class EngineCli(rfx.Base):
             os.mkdir(scratchdir)
         os.chmod(scratchdir, stat.S_IRWXU)
         localfile = scratchdir + "/" + obj_type + "." + obj_name + ".json"
-        dbo = Engine(base=self)
 
         try:
-            content = dbo.get_object(obj_type, obj_name)
+            content = self.rcs.get(obj_type, obj_name)
             for key in ('updated_at', 'updated_by', 'created_at'):
                 if key in content:
                     del content[key]
@@ -389,6 +387,8 @@ class EngineCli(rfx.Base):
 
         except Exception as err: # pylint: disable=broad-except
             self.DEBUG("Exception: " + str(err))
+            if str(err) == "Forbidden":
+                self.ABORT(str(err))
             self.NOTIFY("Object '{0}' does not exist, creating new...".format(obj_name))
             if pause:
                 time.sleep(1)
@@ -427,7 +427,7 @@ class EngineCli(rfx.Base):
 
         if not answer or re.match("^(yes|y)$", answer, flags=re.IGNORECASE):
             try:
-                dbo.update_object(obj_type, obj_name, data)
+                self.rcs.update(obj_type, obj_name, data)
             except rfx.client.ClientError as err:
                 self.ABORT(str(err))
 
@@ -438,7 +438,7 @@ class EngineCli(rfx.Base):
         obj_name = parsed['name']
         data = self._load_content(obj_name, parsed.get('--content'))
         if data:
-            Engine(base=self).update_object(obj_type, obj_name, data)
+            self.rcs.update(obj_type, obj_name, data)
         else:
             self.ABORT("No content to update?")
 
@@ -496,16 +496,13 @@ class EngineCli(rfx.Base):
         """merge data into a current object.  see --help"""
         obj_name = parsed['name']
         data = self._load_content(obj_name, parsed.get('--content'))
-        dbo = Engine(base=self)
         try:
-            data = self.union_dict(dbo.get_object(obj_type,
-                                                  obj_name,
-                                                  notify=False), data)
+            data = self.union_dict(self.rcs.get(obj_type, obj_name), data)
         except Exception as err: # pylint: disable=broad-except
             self.DEBUG("Excpeption: " + str(err))
             self.ABORT("Cannot find object '" + obj_name + "'")
 
-        dbo.update_object(obj_type, obj_name, data)
+        self.rcs.update(obj_type, obj_name, data)
 
     ###########################################################################
     def _json_load_handle_error(self, content, ask2continue=False, cleanfile=None):
