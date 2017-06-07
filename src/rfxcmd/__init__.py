@@ -74,6 +74,18 @@ def new_base(args):
     return base
 
 ################################################################################
+def get_passwords(parsed, obj):
+    """used by some of the CLI's to read a password into an client header"""
+    words = parsed.get("--password")
+    if words:
+        if len(words) == 1:
+            value = base64.b64encode(words[0].encode()).decode()
+            obj.rcs.headers["X-Password"] = value
+        else:
+            value = base64.b64encode(json.dumps(words).encode()).decode()
+            obj.rcs.headers["X-Passwords"] = value
+
+################################################################################
 class CliRoot(object):
     """
     Parent object used for CLI commands
@@ -678,14 +690,9 @@ may be prompted for by including --password multiple times
 
         base = new_base(parsed)
         cli = EngineCli(base=base)
-        words = parsed.get("--password")
-        if words:
-            if len(words) == 1:
-                value = base64.b64encode(words[0].encode()).decode()
-                cli.rcs.headers["X-Password"] = value
-            else:
-                value = base64.b64encode(json.dumps(words).encode()).decode()
-                cli.rcs.headers["X-Passwords"] = value
+
+        get_passwords(parsed, cli)
+
         objtype = parsed['object']
         action = parsed['action']
         if action == "list":
@@ -882,6 +889,10 @@ class CliApikey(CliRoot):
                     "type":"from-set",
                     "set": ["cre?ate|add", "del?ete", "l?ist|ls"]
                 }
+            ], [
+                "--p?assword|--pwd|-p", {
+                    "type":"set-password",
+                }
             ]
         )
         super(CliApikey, self).__init__(cmd)
@@ -904,11 +915,13 @@ Usage: """ + self.cmd + " " + "|".join(self._args[0][1]["set"]) + """ [..args]
     ############################################################################
     # pylint: disable=missing-docstring
     def start(self, argv=None, opts=None):
-        args = self.args.handle_parse(caller=self, argv=argv, opts=opts)
-        if not args or args.get('--help') and not self.args.argv:
+        parsed = self.args.handle_parse(caller=self, argv=argv, opts=opts)
+        if not parsed or parsed.get('--help') and not self.args.argv:
             self.fail()
 
-        ControlCli(base=new_base(args)).apikey_cli(self.args.argv, args, self)
+        cli = ControlCli(base=new_base(parsed))
+        get_passwords(parsed, cli)
+        cli.apikey_cli(self.args.argv, parsed, self)
 
 ################################################################################
 def main():

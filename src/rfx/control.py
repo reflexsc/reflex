@@ -26,10 +26,13 @@ import os
 import re
 import traceback
 import rfx
+import rfx.client
 from rfx.backend import Engine, EngineCli
 
 ################################################################################
 class ControlCli(rfx.Base):
+
+    rcs = None
 
     ############################################################
     # pylint: disable=super-init-not-called
@@ -38,6 +41,7 @@ class ControlCli(rfx.Base):
             rfx.Base.__inherit__(self, base)
         if 'REFLEX_URL' in self.cfg.keys() and self.cfg['REFLEX_URL']:
             self.base_url = self.cfg['REFLEX_URL']
+        self.rcs = rfx.client.Session(debug=self.debug, base=self)
 
     ############################################################
     def wizard_cli(self, argv, args): # pylint: disable=unused-argument
@@ -93,12 +97,10 @@ class ControlCli(rfx.Base):
     ############################################################
     def apikey_cli(self, argv, args, cli):
         action = args.get('action')
-        target = " ".join(argv)
-
-        dbo = Engine(base=self)
+        target = argv[0] # " ".join(argv)
 
         try:
-            getattr(self, "apikey_cli__" + action)(dbo, target, cli)
+            getattr(self, "apikey_cli__" + action)(target, cli)
         except rfx.CannotContinueError as err:
             err = str(err)
             if ": 401" in err:
@@ -107,19 +109,21 @@ class ControlCli(rfx.Base):
 
     ############################################################
     # pylint: disable=no-self-use,unused-argument
-    def apikey_cli__delete(self, dbo, target, cli):
-        dbo.delete_object("apikey", target) # , apikey=admkey)
+    def apikey_cli__delete(self, target, cli):
+        self.rcs.delete("apikey", target)
 
     ############################################################
-    def apikey_cli__list(self, dbo, target, cli):
+    def apikey_cli__list(self, target, cli):
         ecli = EngineCli(base=self)
         ecli.list_cli("apikey", {'--show': 'name'}, [])
 
     ############################################################
-    def apikey_cli__create(self, dbo, target, cli):
+    def apikey_cli__create(self, target, cli):
         try:
-            dbo.create_object("apikey", {"name":target})
-            apikey = dbo.get_object('apikey', target)
+            self.rcs.create("apikey", {"name":target})
+            apikey = self.rcs.get('apikey', target)
+            if not apikey:
+                raise Exception("Unable to get object!")
             self.NOTIFY("new apikey:\n\n\t{}.{}"
                         .format(apikey.get('name', 'invalid'),
                                 apikey.get('secrets', ['invalid'])[0]))
