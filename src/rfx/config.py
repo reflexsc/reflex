@@ -535,7 +535,8 @@ class Config(VerboseBase):
 
     def load(self):
         obj = self.engine.get_object('config', self.conf.name)
-        dictlib.union(self.conf, obj)
+        if obj:
+            dictlib.union(self.conf, obj)
 
         if 'export' in self.conf:
             self.DEPRECATE("conf.export should be conf.exports")
