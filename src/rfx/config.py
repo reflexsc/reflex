@@ -313,7 +313,7 @@ class ConfigProcessor(VerboseBase):
         lmerge(conf, new, 'procvars')
 
         if not exported:
-            for parent in conf.extends:
+            for parent in new.extends:
                 self._flatten(conf, parent)
 
         # set type last
