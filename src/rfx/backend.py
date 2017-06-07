@@ -193,7 +193,9 @@ class Engine(rfx.Base):
 
 ###############################################################################
 def _valid_name(obj_name):
-    if re.search(r'[^a-z0-9_-]', obj_name, flags=re.IGNORECASE):
+    if not obj_name:
+        obj_name = ''
+    if re.search(r'[^a-z0-9_.-]', obj_name, flags=re.IGNORECASE):
         return "Invalid name ({}), May only contain a-z0-9_-" \
                .format(obj_name)
     return None

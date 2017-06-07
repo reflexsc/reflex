@@ -32,7 +32,7 @@ import sys
 import time
 import re
 import copy
-import fcntl # get_my_ips
+import fcntl # get_my_ips, unbuffered
 import struct # get_my_ips
 import socket # get_my_ips
 import threading
@@ -559,6 +559,11 @@ class NotFoundError(Exception):
 # pylint: disable=missing-docstring
 class CannotContinueError(Exception):
     pass
+
+def unbuffer(filed):
+    fcl = fcntl.fcntl(filed.fileno(), fcntl.F_GETFL)
+    fcl |= os.O_SYNC
+    fcntl.fcntl(filed.fileno(), fcntl.F_SETFL, fcl)
 
 ################################################################################
 def set_interval(milliseconds, func, *args, **kwargs):

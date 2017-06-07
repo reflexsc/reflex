@@ -573,6 +573,9 @@ class Action(rfx.Base):
         if target not in self.did:
             self.verify(target, export_meta=export_meta)
 
+        rfx.unbuffer(self.notifyfd)
+        rfx.unbuffer(self.outputfd)
+
         # reset after ^^
         self.did = {}
         self.stack = []

@@ -64,7 +64,6 @@ class App(rfx.Base):
         self.launch_pipeline = dict()
         self.launch_service = dict()
 
-
     ############################################################################
     def __repr__(self):
         return json4store(self.export()) #, indent=2)
@@ -366,6 +365,8 @@ class LaunchCli(App):
         """
         service = self.get_target(*argv)
         debug = self.do_DEBUG()
+        rfx.unbuffer(self.notifyfd)
+        rfx.unbuffer(self.outputfd)
         try:
             self.launch_service_prep(service, commit=True)
             for key in sorted(self.launch_config.setenv): # .items():
