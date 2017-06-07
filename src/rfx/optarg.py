@@ -221,6 +221,7 @@ class Args(object):
         else:
             self.out = dict()
 
+
         # inherit options from higher levels
         if isinstance(opts, dict):
             for opt, val in opts.items():
@@ -228,15 +229,13 @@ class Args(object):
                     self.out[opt] = val
 
         if isinstance(argv, list):
-            self.argv = argv
+            self.argv = copy.copy(argv)
         else:
             self.argv = copy.copy(sys.argv[1:])
 
-        unparsed_args = list()
-        unparsed_opts = list()
+        unparsed = list()
         while self.argv:
-            arg = self.argv[0]
-            self.argv = self.argv[1:]
+            arg = self.argv.pop(0)
 
             if arg[0] == '-':
                 matched = False
@@ -246,18 +245,18 @@ class Args(object):
                         self._set_opt(caller, opt, arg)
                         break
                 if not matched:
-                    unparsed_opts.append(arg)
+                    unparsed.append(arg)
             else:
-                if not self.args:
-                    unparsed_args.append(arg)
-                    continue
-                else:
+                if self.args:
                     self._set_arg(arg)
+                else:
+                    unparsed.append(arg)
+                    continue
 
         if self.args:
             caller.fail("Missing argument: {" + self.args[0][0] + "}")
 
-        self.argv = unparsed_args + unparsed_opts
+        self.argv = unparsed
         return self.out
 
     ############################################################################
@@ -272,8 +271,7 @@ class Args(object):
             if '=' in arg:
                 arg, value = arg.split("=", 1)
             elif self.argv:
-                value = self.argv[0]
-                self.argv = self.argv[1:]
+                value = self.argv.pop(0)
             else:
                 raise ArgParse("Unable to get value for " + opt)
             opttype = optinfo.get('type', 'set-true')
