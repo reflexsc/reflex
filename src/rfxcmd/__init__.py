@@ -474,11 +474,11 @@ Regions and Lanes are configured in the config:reflex object.
         ## start with the pipeline
         pipe_o = self._template('pipeline', pipeline, '', {
             "launch": {
-                "cfgdir": "/app/" + pipeline + "/config",
+                "cfgdir": ".",
                 "exec": [
                     "/app/" + pipeline + "/launch"
                 ],
-                "rundir": "/app/" + pipeline
+                "rundir": "."
             },
             "name": pipeline,
             "title": pipeline.capitalize() + " " + svc_name
@@ -523,7 +523,6 @@ Regions and Lanes are configured in the config:reflex object.
             "region-nbr": self.cfg.regions[region].nbr,
             "pipeline": pipeline,
             "common-name": common_name.lower(),
-            "docker-link": True,
             "config": svc_name,
             "tenant": tenant, # will be multitenant if not single tenant
             "lane": lane.lower()
