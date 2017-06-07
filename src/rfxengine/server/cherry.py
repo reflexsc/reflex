@@ -84,7 +84,7 @@ class CherryLog(cherrypy._cplogging.LogManager):
             kwargs['token'] = login.token_name
             # Notes: insert other auth attributes?
 
-        log("http " + str(status),
+        log("http status=" + str(status),
             query=request.request_line,
             remote=remaddr,
             len=outheaders.get('Content-Length', '') or '-',
