@@ -155,7 +155,11 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             """closure for single password input in as X-Password"""
             try:
                 grp = groups.get(ingrp)
-                pwd = base64.b64decode(hdrs['X-Password'])
+                hdr = hdrs.get('X-Password')
+                if not hdr:
+                    log("Missing X-Password header, try adding --password")
+                    return False
+                pwd = base64.b64decode(hdr)
                 if not grp:
                     log("policy cannot find group={}".format(grp))
                 else:
@@ -175,7 +179,11 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             # pylint: disable=too-many-nested-blocks
             try:
                 grp = groups.get(ingrp)
-                pwds = json2data(base64.b64decode(hdrs['X-Passwords']))
+                hdr = hdrs.get('X-Passwords')
+                if not hdr:
+                    log("Missing X-Passwords header, try adding --password --password")
+                    return False
+                pwds = json2data(base64.b64decode(hdr))
                 if not grp:
                     log("policy cannot find group={}".format(grp))
                 else:
