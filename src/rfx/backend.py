@@ -548,7 +548,7 @@ class EngineCli(rfx.Base):
         try:
             data = getattr(self, "_get_default_" + obj_type)(obj_name)
         except: # pylint: disable=bare-except
-            data = {"_r_":{"v":1}}
+            data = {}
 
         content = self._load_content(obj_name, obj_content, read=read)
         if content:
