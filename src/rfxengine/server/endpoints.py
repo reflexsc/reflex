@@ -184,6 +184,9 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                     log("Missing X-Passwords header, try adding --password --password")
                     return False
                 pwds = json2data(base64.b64decode(hdr))
+                pwdset = set(pwds)
+                if len(pwds) != len(pwdset):
+                    raise Exception("Multiple passwords provided, but some are duplicates")
                 if not grp:
                     log("policy cannot find group={}".format(grp))
                 else:
