@@ -31,7 +31,6 @@ A few unit tests are embedded, however, most of them are external.
 """
 
 import re
-#import random # uniqued
 import uuid
 import time
 import base64
@@ -46,30 +45,12 @@ from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
                                  NoChanges, CipherException, InvalidParameter,\
                                  PolicyFailed
-from rfxengine import abac, log, trace #, do_DEBUG
+from rfxengine import abac, log#, trace #, do_DEBUG
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
 import dictlib
 
 # todo: want to hook object and its relationships
-
-################################################################################
-# random id
-def uniqueid():
-    """generate a unique id"""
-    seed = random.getrandbits(32)
-    while True:
-        yield seed
-        seed += 1
-REQUESTID = uniqueid()
-
-def newrequest(self, name, target=None):
-    """log the start of a request"""
-    self.reqid = "%x" % next(REQUESTID)
-#    if not target:
-#        if self.obj:
-#            target = self.obj.get('name') or self.obj.get('id')
-#    trace("rid={} {} {}".format(self.reqid, name, target))
 
 ################################################################################
 class RCMap(dictlib.Obj):
@@ -148,6 +129,7 @@ class RCObject(rfx.Base):
         self.omap['name'] = RCMap(stored='name')
         self.omap['updated_by'] = RCMap(stype="read", stored='updated_by')
         self.omap['updated_at'] = RCMap(stype="read", stored='updated_at')
+        self.reqid = kwargs.get('reqid', 0)
 
         if kwargs.get('master'):
             self.master = kwargs['master']
@@ -194,9 +176,7 @@ class RCObject(rfx.Base):
         # dependent information
         for action in pmap:
             for policy in pmap[action]:
-                #cached = cache.get_cache('policy', policy.policy_id, start=start)
-                #if not cached:
-                if policy.expires > start:
+                if policy.expires <= start:
                     return self._get_policies_direct(target_id, key, cache, start, dbi=dbi)
 
         return pmap
@@ -305,7 +285,6 @@ class RCObject(rfx.Base):
         If a archive is specified, pull the archived version (value is the date)
         archive is only appropriate for tables supporting Archive.
         """
-        newrequest(self, "GET", target=target)
         sql = "SELECT * FROM " + self.table
         if isinstance(target, str):
             idnbr = self.name2id_direct(target, dbi)[0]
@@ -412,7 +391,6 @@ class RCObject(rfx.Base):
         """
         Delete a specified object -- does not delete from Archive
         """
-        newrequest(self, "DELETE", target=target)
         self.policies = self._get_policies(dbi=dbi)
         if not self.authorized("write", attrs, sensitive=False, raise_error=False):
             raise PolicyFailed("Unable to get permission to delete object")
@@ -441,7 +419,6 @@ class RCObject(rfx.Base):
         Use .list_iterated() for an iterator based list, but you must
         also provide the dbi.
         """
-        newrequest(self, "LIST_BUF match={}".format(match))
         (sql, args) = self._list_prep(attrs, limit=limit, match=match, dbi=dbi)
 
         results = []
@@ -490,7 +467,6 @@ class RCObject(rfx.Base):
         """
         List objects, using an iterator, with a specific called set of columns.
         """
-        newrequest(self, "LIST_COLS match={}".format(match))
         self.policies = self._get_policies(dbi=dbi)
         self.authorized("read", attrs, sensitive=False, raise_error=True)
 
@@ -656,14 +632,12 @@ class RCObject(rfx.Base):
         """Update data from self into db.  Use on pre-existing objects"""
         if not self.obj.get('id') and self.obj.get('name'):
             self.obj['id'] = self.name2id_direct(self.obj['name'], dbi)[0]
-        newrequest(self, "UPDATE")
         return self._put(attrs, dbi=dbi)
 
     ############################################################################
     @db_interface
     def create(self, attrs, dbi=None, doabac=True):
         """Create data from self into db.  Use on new objects"""
-        newrequest(self, "CREATE")
         if self.obj.get('id') and self.exists(self.obj['id']) \
            or self.exists(self.obj['name']):
             raise ObjectExists(self.table + " named `{name}` already exists"
@@ -750,17 +724,15 @@ class RCObject(rfx.Base):
         if self.do_DEBUG(module="abac"):
             def do_dbg(*args):
                 """debugging"""
-                msg = "ABAC rid={} " + args[0]
-                msg = msg.format(self.reqid, *args[1:])
+                msg = "ABAC {} rid={} obj={} " + args[0]
+                objid = '?'
+                if self.obj:
+                    objid = self.obj.get('name', self.obj.get('id'))
+                msg = msg.format(self.table, self.reqid, objid, *args[1:])
                 log(msg)
             dbg = do_dbg
-#            self.DEBUG(msg, module="abac")
             abac_debug = True
-            pid = None
-            if self.obj:
-                pid = self.obj.get('id')
-            dbg("step=start-auth, action={} obj={} id={} sensitive={}", action,
-                self.table, pid, sensitive)
+            dbg("step=start-auth, action={} sensitive={}", action, sensitive)
         if action != 'admin':
             actions = [action, 'admin']
         else:
@@ -776,7 +748,7 @@ class RCObject(rfx.Base):
                     raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine") # pylint: disable=line-too-long
         if raise_error:
             raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
-        dbg("step=failed-auth")
+        dbg("step=FAILED")
         return False
 
     ############################################################################
