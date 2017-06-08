@@ -1654,7 +1654,8 @@ class Policyscope(RCObject):
 
     def __init__(self, *args, **kwargs):
         self.omap = dictlib.Obj()
-        self.omap['policy_id'] = RCMap(stype="alter", stored='policy_id')
+        self.omap['policy'] = RCMap(stored="data", hasid='policy_id')
+        self.omap['policy_id'] = RCMap(stype="read", stored='policy_id')
         self.omap['matches'] = RCMap(stype="alter", stored='matches')
         self.omap['actions'] = RCMap(stype="alter", stored='actions')
         self.omap['type'] = RCMap(stype="alter", stored='type')
@@ -1737,6 +1738,14 @@ class Policyscope(RCObject):
                 attribs['obj'] = obj
                 attribs['obj_type'] = obj.table
                 policyscope_map_for(self.obj, dbi, attribs, obj.table, 0)
+
+        return errors
+
+    ############################################################################
+    def map_soft_relationships(self, dbi):
+        """map out my relationships"""
+        errors = super(Policyscope, self).map_soft_relationships(dbi)
+        errors += self._map_soft_relationship(dbi, Policy(clone=self), "policy")
 
         return errors
 
