@@ -20,9 +20,9 @@ import setproctitle
 import dictlib
 import timeinterval
 import rfx
-from rfx import json2data #, json4human
+from rfx import json2data, json4human
 import rfxengine
-from rfxengine import log
+from rfxengine import log#, trace
 import rfxengine.memstate
 import rfxengine.server.endpoints as endpoints
 import rfxengine.db.objects as dbo
@@ -78,6 +78,7 @@ class CherryLog(cherrypy._cplogging.LogManager):
         if isinstance(status, bytes):
             status = status.decode()
 
+        # this is set in abac.py
         login = cherrypy.serving.request.login
         kwargs = dict()
         if login and login.token_name:
@@ -88,6 +89,7 @@ class CherryLog(cherrypy._cplogging.LogManager):
             query=request.request_line,
             remote=remaddr,
             len=outheaders.get('Content-Length', '') or '-',
+            reqid=cherrypy.serving.request.reqid,
             **kwargs)
 
 ################################################################################

@@ -30,6 +30,7 @@ import re
 import time
 import traceback
 import cherrypy
+import random
 from rfxengine import log, trace, do_DEBUG
 from rfxengine import exceptions
 
@@ -49,6 +50,15 @@ class Error(Exception):
     """Return an HTTP Error"""
     pass
 
+################################################################################
+# random id
+def uniqueid():
+    """generate a unique id"""
+    seed = random.getrandbits(32)
+    while True:
+        yield "%x" % seed
+        seed += 1
+
 ###############################################################################
 # add object because BaseHTTPRequestHandler is an old style class
 class Rest(object):
@@ -64,6 +74,11 @@ class Rest(object):
     exposed = True
     json_body = None
     allowed = {}
+    reqgen = uniqueid()
+    reqid = 0
+
+    ###########################################################################
+    #def __init__(self, *args, **kwargs):
 
     ###########################################################################
     # pylint: disable=no-self-use
@@ -89,6 +104,7 @@ class Rest(object):
     # pylint: disable=invalid-name
     def _rest_crud(self, method, *args, **kwargs):
         """Called by the relevant method when content should be posted"""
+        cherrypy.serving.request.reqid = self.reqid = next(self.reqgen)
         try:
             return getattr(self, method)(*args, **kwargs)
         except exceptions.PolicyFailed as err:

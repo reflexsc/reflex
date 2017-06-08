@@ -309,9 +309,12 @@ class Token(server.Rest, abac.AuthService):
             log("login", apikey=token.obj['id'], token=token.obj['name'])
 
         except Exception as err: # pylint: disable=broad-except
-            if self.server.do_DEBUG():
-                self.server.DEBUG(traceback.format_exc())
-            self.auth_fail(str(err)) # traceback.format_exc(0))
+            if self.server:
+                if self.server.do_DEBUG():
+                    log(traceback.format_exc())
+            else:
+                log(traceback.format_exc())
+            return self.auth_fail(str(err))
 
         return self.respond({
             "status": "success",
@@ -343,7 +346,7 @@ class Object(server.Rest, Attributes):
         if not attrs.token_nbr: # check policy instead
             self.auth_fail("Unauthorized")
 
-        obj = self.obj(master=self.server.dbm)
+        obj = self.obj(master=self.server.dbm, reqid=self.reqid)
         if not args:
             if kwargs.get('cols'):
                 cols = list(set(kwargs['cols'].split(',')))
@@ -377,7 +380,7 @@ class Object(server.Rest, Attributes):
 
         body = get_json_body()
         try:
-            obj = self.obj(master=self.server.dbm)
+            obj = self.obj(master=self.server.dbm, reqid=self.reqid)
             obj.load(body)
             warnings = obj.create(attrs)
         except (dbo.ObjectExists, dbo.InvalidParameter) as err:
@@ -406,7 +409,7 @@ class Object(server.Rest, Attributes):
             body['id'] = int(target)
         else:
             body['name'] = target
-        obj = self.obj(master=self.server.dbm)
+        obj = self.obj(master=self.server.dbm, reqid=self.reqid)
         try:
             # would prefer to do PATCH, but tired of fighting w/CherryPy
             if 'merge' in kwargs and kwargs['merge'].lower() == 'true':
@@ -439,7 +442,7 @@ class Object(server.Rest, Attributes):
             return self.respond({'status': 'failed'}, status=404)
         target = args[0]
         try:
-            if self.obj(master=self.server.dbm).delete(target, attrs):
+            if self.obj(master=self.server.dbm, reqid=self.reqid).delete(target, attrs):
                 return self.respond({'status': 'deleted'}, status=200)
             return self.respond({'status': 'failed'}, status=401)
         except dbo.ObjectNotFound as err:
