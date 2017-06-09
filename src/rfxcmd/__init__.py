@@ -582,7 +582,7 @@ class CliEngine(CliRoot):
                 "object", {
                     "type": "from-set",
                     "set": ["pi?peline", "se?rvice|svc",
-                            "co?nfig|cfg", "bu?ild", "in?stance", "api?key", "policy", "policyscope", "group", "state"]
+                            "co?nfig|cfg", "bu?ild", "in?stance", "api?key", "pol?icy", "policyscope|psc?ope|sco?pe", "gr?oup|grp", "state"]
                 }
             ], [
                 "action", {

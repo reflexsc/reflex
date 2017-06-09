@@ -343,7 +343,7 @@ class Server(rfx.Base):
                                                    self.monitor,
                                                    frequency=conf.heartbeat/2)
         int_mon.start()
-        print("Base path={}".format(conf.server.route_base))
+        log("Base path={}".format(conf.server.route_base))
         cherrypy.engine.start()
         cherrypy.engine.block()
 
