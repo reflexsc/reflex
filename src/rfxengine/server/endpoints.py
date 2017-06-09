@@ -138,7 +138,9 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             # nbr instead of id, to avoid confusion with token_uuid
             attrs['token_nbr'] = auth_session.obj['data']['token_id'] # pylint: disable=no-member
             attrs['token_name'] = auth_session.obj['data']['token_name'] # pylint: disable=no-member
-#            log("abac", token=attrs.token_nbr)
+
+            # redundant -- included in http log
+            #log("auth", token_id=attrs.token_nbr, token=attrs.token_name)
 
         except: # pylint: disable=bare-except
             if self.server.do_DEBUG():
@@ -253,7 +255,7 @@ class Token(server.Rest, abac.AuthService):
     """
     last_stat = None
 
-    # pylint: disable=unused-argument,duplicate-code
+    # pylint: disable=unused-argument,duplicate-code,too-many-branches
     def rest_read(self, *args, **kwargs):
         """Receive an Apikey and give a Session Token"""
 

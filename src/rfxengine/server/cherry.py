@@ -20,7 +20,7 @@ import setproctitle
 import dictlib
 import timeinterval
 import rfx
-from rfx import json2data, json4human
+from rfx import json2data#, json4human
 import rfxengine
 from rfxengine import log#, trace
 import rfxengine.memstate

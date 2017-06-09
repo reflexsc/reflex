@@ -29,9 +29,9 @@ plus basic REST handlers.
 import re
 import time
 import traceback
-import cherrypy
 import random
-from rfxengine import log, trace, do_DEBUG
+import cherrypy
+from rfxengine import log, trace, do_DEBUG, set_DEBUG
 from rfxengine import exceptions
 
 ################################################################################
@@ -101,10 +101,14 @@ class Rest(object):
         return content
 
     ###########################################################################
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name,too-many-branches
     def _rest_crud(self, method, *args, **kwargs):
         """Called by the relevant method when content should be posted"""
         cherrypy.serving.request.reqid = self.reqid = next(self.reqgen)
+        do_abac_log = False
+        if kwargs.get('abac') == "log":
+            if set_DEBUG('abac', True):
+                do_abac_log = True
         try:
             return getattr(self, method)(*args, **kwargs)
         except exceptions.PolicyFailed as err:
@@ -130,6 +134,9 @@ class Rest(object):
         except Exception as err:
             log("error", traceback=traceback.format_exc())
             raise
+        finally:
+            if do_abac_log:
+                set_DEBUG('abac', False)
 
     ###########################################################################
     # could decorate these, but .. this is shorter code

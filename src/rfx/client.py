@@ -109,6 +109,7 @@ class Session(rfx.Base):
             raise Unauthorized("Unable to authorize session")
 
     ############################################################################
+    # pylint: disable=too-many-branches
     def _call(self, func, target, *args, **kwargs):
         """Call Reflex Engine, wrapped with authentication and session management"""
         try:
@@ -129,6 +130,12 @@ class Session(rfx.Base):
         kwargs['headers'] = headers
 
         query = self.cfg['REFLEX_URL'] + "/" + target
+        if self.debug.get('remote-abac'):
+            if "?" in query:
+                query += "&"
+            else:
+                query += "?"
+            query += "abac=log"
 
         # make the call
         result = self._call_sub(func, query, *args, **kwargs)

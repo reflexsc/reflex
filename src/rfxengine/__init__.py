@@ -44,6 +44,18 @@ def trace(arg):
         outf.write("[{}] {} {}\n".format(os.getpid(), time.time(), arg))
 
 ###############################################################################
+def set_DEBUG(module, value): # pylint: disable=invalid-name
+    """do_DEBUG() wrapper from rfx.Base object, pivoting off SERVER global"""
+    if SERVER:
+        if not value:
+            del SERVER.debug[module]
+            return True
+        elif SERVER.debug.get(module, None) is None:
+            SERVER.debug[module] = value
+            return True
+    return False
+
+###############################################################################
 def do_DEBUG(*module): # pylint: disable=invalid-name
     """do_DEBUG() wrapper from rfx.Base object, pivoting off SERVER global"""
     if SERVER:
@@ -78,19 +90,24 @@ def log(*args, **kwargs):
     try:
         if SERVER:
             try:
-                if SERVER.conf.requestid:
+                if SERVER.conf.get('requestid'):
                     # note: danger: this should be injected by traffic management,
                     # enable it with config requestid=true
                     reqid = SERVER.cherry.request.headers.get('X-Request-Id')
                     if reqid:
                         kwargs['reqid'] = reqid
+                    elif SERVER.cherry.serving.request.__dict__.get('reqid'):
+                        kwargs['reqid'] = SERVER.cherry.serving.request.reqid
+                elif SERVER.cherry.serving.request.__dict__.get('reqid'):
+                    kwargs['reqid'] = SERVER.cherry.serving.request.reqid
+
             except: # pylint: disable=bare-except
-                pass
+                SERVER.NOTIFY("Logging Error: " + traceback.format_exc())
             SERVER.NOTIFY(*args, **kwargs)
         else:
-            sys.stdout.write(" ".join(args))
+            sys.stdout.write(" ".join(args) + " ")
             for key, value in kwargs.items():
-                sys.stdout.write("{}={}".format(key, value))
+                sys.stdout.write("{}={} ".format(key, value))
             sys.stdout.write("\n")
             sys.stdout.flush()
     except Exception: # pylint: disable=broad-except

@@ -348,7 +348,7 @@ def test_integration(schema, base, tester):
             """)
     tester.addcheck("Object Verify: Policyscope", 
             (Policyscope, tname + '-policy', {
-                'policy_id': 100,
+                'policy': 'test-policy',
                 'matches': 'True',
                 'type': 'targetted',
                 'actions': 'admin'
@@ -665,7 +665,7 @@ def test_functional(schema, base, tester, baseurl):
         'policyscope': {
             'mcreate': {
                 'name': 'timelords',
-                'policy_id': 101,
+                'policy': 'timelords',
                 'actions': 'admin',
                 'type': 'targetted',
                 'matches': 'True'
@@ -673,7 +673,7 @@ def test_functional(schema, base, tester, baseurl):
             'mcreate-expect': [r'Response \[201\]'],
             '-mcreate': {
                 'name': 'tardises',
-                'policy_id': 100,
+                'policy': 'timelords',
                 'actions': 'bob',
                 'type': 'targetted',
                 'matches': '! good'
@@ -681,7 +681,7 @@ def test_functional(schema, base, tester, baseurl):
             '-mcreate-expect': [r'Response \[400\]', r'message": "Cannot prepare match'],
             'mupdate': {
                 'name': 'timelords',
-                'policy_id': 101,
+                'policy': 'timelords',
                 'type': 'targetted',
                 'matches': 'False',
                 'actions': 'read, write, ADMIN'
@@ -828,7 +828,7 @@ def test_full_stack(schema, base, tester, baseurl):
     tester.okcmp("Reflex Policyscope Create global", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-read-configs",
-                     "policy_id": 101,
+                     "policy": "pond-read-configs",
                      "actions": 'read',
                      "type": 'global',
                      "matches": 'obj_type == "Config"'
@@ -849,7 +849,7 @@ def test_full_stack(schema, base, tester, baseurl):
     tester.okcmp("Reflex Policyscope Create sensitive", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-read-sensitive",
-                     "policy_id": 102,
+                     "policy": "pond-read-sensitive",
                      "actions": 'read',
                      "type": 'targetted',
                      "matches": 'obj_type == "Config"'# and rx.search("^tardis-", obj["name"])'
@@ -897,7 +897,7 @@ def test_full_stack(schema, base, tester, baseurl):
     tester.okcmp("Reflex Policyscope Create result=fail", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-fail",
-                     "policy_id": 103,
+                     "policy": "pond-fail",
                      "actions": 'read',
                      "type": 'targetted',
                      "matches": 'obj_type == "Config"'

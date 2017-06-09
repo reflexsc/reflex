@@ -35,7 +35,6 @@ import uuid
 import time
 import base64
 import traceback
-import random
 import hashlib # hashlib is fastest for hashing
 import nacl.utils # for keys -- faster than cryptography lib
 import nacl.pwhash # for password hashing
@@ -45,7 +44,7 @@ from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
                                  NoChanges, CipherException, InvalidParameter,\
                                  PolicyFailed
-from rfxengine import abac, log#, trace #, do_DEBUG
+from rfxengine import abac, log, do_DEBUG#, trace
 from rfxengine.db.pool import db_interface
 from rfxengine.db.mxsql import OutputSingle, row_to_dict
 import dictlib
@@ -573,6 +572,7 @@ class RCObject(rfx.Base):
                 rel_id = self.split_name2id(value)[1]
                 chgs.append(col.hasid + '=?')
                 args.append(rel_id)
+                self.obj[col.hasid] = rel_id # for future use
 
             # encode or encrypt the value
             if col.encrypt:
@@ -717,38 +717,37 @@ class RCObject(rfx.Base):
         attrs['obj_type'] = self.table
         attrs['obj'] = self.obj
         abac_debug = False
-        def null(*args):
+        def null(**kwargs):
             """do nothing"""
         dbg = null
 
         if self.do_DEBUG(module="abac"):
-            def do_dbg(*args):
+            def do_dbg(*args, **kwargs):
                 """debugging"""
-                msg = "ABAC {} rid={} obj={} " + args[0]
-                objid = '?'
+                kwargs["obj"] = "?"
+                kwargs["table"] = self.table
                 if self.obj:
-                    objid = self.obj.get('name', self.obj.get('id'))
-                msg = msg.format(self.table, self.reqid, objid, *args[1:])
-                log(msg)
+                    kwargs["obj"] = self.obj.get('name', self.obj.get('id'))
+                log("abac", **kwargs)
             dbg = do_dbg
             abac_debug = True
-            dbg("step=start-auth, action={} sensitive={}", action, sensitive)
+            dbg(step="start-auth", action=action, sensitive=sensitive)
+
         if action != 'admin':
             actions = [action, 'admin']
         else:
             actions = ['admin']
         for act in actions:
             for policy in self.policies[act]:
-                dbg("step=check-policy id={} act={} expr=\"{}\"", policy.policy_id,
-                    act, policy.policy_expr)
+                dbg(step="check-policy", id=policy.policy_id, act=act, expr=policy.policy_expr)
                 if policy.allowed(attrs, debug=abac_debug, base=self):
-                    dbg("step=AUTHORIZED id={} act={}", policy.policy_id, act)
+                    dbg(step="AUTHORIZED", id=policy.policy_id, act=act)
                     return True
                 if raise_error and policy.policy_fail: # always drop out -- dangerous if misapplied
                     raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine") # pylint: disable=line-too-long
         if raise_error:
             raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
-        dbg("step=FAILED")
+        dbg(step="FAILED")
         return False
 
     ############################################################################
@@ -861,24 +860,25 @@ class RCObject(rfx.Base):
         """
         Any actions or updates required on change of this object
         """
+#        trace("Object.changed()")
         scopelist = policyscope_get_cached(self.master.cache, dbi, 'targeted')
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
         for pscope in scopelist:
             policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
-        #self.map_targeted_policies(scopelist, dbi=dbi)
+        self.map_targeted_policies(scopelist, dbi=dbi)
         return list()
 
     #############################################################################
-#    def map_targeted_policies(self, scopelist, dbi=None):
-#        """
-#        Review policies and scope to this object
-#        """
-#
-#        self._delete_policyfor(dbi)
-#        attribs = dict(obj=self.obj, obj_type=self.table)
-#        for pscope in scopelist:
-#            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
+    def map_targeted_policies(self, scopelist, dbi=None):
+        """
+        Review policies and scope to what applies to this object
+        """
+        #trace("Object.map_targeted_policies()")
+        self._delete_policyfor(dbi)
+        attribs = dict(obj=self.obj, obj_type=self.table)
+        for pscope in scopelist:
+            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
 
 ################################################################################
 class Pipeline(RCObject):
@@ -1533,6 +1533,7 @@ class Policy(RCObject):
 ################################################################################
 def policyscope_get_cached(cache, dbi, mtype):
     """get a list of policyscope objects, checking cache first"""
+    #trace("policyscope_get_cached({})".format(mtype))
     scopelist = cache.get_cache('policyscope', mtype)
     if scopelist:
         return scopelist
@@ -1541,12 +1542,16 @@ def policyscope_get_cached(cache, dbi, mtype):
 ################################################################################
 def policyscope_get_direct(cache, dbi, mtype):
     """get a list of policyscope objects directly from db, and update cache"""
+    #trace("policyscope_get_direct({})".format(mtype))
     scopelist = list()
     cursor = dbi.do("""SELECT id,policy_id,matches,actions
                          FROM Policyscope
                         WHERE type = ?""", mtype)
     for row in cursor:
-        scopelist.append(row_to_dict(cursor, row))
+        pscope = row_to_dict(cursor, row)
+        pscope['ast'] = compile(pscope['matches'], '<scope ' + str(pscope['id']) + '>', "eval")
+        scopelist.append(pscope)
+
     cache.set_cache('policyscope', mtype, scopelist)
     return scopelist
 
@@ -1555,17 +1560,31 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id):
     """"map policyscope objects into PolicyFor table"""
     try:
         # pylint: disable=eval-used
-        if eval(pscope['matches'], abac.abac_context(), attribs):
+        if not pscope.get('ast'):
+            pscope['ast'] = compile(pscope['matches'], '<scope ' + str(pscope['id']) + '>', "eval")
+        if eval(pscope['ast'], abac.abac_context(), attribs):
             for action in pscope['actions'].split(","):
-                log("policymap id={} policy={} target={}"
-                    .format(pscope['id'], pscope['policy_id'], target_id))
+                log("policymap",
+                    action=action,
+                    scope=pscope['id'],
+                    policy=pscope['policy_id'],
+                    target=target_id)
                 dbi.do("""REPLACE INTO PolicyFor
                           SET obj = ?, policy_id = ?, target_id = ?,
                               pscope_id = ?, action = ?
                        """, table, pscope['policy_id'], target_id,
                        pscope['id'], action)
-    except: # pylint: disable=bare-except
-        log("policymap_error", traceback=traceback.format_exc())
+    except Exception as err: # pylint: disable=broad-except
+        if do_DEBUG("abac"):
+            log("policymap_error", msg=traceback.format_exc(),
+                scope=pscope.get('id', 0),
+                policy=pscope.get('policy_id', 0),
+                target=target_id)
+        else:
+            log("policymap_error", traceback=str(err),
+                scope=pscope.get('id', 0),
+                policy=pscope.get('policy_id', 0),
+                target=target_id)
 
 ################################################################################
 class Policyscope(RCObject):
@@ -1670,6 +1689,7 @@ class Policyscope(RCObject):
     def changed(self, attrs, dbi=None):
         errors = super(Policyscope, self).changed(attrs, dbi=dbi)
 
+        #trace("Policyscope.changed()")
         # invalidate all cached data for policy maps
         self.master.cache.clear_type('policymap')
 
@@ -1717,7 +1737,10 @@ class Policyscope(RCObject):
     def map_soft_relationships(self, dbi):
         """map out my relationships"""
         errors = super(Policyscope, self).map_soft_relationships(dbi)
-        errors += self._map_soft_relationship(dbi, Policy(clone=self), "policy")
+
+        maperr = self._map_soft_relationship(dbi, Policy(clone=self), "policy")
+        if maperr:
+            raise InvalidParameter(maperr[0])
 
         return errors
 
@@ -1796,11 +1819,12 @@ class Schema(rfx.Base):
             pscope.load({
                 'name': 'master',
                 'matches': 'True',
-                'policy_id': 100,
+                'policy': 'master',
                 'actions': 'admin',
                 'type': 'global'
             })
             pscope.create(abac.MASTER_ATTRS, doabac=False) # special override
+            pscope.get("master", True)
 
             secret = base64.b64encode(nacl.utils.random(Apikey.keysize)).decode()
             dbi.do("""

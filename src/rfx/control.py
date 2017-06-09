@@ -27,7 +27,7 @@ import re
 import traceback
 import rfx
 import rfx.client
-from rfx.backend import Engine, EngineCli
+from rfx.backend import EngineCli
 
 ################################################################################
 class ControlCli(rfx.Base):

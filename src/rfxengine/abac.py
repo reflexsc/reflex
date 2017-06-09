@@ -57,6 +57,7 @@ class Policy(object):
     policy_data = None
     policy_timestamp = 0
     policy_expires = 0
+    policy_ast = None
     sort_key = ""
     target_id = 0
 
@@ -71,6 +72,7 @@ class Policy(object):
         self.policy_order = order
         self.policy_name = pname
         self.policy_expr = self.compile(pexpr)
+        self.policy_ast = compile(self.policy_expr, '<abac policy ' + str(pid) + '>', "eval")
         self.policy_data = pdata
         self.policy_timestamp = ptimestamp
         self.sort_key = str(order) + ":" + str(ptimestamp)
@@ -119,16 +121,15 @@ class Policy(object):
         if not isinstance(attrs, dict):
             raise exceptions.InvalidContext("Context is not a dictionary")
 
-        # pylint: disable=eval-used
         try:
-            context = abac_context()
-            if eval(self.policy_expr, context, attrs):
+            # pylint: disable=eval-used
+            if eval(self.policy_ast, abac_context(), attrs):
                 return True
         except KeyError as err:
             log("policy failure id={} missing key={}".format(self.policy_id, err))
         except Exception as err: # pylint: disable=broad-except
             if debug and base:
-                base.DEBUG("ABAC error={}, traceback={}"
+                base.DEBUG("abac error={}, traceback={}"
                            .format(err, traceback.format_exc()), module="abac")
         return False
 
