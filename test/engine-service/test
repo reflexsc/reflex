@@ -86,15 +86,18 @@ config='
 }
 '
 
-if [ $SERVICE ]; then
-    export REFLEX_ENGINE_CONFIG="$config"
-	if ! which reflex-engine; then
-		echo "Cannot find reflex-engine executable"
-		exit 1
-	fi
-	echo $config | reflex-engine --test --debug=abac >engine.log 2>&1 &
-    trap "kill_matching reflex-$name; exit 1" 0 15
-fi
+start_svc() {
+    if [ $SERVICE ]; then
+        export REFLEX_ENGINE_CONFIG="$config"
+    	if ! which reflex-engine; then
+    		echo "Cannot find reflex-engine executable"
+    		exit 1
+    	fi
+    	echo $config | reflex-engine --test --debug=abac >engine.log 2>&1 &
+        trap "kill_matching reflex-$name; exit 1" 0 15
+    fi
+    waitfor_svc engine localhost:$port
+}
 
 errs=0
 [ $DO_LINT ] && {
@@ -111,27 +114,31 @@ errs=0
 
 if [ $SERVICE ]; then
 	# see if agent is ready yet
-	waitfor_svc engine localhost:$port
 
 	[ $DO_INTEGRATION ] && {
         msg Integration Tests
+        start_svc
 		./test.py integration "${test_opts[@]}"
 		let errs+=$?
+	    kill_matching reflex-engine
 	}
 
 	[ $DO_FUNCTIONAL ] && {
         msg Functional Tests
+        start_svc
 		./test.py functional "${test_opts[@]}"
 		let errs+=$?
+	    kill_matching reflex-engine
 	}
 
 	[ $DO_STACK ] && {
         msg Stack Tests
+        start_svc
 		./test.py full-stack "${test_opts[@]}"
 		let errs+=$?
+	    kill_matching reflex-engine
 	}
 
-	kill_matching reflex-engine
 fi
 
 exit $errs

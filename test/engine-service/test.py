@@ -269,8 +269,8 @@ class Tester(rfx.Base):
         self.tap.ok_func_compare(*args, **kwargs)
 
 ################################################################################
-def test_integration(schema, base, tester):
-    schema.initialize(verbose=False, reset=False)
+def test_integration(schema, base, tester, args):
+    schema.initialize(verbose=False, reset=True)
     tname = 'test'
     tester.addcheck("Object Verify: Pipeline", 
             (Pipeline, tname, {
@@ -350,7 +350,7 @@ def test_integration(schema, base, tester):
             (Policyscope, tname + '-policy', {
                 'policy': 'test-policy',
                 'matches': 'True',
-                'type': 'targetted',
+                'type': 'targeted',
                 'actions': 'admin'
             }),
             r"""
@@ -399,8 +399,8 @@ def test_integration(schema, base, tester):
             )
 
 ###############################################################################
-def test_functional(schema, base, tester, baseurl):
-    schema.initialize(verbose=False, reset=False)
+def test_functional(schema, base, tester, baseurl, args):
+    schema.initialize(verbose=False, reset=True)
     tester.okcmp("REST Health Check", tester, tester.fcall,
                  [requests.get, baseurl + "/health"],
                  {}, # "X-Request-Id": "test-request-id1"},
@@ -667,7 +667,7 @@ def test_functional(schema, base, tester, baseurl):
                 'name': 'timelords',
                 'policy': 'timelords',
                 'actions': 'admin',
-                'type': 'targetted',
+                'type': 'targeted',
                 'matches': 'True'
             },
             'mcreate-expect': [r'Response \[201\]'],
@@ -675,14 +675,14 @@ def test_functional(schema, base, tester, baseurl):
                 'name': 'tardises',
                 'policy': 'timelords',
                 'actions': 'bob',
-                'type': 'targetted',
+                'type': 'targeted',
                 'matches': '! good'
             },
             '-mcreate-expect': [r'Response \[400\]', r'message": "Cannot prepare match'],
             'mupdate': {
                 'name': 'timelords',
                 'policy': 'timelords',
-                'type': 'targetted',
+                'type': 'targeted',
                 'matches': 'False',
                 'actions': 'read, write, ADMIN'
             },
@@ -746,10 +746,10 @@ def test_functional(schema, base, tester, baseurl):
                       'headers':{'Content-Type':'application/json'}},
                      *samples[obj].mcreate_expect)
 
-def test_full_stack(schema, base, tester, baseurl):
-    schema.initialize(verbose=False, reset=False)
+def test_full_stack(schema, base, tester, baseurl, args):
+    schema.cleanup()
+    schema.initialize(verbose=True, reset=True)
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
-
     master_key = Apikey(master=tester.dbm)
     master_key.get('master', user_attrs)
 
@@ -845,13 +845,13 @@ def test_full_stack(schema, base, tester, baseurl):
                  r"tardis-main-sub",
                  r"'sensitive': {'encrypted")
 
-    # map the sensitive policy just to the individual items (it is targetted)
+    # map the sensitive policy just to the individual items (it is targeted)
     tester.okcmp("Reflex Policyscope Create sensitive", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-read-sensitive",
                      "policy": "pond-read-sensitive",
                      "actions": 'read',
-                     "type": 'targetted',
+                     "type": 'targeted',
                      "matches": 'obj_type == "Config"'# and rx.search("^tardis-", obj["name"])'
                  }], {},
                  r"'status': 'created'")
@@ -893,13 +893,13 @@ def test_full_stack(schema, base, tester, baseurl):
                  }], {},
                  r"'status': 'created'")
 
-    # map the sensitive policy just to the individual items (it is targetted)
+    # map the sensitive policy just to the individual items (it is targeted)
     tester.okcmp("Reflex Policyscope Create result=fail", tester, tester.rcs,
                  [rcs_master.create, "policyscope", {
                      "name": "pond-fail",
                      "policy": "pond-fail",
                      "actions": 'read',
-                     "type": 'targetted',
+                     "type": 'targeted',
                      "matches": 'obj_type == "Config"'
                  }], {},
                  r"'status': 'created'")
@@ -1004,24 +1004,24 @@ def main():
     if args.dbinit:
         schema.initialize(verbose=True, reset=True)
 
-    if args.option == 'unit':
-        for f in get_libfiles():
-            if f != "rfxengine/abac.py": # bug w/global:MASTER_ATTRS breaking doctest
-                tap.unit(libdir, f, exit_on_fail=False)
-        return
-    elif args.option == 'lint':
-        tap.lint(libdir, 'rfxengine', exit_on_fail=False)
-        return
-    elif args.option == 'integration':
-        test_integration(schema, base, tester)
-    elif args.option == 'functional':
-        test_functional(schema, base, tester, baseurl)
-    elif args.option == 'full-stack':
-        test_full_stack(schema, base, tester, baseurl)
-
-    ###########################################################################
-    if not args.noclean:
-        schema.cleanup()
+    try:
+        if args.option == 'unit':
+            for f in get_libfiles():
+                if f != "rfxengine/abac.py": # bug w/global:MASTER_ATTRS breaking doctest
+                    tap.unit(libdir, f, exit_on_fail=False)
+            return
+        elif args.option == 'lint':
+            tap.lint(libdir, 'rfxengine', exit_on_fail=False)
+            return
+        elif args.option == 'integration':
+            test_integration(schema, base, tester, args)
+        elif args.option == 'functional':
+            test_functional(schema, base, tester, baseurl, args)
+        elif args.option == 'full-stack':
+            test_full_stack(schema, base, tester, baseurl, args)
+    finally:
+        if not args.noclean:
+            schema.cleanup()
 
     tester.tap.exit()
 

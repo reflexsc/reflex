@@ -67,6 +67,8 @@ def cols(columns, header=False, stderr=list(), sort=None):
             fmt = " " + fmt
         fmts[rnx] = fmt
 
+    # last one doesn't need padding
+    fmts[-1] = ' {}'
     def sort_first(rowx): # pylint: disable=missing-docstring
         return rowx[0]
     if not sort:

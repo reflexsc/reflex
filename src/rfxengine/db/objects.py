@@ -1696,7 +1696,7 @@ class Policyscope(RCObject):
 
         # first cleanup previous mappings from this policyscope
         dbi.do("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
-        if self.obj['type'] in ('targeted'):
+        if self.obj['type'] == 'targeted':
             scopelist = policyscope_get_direct(self.master.cache,
                                                dbi,
                                                self.obj['type'])
@@ -1809,6 +1809,8 @@ class Schema(rfx.Base):
                     match = re.search(r'^\s+(ADD)> *(.*)$', line)
                 if match:
                     schema.append(match.group(2))
+            if verbose:
+                self.NOTIFY("Initializing {} ..".format(obj.table))
             for stmt in "\n".join(schema).split(";"):
                 stmt = stmt.strip()
                 if not stmt:
@@ -1816,6 +1818,11 @@ class Schema(rfx.Base):
                 dbi.dbc.cmd_query(stmt)
 
         if reset or new_master:
+            if verbose:
+                self.NOTIFY("Initializing new master ..\n")
+#            self.NOTIFY("policy={}".format(dbi.do_getlist("SELECT * FROM Policy")))
+#            self.NOTIFY("scope={}".format(dbi.do_getlist("SELECT * FROM Policyscope")))
+#            self.NOTIFY("for={}".format(dbi.do_getlist("SELECT * FROM PolicyFor")))
             pscope = Policyscope(master=self.master)
             pscope.load({
                 'name': 'master',

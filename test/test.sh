@@ -111,9 +111,19 @@ curl_grep() {
 kill_matching() {
     name=$1
     pids=$(ps -o pid,cmd|grep $name|grep -v grep|awk '{print $1}')
-    if [ -n "$pids" ]; then
-        kill $pids >/dev/null 2>&1
-    fi
+    count=3
+    local sig=INT
+    while [ -n "$pids" ]; do
+        echo "Killing $pids..."
+        kill -$sig $pids >/dev/null 2>&1
+        pids=$(ps -o pid,cmd|grep $name|grep -v grep|awk '{print $1}')
+        let count--
+        if [ $count -lt 1 ]; then
+            echo "Switching to segv"
+            sig=SEGV
+        fi
+        sleep 1
+    done
     trap "" 0 15
 }
 
