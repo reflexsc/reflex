@@ -34,7 +34,6 @@ import re
 import uuid
 import time
 import base64
-import traceback
 import hashlib # hashlib is fastest for hashing
 import nacl.utils # for keys -- faster than cryptography lib
 import nacl.pwhash # for password hashing
@@ -738,6 +737,11 @@ class RCObject(rfx.Base):
         else:
             actions = ['admin']
         for act in actions:
+            if abac_debug:
+                for policy in self.policies[act]:
+                    dbg(step="matching-policy", action=policy.policy_action,
+                        name=policy.policy_name)
+
             for policy in self.policies[act]:
                 dbg(step="check-policy", id=policy.policy_id, act=act, expr=policy.policy_expr)
                 if policy.allowed(attrs, debug=abac_debug, base=self):
@@ -860,7 +864,7 @@ class RCObject(rfx.Base):
         """
         Any actions or updates required on change of this object
         """
-#        trace("Object.changed()")
+#        log("Object.changed()") # trace
         scopelist = policyscope_get_cached(self.master.cache, dbi, 'targeted')
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
@@ -874,7 +878,7 @@ class RCObject(rfx.Base):
         """
         Review policies and scope to what applies to this object
         """
-        #trace("Object.map_targeted_policies()")
+        # log("Object.map_targeted_policies()") # trace
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
         for pscope in scopelist:
@@ -1533,7 +1537,7 @@ class Policy(RCObject):
 ################################################################################
 def policyscope_get_cached(cache, dbi, mtype):
     """get a list of policyscope objects, checking cache first"""
-    #trace("policyscope_get_cached({})".format(mtype))
+    # log("policyscope_get_cached({})".format(mtype)) # trace
     scopelist = cache.get_cache('policyscope', mtype)
     if scopelist:
         return scopelist
@@ -1542,7 +1546,7 @@ def policyscope_get_cached(cache, dbi, mtype):
 ################################################################################
 def policyscope_get_direct(cache, dbi, mtype):
     """get a list of policyscope objects directly from db, and update cache"""
-    #trace("policyscope_get_direct({})".format(mtype))
+    # log("policyscope_get_direct({})".format(mtype)) # trace
     scopelist = list()
     cursor = dbi.do("""SELECT id,policy_id,matches,actions
                          FROM Policyscope
@@ -1562,6 +1566,10 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id):
         # pylint: disable=eval-used
         if not pscope.get('ast'):
             pscope['ast'] = compile(pscope['matches'], '<scope ' + str(pscope['id']) + '>', "eval")
+#        log("matches={} attrs={}".format(pscope['matches'], attribs))
+#        log("context={}".format(abac.abac_context()))
+#        log("attribs={}".format(attribs))
+
         if eval(pscope['ast'], abac.abac_context(), attribs):
             for action in pscope['actions'].split(","):
                 log("policymap",
@@ -1575,14 +1583,19 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id):
                               pscope_id = ?, action = ?
                        """, table, pscope['policy_id'], target_id,
                        pscope['id'], action)
+
     except Exception as err: # pylint: disable=broad-except
         if do_DEBUG("abac"):
-            log("policymap_error", msg=traceback.format_exc(),
+            context = dictlib.union(abac.abac_context(), attribs)
+            log("policymap_error", msg=str(err), # traceback=traceback.format_exc(),
+                expr=pscope.get('matches'),
+                context=context,
                 scope=pscope.get('id', 0),
                 policy=pscope.get('policy_id', 0),
                 target=target_id)
         else:
-            log("policymap_error", traceback=str(err),
+            log("policymap_error", msg=str(err),
+                expr=pscope.get('matches'),
                 scope=pscope.get('id', 0),
                 policy=pscope.get('policy_id', 0),
                 target=target_id)
@@ -1606,6 +1619,8 @@ class Policyscope(RCObject):
      ADD>     unique(name)
      ADD> ) engine=InnoDB;
 
+    MIGRATE-001> alter table Policyscope change column type type enum('targeted', 'global') not null default 'targeted';
+
     DROP> drop table if exists PolicyscopeArchive;
      ADD> create table PolicyscopeArchive (
      ADD>     id int auto_increment not null,
@@ -1621,6 +1636,8 @@ class Policyscope(RCObject):
      ADD>     index(id)
      ADD> ) engine=InnoDB;
      ADD>
+
+    MIGRATE-001> alter table PolicyscopeArchive change column type type enum('targeted', 'global') not null default 'targeted';
 
     DROP> DROP TRIGGER IF EXISTS archive_Policyscope;
      ADD> CREATE TRIGGER archive_Policyscope BEFORE UPDATE ON Policyscope
@@ -1652,7 +1669,6 @@ class Policyscope(RCObject):
         self.omap['actions'] = RCMap(stype="alter", stored='actions')
         self.omap['type'] = RCMap(stype="alter", stored='type')
         super(Policyscope, self).__init__(*args, **kwargs)
-
 
     #############################################################################
     # merge in w/abac.Policy validation
@@ -1690,49 +1706,81 @@ class Policyscope(RCObject):
     def changed(self, attrs, dbi=None):
         errors = super(Policyscope, self).changed(attrs, dbi=dbi)
 
-        #trace("Policyscope.changed()")
-        # invalidate all cached data for policy maps
+        self.map_self(dbi=dbi)
+
+        return errors
+
+    #############################################################################
+    @db_interface
+    def remap_all(self, dbi=None):
+        """To be called periodically and make sure things are fresh"""
+        cache = dictlib.Obj(
+            did={},
+            objlist={}
+        )
+        groups = Group(master=self.master).get_for_attrs()
+
+        for scope_array in dbi.do_getlist("SELECT id FROM Policyscope"):
+            scope_id = scope_array[0]
+            pscope = Policyscope(clone=self)
+            pscope.get(scope_id, attrs=True)
+            pscope.map_self(dbi=dbi, cache=cache, invalidate=False, groups=groups)
+
+        # at the end
         self.master.cache.clear_type('policymap')
+
+    #############################################################################
+    # pylint: disable=too-many-branches
+    def map_self(self, dbi=None, cache=None, invalidate=True, groups=None):
+        """Map my policy scope against objects"""
 
         # first cleanup previous mappings from this policyscope
         dbi.do("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
-        if self.obj['type'] == 'targeted':
-            scopelist = policyscope_get_direct(self.master.cache,
-                                               dbi,
-                                               self.obj['type'])
-            for table in Schema.tables:
-                if not table.policy_map:
-                    continue
-                tobj = table(master=self.master)
+        if not groups:
+            groups = Group(master=self.master).get_for_attrs()
 
-                # build the list in memory, so we can re-use the cursor later
-                memarray = list()
-                cursor = dbi.do("SELECT id,name FROM " + tobj.table)
-                for row in cursor:
-                    memarray.append(dict(id=row[0], name=row[1].decode('utf-8')))
-
-                # now map out the policies
-                for row in memarray:
-                    # this should be skeleton
-                    attribs = dict(obj=row, obj_type=table.table, groups=attrs.groups)
-                    # we need to do the entire scopelist becuase map_targeted
-                    # removes all matching this target
-           #         tobj.map_targeted_policies(scopelist, dbi=dbi)
-                    for pscope in scopelist:
-                        policyscope_map_for(pscope, dbi, attribs, table.table, row['id'])
-
-        else: # global
+        if self.obj['type'] == 'global':
             # this should be skeleton
-            attribs = dict(obj={}, obj_type='', groups=attrs.groups)
+            attribs = dict(obj={}, obj_type='', groups=groups)
             for table in Schema.tables:
                 if not table.policy_map:
                     continue
                 obj = table(master=self.master)
-                attribs['obj'] = obj
+                attribs['obj'] = obj.obj or {
+                    'name': 'n/a'
+                }
                 attribs['obj_type'] = obj.table
                 policyscope_map_for(self.obj, dbi, attribs, obj.table, 0)
 
-        return errors
+        else: # targeted
+            for table in Schema.tables:
+                # some tables skip policy mapping
+                if not table.policy_map:
+                    continue
+
+                tobj = table(master=self.master)
+
+                # build the list in memory, so we can re-use the cursor later
+                if cache and cache.objlist.get(tobj.table):
+                    memarray = cache.objlist.get(tobj.table)
+                else:
+                    memarray = list()
+                    cursor = dbi.do("SELECT id,name FROM " + tobj.table)
+                    for row in cursor:
+                        memarray.append(dict(id=row[0], name=row[1].decode('utf-8')))
+                    if cache:
+                        cache.objlist[tobj.table] = memarray
+
+                # fanout: for each row in the table
+                for row in memarray:
+                    # this should be skeleton
+                    attribs = dict(obj=row, obj_type=table.table, groups=groups)
+                    policyscope_map_for(self.obj, dbi, attribs, table.table, row['id'])
+
+        # invalidate all cached data for policy maps
+        if invalidate:
+            self.master.cache.clear_type('policymap')
+
 
     ############################################################################
     def map_soft_relationships(self, dbi):

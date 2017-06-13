@@ -200,6 +200,7 @@ class Server(rfx.Base):
             },
             'heartbeat': 10,
             'requestid': False,
+            'refresh_maps': 300,
             'cache': {
                 'housekeeper': 60,
                 'policies': 300,
@@ -289,6 +290,16 @@ class Server(rfx.Base):
             dbo.AuthSession(master=dbm).clean_keys()
 
         timeinterval.start(conf.auth.expires * 1000, clean_keys, self.dbm)
+
+        # recheck policymaps every so often
+        def check_policymaps(dbm):
+            """
+            periodically remap policy maps, incase somebody was
+            fidgeting where they shoudln't be
+            """
+            dbo.Policyscope(master=dbm).remap_all()
+
+        timeinterval.start(conf.refresh_maps * 1000, check_policymaps, self.dbm)
 
         # mount routes
         cherrypy.tree.mount(endpoints.Health(conf, server=self),
