@@ -1218,14 +1218,22 @@ class Group(RCObject):
             self.obj['group'] = list(set([x.lower() for x in self.obj['group']]))
             self.obj['_grp'] = self.obj['group']
         elif self.obj['type'] == 'password':
-            words = list()
-            for pwd in self.obj['group']:
-                if pwd[:3] == '$7$':
-                    words.append(pwd)
+            _grp = list()
+            grp = list()
+            for elem in self.obj['group']:
+                parts = elem.split(":")
+                if len(parts) != 2:
+                    raise InvalidParameter("password group items should be a list of name:passwords")
+                name, pword = parts
+                if pword[:3] == '$7$':
+                    _grp.append(pword)
+                    grp.append(elem)
                 else:
-                    words.append(nacl.pwhash.scryptsalsa208sha256_str(pwd.encode()).decode())
-            self.obj['group'] = words
-            self.obj['_grp'] = words
+                    hash = nacl.pwhash.scryptsalsa208sha256_str(pword.encode()).decode()
+                    _grp.append(hash)
+                    grp.append(name.lower() + ":" + hash)
+            self.obj['group'] = grp
+            self.obj['_grp'] = _grp
         elif self.obj['type'] in ('Apikey', 'Pipeline'):
             # todo: look for better option
             # pylint: disable=eval-used

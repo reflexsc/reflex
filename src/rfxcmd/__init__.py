@@ -30,6 +30,7 @@ Commands are called based on the linked name transformed into the class name
 import sys
 import os
 import re
+import subprocess
 import dictlib
 import copy
 import ujson as json
@@ -158,13 +159,14 @@ class CliReflex(CliRoot):
         return """
 Usage: """ + self.cmd + """ {scope} [...]
 
-=> """ + self.cmd + """ setup {args}
-=> """ + self.cmd + """ apikey {args}
-=> """ + self.cmd + """ launch env|app|config {args}    *
-=> """ + self.cmd + """ action|act run|verify {action}  *
-=> """ + self.cmd + """ action|act list|ls              *
-=> """ + self.cmd + """ app {args}                      *
-=> """ + self.cmd + """ engine|rxe {args}               *
+=> """ + self.cmd + """ setup {args}                   - setup local environ
+=> """ + self.cmd + """ apikey {args}                  - manage apikeys
+=> """ + self.cmd + """ password {args}                - manage group passwords
+=> """ + self.cmd + """ launch env|app|config {args}   *
+=> """ + self.cmd + """ action|act run|verify {action} *
+=> """ + self.cmd + """ action|act list|ls             *
+=> """ + self.cmd + """ app {args}                     *
+=> """ + self.cmd + """ engine|rxe {args}              *
 => """ + self.cmd + """ monitor {args}
 
    Try --help with one of the scopes, for additional information.
@@ -922,6 +924,91 @@ Usage: """ + self.cmd + " " + "|".join(self._args[0][1]["set"]) + """ [..args]
         cli = ControlCli(base=new_base(parsed))
         get_passwords(parsed, cli)
         cli.apikey_cli(self.args.argv, parsed, self)
+
+################################################################################
+class CliPassword(CliRoot):
+    """password command"""
+
+    ############################################################################
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.args = Args(
+            [
+                "group", {
+                    "type":"set-add",
+                }
+            ], [
+                "name", {
+                    "type":"set-add",
+                }
+            ], [
+                "--p?assword|--pwd|-p", {
+                    "type":"set-password",
+                }
+            ]
+        )
+        super(CliPassword, self).__init__(cmd)
+
+    ############################################################################
+    # pylint: disable=missing-docstring
+    def syntax(self):
+        """not always the right default"""
+        return """
+Usage: """ + self.cmd + """ {group} {name}
+
+   Add/Change a password for {name} to {group}
+
+Example:
+
+    """ + self.cmd + """ custodians susan
+
+"""
+
+    ############################################################################
+    # pylint: disable=missing-docstring
+    def start(self, argv=None, opts=None):
+        parsed = self.args.handle_parse(caller=self, argv=argv, opts=opts)
+        if not parsed or parsed.get('--help') and not self.args.argv:
+            self.fail()
+
+        cli = ControlCli(base=new_base(parsed))
+        get_passwords(parsed, cli)
+
+        try:
+            grp = cli.rcs.get("group", parsed.get('group'))
+        except rfx.client.ClientError:
+            self.fail("Unable to find group: " + parsed.get('group'))
+
+        if grp.get('type') != 'password':
+            self.fail("Group " + parsed.get('group') + " is not a password type group")
+
+        subprocess.call(["stty", "-echo"])
+        try:
+            pwd1 = None
+            pwd2 = False
+            while pwd1 != pwd2:
+                pwd1 = get_input("New Password: ")
+                print("")
+                pwd2 = get_input("New Password (again): ")
+                print("")
+                if pwd1 != pwd2:
+                    cli.NOTIFY("Passwords do not match")
+        except:
+            raise
+        finally:
+            subprocess.call(["stty", "echo"])
+
+        newname = parsed.get('name').lower()
+        elems = list()
+        for elem in grp['group']:
+            name = (elem + ":").split(":")[0].lower()
+            if name != newname:
+                elems.append(elem)
+
+        elems.append(newname + ":" + pwd1)
+        grp['group'] = elems
+
+        cli.rcs.update("group", grp['name'], grp)
 
 ################################################################################
 def main():
