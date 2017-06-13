@@ -5,6 +5,11 @@ if [ -z "$VER" ]; then
     echo "Version is not provided (arg1)"
     exit 1
 fi
+shift
+targets="$@"
+if [ -z "$targets" ]; then
+	targets="rfx rfxcmd rfxengine"
+fi
 
 base=$(pwd)
 
@@ -21,7 +26,7 @@ fi
 
 ./clean.sh || exit 1
 
-for d in rfx rfxcmd rfxengine; do
+for d in $targets; do
     echo $d
     cd $base/$d
 	pwd

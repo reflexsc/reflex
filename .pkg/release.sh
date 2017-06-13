@@ -23,6 +23,7 @@
 # incremented and padded out.
 #
 
+targets="$@"
 if [ ! -f ../README.md ]; then
 	echo "Run from reflex base/.pkg"
 	exit
@@ -64,7 +65,7 @@ curl --data '{"tag_name": "'$VERSION'","target_commitish": "master","name": "'$V
 
 cd ../pypi
 echo PYPI_DIST=pypi ./build.sh $VERSION
-PYPI_DIST=pypi ./build.sh $VERSION
+PYPI_DIST=pypi ./build.sh $VERSION $targets
 
 #PYPI_DIST=pypitest ./build.sh $VERSION
 
