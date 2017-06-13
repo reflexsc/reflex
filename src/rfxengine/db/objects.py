@@ -747,8 +747,10 @@ class RCObject(rfx.Base):
                 if policy.allowed(attrs, debug=abac_debug, base=self):
                     dbg(step="AUTHORIZED", id=policy.policy_id, act=act)
                     return True
-                if raise_error and policy.policy_fail: # always drop out -- dangerous if misapplied
-                    raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine") # pylint: disable=line-too-long
+                if policy.policy_fail: # always drop out -- dangerous if misapplied
+                    if raise_error:
+                        raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine") # pylint: disable=line-too-long
+                    return False
         if raise_error:
             raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
         dbg(step="FAILED")
