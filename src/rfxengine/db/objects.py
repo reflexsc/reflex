@@ -868,8 +868,10 @@ class RCObject(rfx.Base):
         scopelist = policyscope_get_cached(self.master.cache, dbi, 'targeted')
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
+        debug = self.do_DEBUG('abac')
         for pscope in scopelist:
-            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
+            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'],
+                                debug=debug)
         self.map_targeted_policies(scopelist, dbi=dbi)
         return list()
 
@@ -881,8 +883,10 @@ class RCObject(rfx.Base):
         # log("Object.map_targeted_policies()") # trace
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
+        debug = self.do_DEBUG('abac')
         for pscope in scopelist:
-            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'])
+            policyscope_map_for(pscope, dbi, attribs, self.table, self.obj['id'],
+                                debug=debug)
 
 ################################################################################
 class Pipeline(RCObject):
@@ -1560,7 +1564,7 @@ def policyscope_get_direct(cache, dbi, mtype):
     return scopelist
 
 ################################################################################
-def policyscope_map_for(pscope, dbi, attribs, table, target_id):
+def policyscope_map_for(pscope, dbi, attribs, table, target_id, debug=False):
     """"map policyscope objects into PolicyFor table"""
     try:
         # pylint: disable=eval-used
@@ -1572,12 +1576,13 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id):
 
         if eval(pscope['ast'], abac.abac_context(), attribs):
             for action in pscope['actions'].split(","):
-                log("policymap",
-                    action=action,
-                    table=table,
-                    scope=pscope['id'],
-                    policy=pscope['policy_id'],
-                    target=target_id)
+                if debug:
+                    log("policymap",
+                        action=action,
+                        table=table,
+                        scope=pscope['id'],
+                        policy=pscope['policy_id'],
+                        target=target_id)
                 dbi.do("""REPLACE INTO PolicyFor
                           SET obj = ?, policy_id = ?, target_id = ?,
                               pscope_id = ?, action = ?
@@ -1731,8 +1736,11 @@ class Policyscope(RCObject):
 
     #############################################################################
     # pylint: disable=too-many-branches
-    def map_self(self, dbi=None, cache=None, invalidate=True, groups=None):
+    def map_self(self, dbi=None, cache=None, invalidate=True, groups=None, debug=None):
         """Map my policy scope against objects"""
+
+        if debug is None:
+            debug = self.do_DEBUG('abac')
 
         # first cleanup previous mappings from this policyscope
         dbi.do("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
@@ -1750,7 +1758,7 @@ class Policyscope(RCObject):
                     'name': 'n/a'
                 }
                 attribs['obj_type'] = obj.table
-                policyscope_map_for(self.obj, dbi, attribs, obj.table, 0)
+                policyscope_map_for(self.obj, dbi, attribs, obj.table, 0, debug=debug)
 
         else: # targeted
             for table in Schema.tables:
@@ -1775,7 +1783,8 @@ class Policyscope(RCObject):
                 for row in memarray:
                     # this should be skeleton
                     attribs = dict(obj=row, obj_type=table.table, groups=groups)
-                    policyscope_map_for(self.obj, dbi, attribs, table.table, row['id'])
+                    policyscope_map_for(self.obj, dbi, attribs, table.table, row['id'],
+                                        debug=debug)
 
         # invalidate all cached data for policy maps
         if invalidate:
