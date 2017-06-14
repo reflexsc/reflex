@@ -619,7 +619,7 @@ class CliEngine(CliRoot):
             ], [
                 "--f?ormat|-f", {
                     "type":"from-set",
-                    "set": ["txt", "json", "list"]
+                    "set": ["txt", "json", "list", "csv", "tsv"]
                 }
             ], [
                 "--d?ebug|-d", {

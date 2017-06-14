@@ -279,7 +279,7 @@ class EngineCli(rfx.Base):
                     row.append('')
             new.append(row)
 
-        rfx.tabulate.cols(new, stderr=stderr, header=True)
+        rfx.tabulate.cols(new, stderr=stderr, header=True, fmt=parsed.get('--format', 'txt'))
 
     ###########################################################################
     def copy_cli(self, obj_type, obj_source, obj_dest):

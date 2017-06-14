@@ -24,13 +24,72 @@ Tabular formatting of output
 """
 
 import sys
+import ujson as json
+
+def _fmt_txt(columns, rng):
+    fmts = ['{}' for x in columns[0]]
+    maxs = [1 for x in columns[0]]
+    for row in columns:
+        for rnx in rng:
+            if not isinstance(row[rnx], str):
+                row[rnx] = str(row[rnx])
+            len_cell = len(row[rnx])
+            if len_cell > maxs[rnx]:
+                maxs[rnx] = len_cell
+
+    for rnx in rng:
+        fmt = "{:" + str(maxs[rnx]) + "}"
+        fmts[rnx] = fmt
+    fmts[-1] = ' {}\n'
+    return fmts
+
+def _fmt_tsv(columns, rng):
+    fmts = ['{}' for x in columns[0]]
+
+    for row in columns:
+        for rnx in rng:
+            val = row[rnx]
+            if not isinstance(val, str):
+                val = str(val)
+            if "\t" in val:
+                val = val.replace("\t", '\\t')
+            row[rnx] = val
+
+    for rnx in rng:
+        fmts[rnx] = "{}\t"
+    fmts[-1] = "{}\n"
+
+    return fmts
+
+def _fmt_csv(columns, rng):
+    for row in columns:
+        for rnx in rng:
+            val = row[rnx]
+            if not isinstance(val, str):
+                val = str(val)
+            if '"' in val:
+                val = val.replace('"', '""')
+            row[rnx] = val
+
+    fmts = ['{}' for x in columns[0]]
+    for rnx in rng:
+        fmts[rnx] = "\"{}\","
+    fmts[-1] = "\"{}\"\n"
+
+    return fmts
 
 ###########################################################################
 # pylint: disable=dangerous-default-value, too-many-locals
-def cols(columns, header=False, stderr=list(), sort=None):
+def cols(columns, header=False, stderr=list(), sort=None, fmt="txt"):
     """
     Print columns tabularly, supporting optional headers and mixed
     stdout/stderr streams.
+
+    Format can be:
+
+        txt - space separated (default)
+        tsv - tab separated
+        csv - comma separated
 
     >>> cols([[1,2,3], ["ba","bc","d"]])
     1  2  3
@@ -50,25 +109,17 @@ def cols(columns, header=False, stderr=list(), sort=None):
     dc   ab   zz    d
     """
 
-    maxs = [1 for x in columns[0]]
-    fmts = ['{}' for x in columns[0]]
     rng = range(0, len(columns[0]))
-    for row in columns:
-        for rnx in rng:
-            if not isinstance(row[rnx], str):
-                row[rnx] = str(row[rnx])
-            len_cell = len(row[rnx])
-            if len_cell > maxs[rnx]:
-                maxs[rnx] = len_cell
 
-    for rnx in rng:
-        fmt = "{:" + str(maxs[rnx]) + "}"
-        if rnx != 0:
-            fmt = " " + fmt
-        fmts[rnx] = fmt
+    if fmt == "list":
+        fmt = "txt"
 
-    # last one doesn't need padding
-    fmts[-1] = ' {}'
+    if fmt == "json":
+        sys.stdout.write(json.dumps(columns))
+        return
+
+    fmts = globals()["_fmt_" + fmt](columns, rng)
+
     def sort_first(rowx): # pylint: disable=missing-docstring
         return rowx[0]
     if not sort:
@@ -79,8 +130,6 @@ def cols(columns, header=False, stderr=list(), sort=None):
         headers = columns[0]
         columns = columns[1:]
 
-    flattened = "".join(fmts) + "\n"
-
     def output_mixed(rowx, stderr): #pylint: disable=missing-docstring
         for rnx in rng:
             stream = sys.stdout
@@ -88,11 +137,10 @@ def cols(columns, header=False, stderr=list(), sort=None):
                 stream = sys.stderr
             stream.write(fmts[rnx].format(rowx[rnx]))
             stream.flush()
-        sys.stdout.write("\n")
         sys.stdout.flush()
 
     def output_stdout(rowx, stderr): #pylint: disable=missing-docstring,unused-argument
-        sys.stdout.write(flattened.format(*rowx))
+        sys.stdout.write(''.join(fmts).format(*rowx))
 
     if stderr:
         output = output_mixed
