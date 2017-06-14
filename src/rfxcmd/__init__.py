@@ -675,12 +675,16 @@ Arguments and options vary by action:
 => """ + self.cmd + """ {object} co?py|cp {from-name} {to-name}
 
 => """ + self.cmd + """ {object} slice {name-filter} {limit-expression} {key}
-   create a cross sectinoal set-union of {key} values on all objects matching
+   create a cross sectional set-union of {key} values on all objects matching
    {name-filter} and {limit-expression}
 
-Additionally, --p?assword|--pwd|-p may be provided, to prompt for a password
-which is sent as an additional attribute for ABAC policies.  Multiple passwords
-may be prompted for by including --password multiple times
+Additionally:
+
+   --p?assword|--pwd|-p may be provided, to prompt for a password
+       which is sent as an additional attribute for ABAC policies.  Multiple passwords
+       may be prompted for by including --password multiple times
+
+   --f?ormat|-f={txt,list,csv,tsv,json} for output format changes
 """
 
     ############################################################################
