@@ -312,8 +312,12 @@ class Base(Colorize):
 
     ############################################################
     def _env2cfg(self, key):
-        """Replace config key from environment, if it exists"""
-        if key in os.environ.keys():
+        """Replace config key from environment or docker secrets, if it exists"""
+        secret_path = "/run/secrets/" + key
+        if os.path.exists(secret_path):
+            with open(secret_path) as infile:
+                self.cfg[key] = infile.read().strip()
+        elif key in os.environ.keys():
             self.cfg[key] = os.environ[key]
 
     ############################################################
