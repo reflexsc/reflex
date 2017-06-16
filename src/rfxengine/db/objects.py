@@ -1223,15 +1223,16 @@ class Group(RCObject):
             for elem in self.obj['group']:
                 parts = elem.split(":")
                 if len(parts) != 2:
+                    # pylint: disable=line-too-long
                     raise InvalidParameter("password group items should be a list of name:passwords")
                 name, pword = parts
                 if pword[:3] == '$7$':
                     _grp.append(pword)
                     grp.append(elem)
                 else:
-                    hash = nacl.pwhash.scryptsalsa208sha256_str(pword.encode()).decode()
-                    _grp.append(hash)
-                    grp.append(name.lower() + ":" + hash)
+                    sha256 = nacl.pwhash.scryptsalsa208sha256_str(pword.encode()).decode()
+                    _grp.append(sha256)
+                    grp.append(name.lower() + ":" + sha256)
             self.obj['group'] = grp
             self.obj['_grp'] = _grp
         elif self.obj['type'] in ('Apikey', 'Pipeline'):
@@ -1574,12 +1575,19 @@ def policyscope_get_direct(cache, dbi, mtype):
     return scopelist
 
 ################################################################################
+# pylint: disable=too-many-arguments
 def policyscope_map_for(pscope, dbi, attribs, table, target_id, debug=False):
     """"map policyscope objects into PolicyFor table"""
     try:
         # pylint: disable=eval-used
         if not pscope.get('ast'):
             pscope['ast'] = compile(pscope['matches'], '<scope ' + str(pscope['id']) + '>', "eval")
+
+        objs = pscope.get('objects', [])
+        if objs:
+            if objs[0] != '*' and attribs['obj_type'] not in objs:
+                return
+
 #        log("matches={} attrs={}".format(pscope['matches'], attribs))
 #        log("context={}".format(abac.abac_context()))
 #        log("attribs={}".format(attribs))
@@ -1626,6 +1634,7 @@ class Policyscope(RCObject):
      ADD>     policy_id int not null,
      ADD>     type enum('targeted', 'global') not null default 'targeted',
      ADD>     matches text not null,
+     ADD>     objects varchar(256) not null default '[]',
      ADD>     actions varchar(64) not null,
      ADD>     data text,
      ADD>     updated_at timestamp not null,
@@ -1635,6 +1644,8 @@ class Policyscope(RCObject):
      ADD> ) engine=InnoDB;
 
     MIGRATE-001> alter table Policyscope change column type type enum('targeted', 'global') not null default 'targeted';
+    MIGRATE-002> alter table Policyscope add column objects varchar(256) not null default '[]';
+    MIGRATE-002> update Policyscope set objects = '[]' where objects = '';
 
     DROP> drop table if exists PolicyscopeArchive;
      ADD> create table PolicyscopeArchive (
@@ -1643,6 +1654,7 @@ class Policyscope(RCObject):
      ADD>     policy_id int not null,
      ADD>     type enum('targeted', 'global') not null default 'targeted',
      ADD>     matches text not null,
+     ADD>     objects varchar(256) not null default '[]',
      ADD>     actions varchar(64) not null,
      ADD>     data text,
      ADD>     updated_at timestamp not null,
@@ -1653,6 +1665,8 @@ class Policyscope(RCObject):
      ADD>
 
     MIGRATE-001> alter table PolicyscopeArchive change column type type enum('targeted', 'global') not null default 'targeted';
+    MIGRATE-002> alter table PolicyscopeArchive add column objects varchar(256) not null default '[]';
+    MIGRATE-002> update PolicyscopeArchive set objects = '[]' where objects = '';
 
     DROP> DROP TRIGGER IF EXISTS archive_Policyscope;
      ADD> CREATE TRIGGER archive_Policyscope BEFORE UPDATE ON Policyscope
@@ -1680,6 +1694,7 @@ class Policyscope(RCObject):
         self.omap = dictlib.Obj()
         self.omap['policy'] = RCMap(stored="data", hasid='policy_id')
         self.omap['policy_id'] = RCMap(stype="read", stored='policy_id')
+        self.omap['objects'] = RCMap(stype="alter", stored='objects', dtype=list)
         self.omap['matches'] = RCMap(stype="alter", stored='matches')
         self.omap['actions'] = RCMap(stype="alter", stored='actions')
         self.omap['type'] = RCMap(stype="alter", stored='type')
@@ -1688,6 +1703,7 @@ class Policyscope(RCObject):
     #############################################################################
     # merge in w/abac.Policy validation
     # keep pre-rx version and post, for subsequent editing
+    # pylint: disable=too-many-branches
     def validate(self):
         errors = super(Policyscope, self).validate()
         try:
@@ -1701,6 +1717,31 @@ class Policyscope(RCObject):
 
         if self.obj['type'].lower() not in ('targeted', 'global'):
             raise InvalidParameter("Policy Match Type is not one of: global, targeted")
+
+        if self.obj.get('objects'):
+            tmap = dict()
+            for table in Schema.tables:
+                if not table.policy_map:
+                    continue
+                tmap[table.table.lower()] = table.table
+            objs = set()
+            errs = []
+            for obj in self.obj['objects']:
+                if obj.lower() == "group":
+                    obj = "Grp"
+                if obj == '*':
+                    objs = ['*']
+                    break
+                if not tmap.get(obj.lower()):
+                    errs += ["Object '" + obj + "' is not valid"]
+                else:
+                    objs.add(tmap.get(obj.lower()))
+
+            if errs:
+                raise InvalidParameter(", ".join(errs) + ".  Must be one of: " +
+                                       ", ".join(list(tmap.values())))
+
+            self.obj['objects'] = list(objs)
 
         actions = list()
         for action in re.split(r'\s*,\s*', self.obj['actions']):
@@ -1745,7 +1786,7 @@ class Policyscope(RCObject):
         self.master.cache.clear_type('policymap')
 
     #############################################################################
-    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-branches,too-many-arguments
     def map_self(self, dbi=None, cache=None, invalidate=True, groups=None, debug=None):
         """Map my policy scope against objects"""
 
@@ -1896,6 +1937,7 @@ class Schema(rfx.Base):
                 'matches': 'True',
                 'policy': 'master',
                 'actions': 'admin',
+                'objects': ['*'],
                 'type': 'global'
             })
             pscope.create(abac.MASTER_ATTRS, doabac=False) # special override
