@@ -224,7 +224,17 @@ class Server(rfx.Base):
             }
         }
 
-        cfgin = os.environ.get('REFLEX_ENGINE_CONFIG')
+        cfgin = None
+
+        # try docker secrets
+        if os.path.exists("/run/secrets/REFLEX_ENGINE_CONFIG"):
+            with open("/run/secrets/REFLEX_ENGINE_CONFIG") as infile:
+                cfgin = infile.read()
+
+        # try environ
+        if not cfgin:
+            cfgin = os.environ.get('REFLEX_ENGINE_CONFIG')
+
         if cfgin:
             try:
                 cfgin = json2data(base64.b64decode(cfgin))
@@ -238,6 +248,7 @@ class Server(rfx.Base):
 
             conf = dictlib.Obj(dictlib.union(defaults, cfgin))
         else:
+            self.NOTIFY("Unable to find configuration, using defaults!")
             conf = dictlib.Obj(defaults)
 
         # cherry py global
