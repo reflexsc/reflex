@@ -27,10 +27,9 @@ Uses Prepared Cursors by default.
 """
 
 import time
-#import traceback
 import mysql.connector
 from mysql.connector import errors
-from rfxengine import log
+from rfxengine import log#, trace
 from rfxengine.db import pool
 
 def row_to_dict(cursor, row):
@@ -64,7 +63,7 @@ class Master(pool.Master):
     def new_interface(self, iid):
         """Open a new connection"""
         super(Master, self).new_interface(iid)
-        return Interface(master=self, iid=iid)
+        return Interface(master=self, iid=iid).connect()
 
 ################################################################################
 class Interface(pool.Interface):
@@ -75,15 +74,7 @@ class Interface(pool.Interface):
 
     ############################################################################
     def __init__(self, **kwargs):
-        master = kwargs['master']
         kwargs['dbc'] = None
-
-        while not kwargs['dbc']:
-            try:
-                kwargs['dbc'] = mysql.connector.connect(**master.config)
-            except (errors.ProgrammingError, errors.InterfaceError) as err:
-                log("Connect Problem, waiting...", error=str(err))
-                time.sleep(1)
 
         super(Interface, self).__init__(**kwargs)
 
@@ -92,11 +83,32 @@ class Interface(pool.Interface):
         self.close()
 
     ############################################################################
+    def acquire(self):
+        """use this connection"""
+        self._last_used = time.time()
+        return super(Interface, self).acquire()
+
+    ############################################################################
     def close(self):
         """Closes this database connection."""
         if self.dbc:
             self.dbc.close()
+            super(Interface, self).close()
             self.dbc = None
+
+    ############################################################################
+    def expired(self):
+        """is the instance expired?"""
+        return self.dbc and ((time.time() - self._last_used) > self.max_idle_time)
+
+    ############################################################################
+    # called by heartbeat
+    def alive(self):
+        """Called by heartbeat to periodically reap older connections"""
+        if self.expired():
+            self.close()
+            return False
+        return True
 
     ############################################################################
     def connect(self):
@@ -104,14 +116,19 @@ class Interface(pool.Interface):
         # Mysql closes idle connections, but we have no easy way of knowing
         # until we try to use it, so set our idle time to be less than the
         # setting on the server. Sync this time with the settings.
-        self.DEBUG("interface.connect()")
-        if self.dbc and (time.time() - self._last_used > self.max_idle_time):
+        if self.expired():
             self.close()
 
-        if not self.dbc:
-            self.dbc = mysql.connector.connect(**self.master.config)
-            self.dbc.autocommit = True
-            self._last_used = time.time()
+        while not self.dbc:
+            try:
+                self.dbc = mysql.connector.connect(**self.master.config)
+            except (errors.ProgrammingError, errors.InterfaceError) as err:
+                log("Connect Problem, waiting...", error=str(err))
+                time.sleep(1)
+
+        self.dbc.autocommit = True
+        self._last_used = time.time()
+        return self
 
     ############################################################################
     # pylint: disable=invalid-name

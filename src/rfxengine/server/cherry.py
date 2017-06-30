@@ -15,6 +15,8 @@ import logging
 import logging.config
 import traceback
 import argparse
+import resource
+import threading
 import cherrypy._cplogging
 import setproctitle
 import dictlib
@@ -128,7 +130,9 @@ class Server(rfx.Base):
     """
     conf = None
     dbm = None
-    stat = dictlib.Obj(heartbeat=dictlib.Obj(count=0, last=0))
+    stat = dictlib.Obj(heartbeat=dictlib.Obj(count=0, last=0),
+                       dbm=dictlib.Obj(count=0),
+                       next_report=0, last_rusage=None)
     mgr = None
     cherry = None
 
@@ -136,6 +140,7 @@ class Server(rfx.Base):
         super(Server, self).__init__(*args, **kwargs)
         base = kwargs.get('base')
         self.cherry = cherrypy
+        self.conf = dict()
         if base:
             rfx.Base.__inherit__(self, base)
 
@@ -144,6 +149,54 @@ class Server(rfx.Base):
         internal heartbeat from Cherrypy.process.plugins.Monitor
         """
         self.stat.heartbeat.last = time.time()
+
+        alive = 0
+        dead = 0
+        pool = self.dbm.pool.copy() # thread changes it
+        for dbi_id in pool:
+            if self.dbm.pool[dbi_id].alive():
+                alive += 1
+            else:
+                dead += 1
+
+        self.stat.dbm.alive = alive
+        self.stat.dbm.dead = dead
+
+        if self.stat.next_report < self.stat.heartbeat.last:
+            log("status-report", **self.status_report())
+
+    def status_report(self):
+        """report on internal usage"""
+
+        cur = resource.getrusage(resource.RUSAGE_SELF)
+        last = self.stat.last_rusage
+        if not last:
+            last = cur
+        report = {
+            "utime":round(cur.ru_utime - last.ru_utime, 2),
+            "stime":round(cur.ru_stime - last.ru_stime, 2),
+            "minflt":round(cur.ru_minflt - last.ru_minflt, 2),
+            "majflt":round(cur.ru_majflt - last.ru_majflt, 2),
+            "nswap":round(cur.ru_nswap - last.ru_nswap, 2),
+            "iblk":round(cur.ru_inblock - last.ru_inblock, 2),
+            "oblk":round(cur.ru_oublock - last.ru_oublock, 2),
+            "msgsnd":round(cur.ru_msgsnd - last.ru_msgsnd, 2),
+            "msgrcv":round(cur.ru_msgrcv - last.ru_msgrcv, 2),
+            "nvcsw":round(cur.ru_nvcsw - last.ru_nvcsw, 2),
+            "nivcsw":round(cur.ru_nivcsw - last.ru_nivcsw, 2),
+            "maxrss":round((cur.ru_maxrss-last.ru_maxrss)/1024, 2),
+            "ixrss":round((cur.ru_ixrss-last.ru_ixrss)/1024, 2),
+            "idrss":round((cur.ru_idrss-last.ru_idrss)/1024, 2),
+            "isrss":round((cur.ru_isrss-last.ru_isrss)/1024, 2),
+            "dbc":self.stat.dbm.alive,
+            "dbr":self.stat.dbm.dead,
+            "threads":threading.active_count()
+        }
+
+        self.stat.last_rusage = cur
+        self.stat.next_report = self.stat.heartbeat.last + self.conf['status_report']
+
+        return report
 
     # pylint: disable=too-many-locals
     def start(self, test=True):
@@ -193,12 +246,14 @@ class Server(rfx.Base):
         })
 
         defaults = {
+            'deploy_ver': 0, # usable for deployment tools
             'server': {
                 'route_base': '/api/v1',
                 'port': 54000,
                 'host': '0.0.0.0'
             },
             'heartbeat': 10,
+            'status_report': 3600, # every hour
             'requestid': False,
             'refresh_maps': 300,
             'cache': {

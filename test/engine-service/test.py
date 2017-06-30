@@ -81,21 +81,45 @@ class Tester(rfx.Base):
         super(Tester, self).__init__(*args, **kwargs)
         self.attrs = abac.MASTER_ATTRS
         self.tap = TAP()
-        self.dbm = rfxengine.db.mxsql.Master(config={
-            'database': 'reflex_engine',
-            'user': 'root'
-        }, base=kwargs['base'])
+        #self.dbm = rfxengine.db.mxsql.Master(config={
+        #    'database': 'rfxtst',
+        #    'user': 'root'
+        #}, base=kwargs['base'])
 
         # configure the cache
-        self.dbm.cache = rfxengine.memstate.Cache()
-        self.dbm.cache.start_housekeeper(2) # extreme
-        self.dbm.cache.configure('policy', 1) # extreme
-        self.dbm.cache.configure('policymap', 1) # extreme
-        self.dbm.cache.configure('policyscope', 1) # extreme
-
+#        self.dbm.cache = rfxengine.memstate.Cache()
+#        self.dbm.cache.start_housekeeper(2) # extreme
+#        self.dbm.cache.configure('policy', 1) # extreme
+#        self.dbm.cache.configure('policymap', 1) # extreme
+#        self.dbm.cache.configure('policyscope', 1) # extreme
+#
         self.notifyfd = strio.StringIO()
         self.outputfd = strio.StringIO()
         self.auth = dictlib.Obj(apikey={'name':'','secret':''})
+
+    ############################################################################
+    def get_master_key(self):
+        if not os.path.exists("engine.log"):
+            self.ABORT("Cannot find engine.log")
+
+        def _get_master_key():
+            key_rx = re.compile(r'Initializing schema master apikey,.*REFLEX_APIKEY=(.*)$')
+            with open("engine.log") as logf:
+                for line in logf:
+                    match = key_rx.search(line)
+                    if match:
+                        return match.group(1)
+
+        master_key = _get_master_key()
+        if not master_key:
+            self.ABORT("Cannot find master key in engine.log!")
+
+        key = master_key.strip().split(".")
+
+        self.auth['apikey'] = dictlib.Obj(name=key[0],
+                                          secret=base64.b64decode(key[1]),
+                                          key=master_key)
+        print("Using master key {}.{}".format(key[0], key[1]))
 
     ############################################################################
     def outhdr(self, words):
@@ -266,11 +290,11 @@ class Tester(rfx.Base):
 
     ############################################################################
     def okcmp(self, *args, **kwargs):
-        self.tap.ok_func_compare(*args, **kwargs)
+        return self.tap.ok_func_compare(*args, **kwargs)
 
 ################################################################################
 def test_integration(schema, base, tester, args):
-    schema.initialize(verbose=False, reset=True)
+#    schema.initialize(verbose=False, reset=True)
     tname = 'test'
     tester.addcheck("Object Verify: Pipeline", 
             (Pipeline, tname, {
@@ -350,6 +374,7 @@ def test_integration(schema, base, tester, args):
             (Policyscope, tname + '-policy', {
                 'policy': 'test-policy',
                 'matches': 'True',
+                'objects': [],
                 'type': 'targeted',
                 'actions': 'admin'
             }),
@@ -390,7 +415,7 @@ def test_integration(schema, base, tester, args):
     tester.addcheck("Object Verify: Group w/passwords", 
             (Group, tname + "-password", {
                 'type': "password",
-                'group': [ "this pass", "that pass" ]
+                'group': [ "bob:this pass", "sue:that pass" ]
             }),
             r"""
             Altered data: \['group'\]
@@ -400,7 +425,7 @@ def test_integration(schema, base, tester, args):
 
 ###############################################################################
 def test_functional(schema, base, tester, baseurl, args):
-    schema.initialize(verbose=False, reset=True)
+#    schema.initialize(verbose=False, reset=True)
     tester.okcmp("REST Health Check", tester, tester.fcall,
                  [requests.get, baseurl + "/health"],
                  {}, # "X-Request-Id": "test-request-id1"},
@@ -413,15 +438,13 @@ def test_functional(schema, base, tester, baseurl, args):
 
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
 
-    key = Apikey(master=tester.dbm)
-    key.get('master', user_attrs)
+    tester.get_master_key()
 
-    tester.auth['apikey'] = dictlib.Obj(name=key.obj['name'],
-                                        secret=base64.b64decode(key.obj['secrets'][0]))
-
-    tester.okcmp("Authorized", tester, tester.rest_newauth,
-                 [requests.get, baseurl + "/token"], {},
-                 r'Response \[200\]')
+    if not tester.okcmp("Authorized", tester, tester.rest_newauth,
+                        [requests.get, baseurl + "/token"], {},
+                        r'Response \[200\]'):
+        print("Cannot continue")
+        sys.exit(1)
 
     samples = dictlib.Obj({
         'pipeline': {
@@ -668,6 +691,7 @@ def test_functional(schema, base, tester, baseurl, args):
                 'policy': 'timelords',
                 'actions': 'admin',
                 'type': 'targeted',
+                'objects': [],
                 'matches': 'True'
             },
             'mcreate-expect': [r'Response \[201\]'],
@@ -675,12 +699,14 @@ def test_functional(schema, base, tester, baseurl, args):
                 'name': 'tardises',
                 'policy': 'timelords',
                 'actions': 'bob',
+                'objects': [],
                 'type': 'targeted',
                 'matches': '! good'
             },
             '-mcreate-expect': [r'Response \[400\]', r'message": "Cannot prepare match'],
             'mupdate': {
                 'name': 'timelords',
+                'objects': [],
                 'policy': 'timelords',
                 'type': 'targeted',
                 'matches': 'False',
@@ -747,14 +773,12 @@ def test_functional(schema, base, tester, baseurl, args):
                      *samples[obj].mcreate_expect)
 
 def test_full_stack(schema, base, tester, baseurl, args):
-    schema.cleanup()
-    schema.initialize(verbose=True, reset=True)
     user_attrs = abac.attrs_skeleton(token_nbr=100, token_name='master')
-    master_key = Apikey(master=tester.dbm)
-    master_key.get('master', user_attrs)
+
+    tester.get_master_key()
 
     os.environ['REFLEX_URL'] = tester.baseurl
-    os.environ['REFLEX_APIKEY'] = master_key.obj['name'] + "." + master_key.obj['secrets'][0]
+    os.environ['REFLEX_APIKEY'] = tester.auth.apikey.key
     rcs_master = client.Session().cfg_load()
 
     tester.okcmp("Reflex Apikey Create", tester, tester.rcs,
@@ -830,6 +854,7 @@ def test_full_stack(schema, base, tester, baseurl, args):
                      "name": "pond-read-configs",
                      "policy": "pond-read-configs",
                      "actions": 'read',
+                     'objects': [],
                      "type": 'global',
                      "matches": 'obj_type == "Config"'
                  }], {},
@@ -851,6 +876,7 @@ def test_full_stack(schema, base, tester, baseurl, args):
                      "name": "pond-read-sensitive",
                      "policy": "pond-read-sensitive",
                      "actions": 'read',
+                     'objects': [],
                      "type": 'targeted',
                      "matches": 'obj_type == "Config"'# and rx.search("^tardis-", obj["name"])'
                  }], {},
@@ -899,6 +925,7 @@ def test_full_stack(schema, base, tester, baseurl, args):
                      "name": "pond-fail",
                      "policy": "pond-fail",
                      "actions": 'read',
+                     'objects': [],
                      "type": 'targeted',
                      "matches": 'obj_type == "Config"'
                  }], {},
@@ -923,7 +950,7 @@ def test_full_stack(schema, base, tester, baseurl, args):
                  [rcs_master.create, "group", {
                      "name": "da-codes",
                      "type": "password",
-                     "group": ["word1", "pass2"],
+                     "group": ["pass1:word1", "pass2:pass2"],
                  }], {},
                  r"'status': 'created'")
 
@@ -988,7 +1015,8 @@ def main():
     ###########################################################################
     base.timestamp = False # so our output is not altered by timestamps
     base.term_width = 80
-    schema = rfxengine.db.objects.Schema(master=tester.dbm)
+    #schema = rfxengine.db.objects.Schema(master=tester.dbm)
+    schema = None
 
     def get_libfiles():
         flist = []
@@ -1001,27 +1029,23 @@ def main():
                         flist.append(base.replace(libdir + "/", "") + "/" + f)
         return flist
 
-    if args.dbinit:
-        schema.initialize(verbose=True, reset=True)
+#    if args.dbinit:
+#        schema.initialize(verbose=True, reset=True)
 
-    try:
-        if args.option == 'unit':
-            for f in get_libfiles():
-                if f != "rfxengine/abac.py": # bug w/global:MASTER_ATTRS breaking doctest
-                    tap.unit(libdir, f, exit_on_fail=False)
-            return
-        elif args.option == 'lint':
-            tap.lint(libdir, 'rfxengine', exit_on_fail=False)
-            return
-        elif args.option == 'integration':
-            test_integration(schema, base, tester, args)
-        elif args.option == 'functional':
-            test_functional(schema, base, tester, baseurl, args)
-        elif args.option == 'full-stack':
-            test_full_stack(schema, base, tester, baseurl, args)
-    finally:
-        if not args.noclean:
-            schema.cleanup()
+    if args.option == 'unit':
+        for f in get_libfiles():
+            if f != "rfxengine/abac.py": # bug w/global:MASTER_ATTRS breaking doctest
+                tap.unit(libdir, f, exit_on_fail=False)
+        return
+    elif args.option == 'lint':
+        tap.lint(libdir, 'rfxengine', exit_on_fail=False)
+        return
+    elif args.option == 'integration':
+        test_integration(schema, base, tester, args)
+    elif args.option == 'functional':
+        test_functional(schema, base, tester, baseurl, args)
+    elif args.option == 'full-stack':
+        test_full_stack(schema, base, tester, baseurl, args)
 
     tester.tap.exit()
 

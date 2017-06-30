@@ -229,9 +229,8 @@ class Health(server.Rest, abac.AuthService):
         errs = []
         detail = {}
         if kwargs.get('detail') == 'true':
-            detail = {
-                'last-heartbeat': 0,
-            }
+            detail['last-heartbeat'] = 0
+            detail['version'] = self.server.conf.deploy_ver
 
         if stat.heartbeat.last:
             if stat.heartbeat.last + self.server.conf.heartbeat < time.time():

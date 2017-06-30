@@ -255,11 +255,10 @@ class RCObject(rfx.Base):
             return (name, int(obj_id))
         return (name, 0)
 
-    ############################################################################
-    @db_interface
-    def exists(self, target, dbi=None):
-        """Does an object exist?  Lightweight test, return obj ID or 0"""
-        return self.name2id_direct(target, dbi)[0]
+#    ############################################################################
+#    def exists(self, target, dbi=None):
+#        """Does an object exist?  Lightweight test, return obj ID or 0"""
+#        return self.name2id_direct(target, dbi)[0]
 
     ############################################################################
     def dump(self):
@@ -270,6 +269,7 @@ class RCObject(rfx.Base):
     ############################################################################
     def load(self, data):
         """Get an object from its dict/JSON representation"""
+#        trace("load()")
         self.obj = data
         return self.validate()
 
@@ -283,6 +283,7 @@ class RCObject(rfx.Base):
         If a archive is specified, pull the archived version (value is the date)
         archive is only appropriate for tables supporting Archive.
         """
+#        trace("get({})".format(target))
         sql = "SELECT * FROM " + self.table
         if isinstance(target, str):
             idnbr = self.name2id_direct(target, dbi)[0]
@@ -637,8 +638,9 @@ class RCObject(rfx.Base):
     @db_interface
     def create(self, attrs, dbi=None, doabac=True):
         """Create data from self into db.  Use on new objects"""
-        if self.obj.get('id') and self.exists(self.obj['id']) \
-           or self.exists(self.obj['name']):
+#        trace("create()")
+        if self.obj.get('id') and self.name2id_direct(self.obj['id'], dbi)[0] \
+           or self.name2id_direct(self.obj['name'], dbi)[0]:
             raise ObjectExists(self.table + " named `{name}` already exists"
                                .format(**self.obj))
         return self._put(attrs, dbi=dbi, doabac=doabac)
@@ -866,7 +868,6 @@ class RCObject(rfx.Base):
         """
         Any actions or updates required on change of this object
         """
-#        log("Object.changed()") # trace
         scopelist = policyscope_get_cached(self.master.cache, dbi, 'targeted')
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
@@ -882,7 +883,6 @@ class RCObject(rfx.Base):
         """
         Review policies and scope to what applies to this object
         """
-        # log("Object.map_targeted_policies()") # trace
         self._delete_policyfor(dbi)
         attribs = dict(obj=self.obj, obj_type=self.table)
         debug = self.do_DEBUG('abac')
@@ -1552,7 +1552,6 @@ class Policy(RCObject):
 ################################################################################
 def policyscope_get_cached(cache, dbi, mtype):
     """get a list of policyscope objects, checking cache first"""
-    # log("policyscope_get_cached({})".format(mtype)) # trace
     scopelist = cache.get_cache('policyscope', mtype)
     if scopelist:
         return scopelist
@@ -1561,7 +1560,6 @@ def policyscope_get_cached(cache, dbi, mtype):
 ################################################################################
 def policyscope_get_direct(cache, dbi, mtype):
     """get a list of policyscope objects directly from db, and update cache"""
-    # log("policyscope_get_direct({})".format(mtype)) # trace
     scopelist = list()
     cursor = dbi.do("""SELECT id,policy_id,matches,actions
                          FROM Policyscope
@@ -1694,7 +1692,8 @@ class Policyscope(RCObject):
         self.omap = dictlib.Obj()
         self.omap['policy'] = RCMap(stored="data", hasid='policy_id')
         self.omap['policy_id'] = RCMap(stype="read", stored='policy_id')
-        self.omap['objects'] = RCMap(stype="alter", stored='objects', dtype=list)
+        # TODO: Change 'objects' to required in the future (alter)
+        self.omap['objects'] = RCMap(stype="opt", stored='objects', dtype=list)
         self.omap['matches'] = RCMap(stype="alter", stored='matches')
         self.omap['actions'] = RCMap(stype="alter", stored='actions')
         self.omap['type'] = RCMap(stype="alter", stored='type')
@@ -1928,9 +1927,6 @@ class Schema(rfx.Base):
         if reset or new_master:
             if verbose:
                 self.NOTIFY("Initializing new master ..\n")
-#            self.NOTIFY("policy={}".format(dbi.do_getlist("SELECT * FROM Policy")))
-#            self.NOTIFY("scope={}".format(dbi.do_getlist("SELECT * FROM Policyscope")))
-#            self.NOTIFY("for={}".format(dbi.do_getlist("SELECT * FROM PolicyFor")))
             pscope = Policyscope(master=self.master)
             pscope.load({
                 'name': 'master',
@@ -1940,8 +1936,8 @@ class Schema(rfx.Base):
                 'objects': ['*'],
                 'type': 'global'
             })
-            pscope.create(abac.MASTER_ATTRS, doabac=False) # special override
-            pscope.get("master", True)
+            pscope.create(abac.MASTER_ATTRS, doabac=False, dbi=dbi) # special override
+            pscope.get("master", True, dbi=dbi)
 
             secret = base64.b64encode(nacl.utils.random(Apikey.keysize)).decode()
             dbi.do("""

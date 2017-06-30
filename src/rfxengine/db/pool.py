@@ -43,9 +43,9 @@ functionality at the dbi layer.
 """
 
 import threading
-import collections
 import rfx
 from rfx.crypto import Key, Cipher
+#from rfxengine import trace
 
 ################################################################################
 # errors
@@ -129,6 +129,12 @@ class Interface(rfx.Base):
         self.master.done(self)
 
     ############################################################################
+    def close(self):
+        """Delete an interface from the pool"""
+        self.done()
+        self.master.close(self)
+
+    ############################################################################
     def new_interface(self):
         """Placeholder to allow for inheritance"""
         pass
@@ -139,7 +145,7 @@ class Interface(rfx.Base):
 class Master(rfx.Base):
     """Master database pool handler"""
     mutex = threading.Lock()
-    free = collections.deque()
+    free = set() # collections.deque()
     pool = None
     #master = None
     ids = 0
@@ -203,31 +209,30 @@ class Master(rfx.Base):
         self.mutex.acquire(True)
 
         # pull the next free connection
-        self.DEBUG("Looking for free interfaces...")
+#        trace("pool.connect(): looking for free interfaces")
         while self.free:
             dbi = self.free.pop()
             if dbi.acquire(): # this should always be true
-                self.DEBUG("Found One!")
+#                trace("{} pool.connect(): found one!".format(dbi.iid))
                 return self.give(dbi)
 
         # scan existing connections for availability
-        # NOTE: this should be a housekeeping task--it exists when
+        # NOTE: this should be a housekeeping task--it exists for when
         # a thread forgot to release its DBI
-        self.DEBUG("Fallback?  Scan list...")
         for dbi_ref in self.pool:
             dbi = self.pool[dbi_ref]
             if dbi.acquire():
-                self.DEBUG("Found an unused but allocated DBI!?")
+#                trace("{} pool.connect(): unused dbi?".format(dbi.iid))
                 return self.give(dbi)
 
         # make a new interface object
         # may want a way to throttle this in the future
-        self.DEBUG("Creating new DBI")
         self.ids += 1
-        self.pool[self.ids] = self.new_interface(iid=self.ids)
-        if self.pool[self.ids].acquire():
-            self.DEBUG("Created DBI {}".format(self.ids))
-            return self.give(self.pool[self.ids])
+        dbi = self.new_interface(iid=self.ids)
+#        trace("{} pool.connect(): create dbi".format(dbi.iid))
+        self.pool[dbi.iid] = dbi # pylint: disable=no-member
+        if dbi.acquire(): # pylint: disable=no-member
+            return self.give(dbi)
 
         self.mutex.release()
         raise DbConnect("Cannot get free db connection")
@@ -239,14 +244,21 @@ class Master(rfx.Base):
         return {}
 
     ############################################################################
+    def close(self, dbi):
+        """Delete an interface from the pool"""
+#        trace("{} discard DBI".format(dbi.iid))
+        self.free.discard(dbi)
+        del self.pool[dbi.iid]
+
+    ############################################################################
     def done(self, dbi):
         """Release an interface back into the pool"""
-        self.DEBUG("Released DBI {}".format(dbi.iid))
-        self.free.appendleft(dbi)
+#        trace("{} available DBI".format(dbi.iid))
+        self.free.add(dbi)
 
     ############################################################################
     def give(self, dbi):
         """Let go of the pool lock and return the interface"""
-        self.DEBUG("Giving DBI {}".format(dbi.iid))
+#        self.DEBUG("Giving DBI {}".format(dbi.iid))
         self.mutex.release()
         return dbi
