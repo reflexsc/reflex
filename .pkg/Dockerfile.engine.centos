@@ -2,19 +2,26 @@ FROM centos:7
 
 RUN echo "clean_requirements_on_remove=1" >> /etc/yum.conf
 
-# 3
-RUN yum -y install epel-release
-# 4
-RUN yum -y install libffi openssl python34 mariadb mariadb-libs
-# 5
+WORKDIR /app
+
+# Transaction #3, #4 & #5
+RUN yum -y upgrade && \
+    yum -y install epel-release && \
+    yum -y install file libffi openssl python34 mariadb mariadb-libs mariadb-devel
+
+# to undo later: this is transaction #6
 RUN yum -y install gcc gcc-c++ make curl libffi-devel python34-devel
+
+# community-mysql-devel
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py
 
 RUN pip3 --no-cache-dir install -U rfxengine
-RUN get_mysql_connector.py
+#COPY src /app/src
+#RUN src/rfxengine/db/get_mysql_connector.py --with-mysql-capi=/usr -O2
+RUN get_mysql_connector.py --with-mysql-capi=/usr -O2
 RUN rm -rf ~/.pip/cache $PWD/build/
 
-RUN yum -y history undo 5 ; true
+RUN yum -y history undo 6 ; true
 RUN yum -y clean all ; true
 
 EXPOSE 54000
