@@ -1,0 +1,8 @@
+#!/bin/bash
+
+config=$(cat cfg.simdata)
+
+export REFLEX_ENGINE_CONFIG=$(echo $config|base64 -w 0)
+
+#reflex-engine --debug=abac |tee engine.log
+reflex-engine |tee engine.log

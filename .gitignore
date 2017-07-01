@@ -1,6 +1,11 @@
 .*.swp
 cwc
 
+todo
+
+# grr mac
+.DS_Store
+
 .ephemer_version
 
 # Editor

@@ -34,14 +34,13 @@ from rfxengine.db import pool
 
 def row_to_dict(cursor, row):
     """Zip a resulting row with its column names into a dictionary"""
-    return dict(zip(cursor.column_names, decode_row(row)))
+    return dict(zip(decode_row(cursor.column_names), decode_row(row)))
 
 def decode_row(row):
     """
-    Mysqlconnector returns bytearrays for strings, in order to maintain
-    compatabiilty w/python 2.  Lame!
+    Mysqlconnector returns bytes for strings sometimes.  Lame!
     """
-    return tuple([elem.decode('utf-8') if isinstance(elem, bytearray) else elem for elem in row])
+    return tuple([elem.decode('utf-8') if isinstance(elem, bytes) else elem for elem in row])
 
 ################################################################################
 # pylint: disable=too-few-public-methods
@@ -75,7 +74,6 @@ class Interface(pool.Interface):
     ############################################################################
     def __init__(self, **kwargs):
         kwargs['dbc'] = None
-
         super(Interface, self).__init__(**kwargs)
 
     ############################################################################
@@ -121,7 +119,8 @@ class Interface(pool.Interface):
 
         while not self.dbc:
             try:
-                self.dbc = mysql.connector.connect(**self.master.config)
+                # use_pure=False is asserting to use the native-c build
+                self.dbc = mysql.connector.connect(use_pure=False, **self.master.config)
             except (errors.ProgrammingError, errors.InterfaceError) as err:
                 log("Connect Problem, waiting...", error=str(err))
                 time.sleep(1)
@@ -132,11 +131,19 @@ class Interface(pool.Interface):
 
     ############################################################################
     # pylint: disable=invalid-name
+    def prepare(self, stmt):
+        """prepare a cursor and statement"""
+        self.connect()
+        cursor = self.dbc.cursor() # MySQLCursorPrepared()
+        stmt = stmt.replace("?", "%s")
+        return cursor, stmt
+
+    ############################################################################
+    # pylint: disable=invalid-name
     def do(self, stmt, *args):
         """Run a statement, return the cursor."""
-        self.connect()
         try:
-            cursor = self.dbc.cursor(prepared=True)
+            cursor, stmt = self.prepare(stmt)
         except mysql.connector.errors.InternalError as err:
             # bad coding, but this avoids blowing out future connections
             if str(err) == "Unread result found":
@@ -153,12 +160,18 @@ class Interface(pool.Interface):
     ############################################################################
     def do_count(self, stmt, *args):
         """Do action and return the # rows changed."""
-        return self.do(stmt, *args).rowcount
+        cursor = self.do(stmt, *args)
+        rows = cursor.rowcount
+        cursor.close()
+        return rows
 
     ############################################################################
     def do_lastid(self, stmt, *args):
         """Do action and return the last insert id (if there is one)."""
-        return self.do(stmt, *args).lastrowid
+        cursor = self.do(stmt, *args)
+        last = cursor.lastrowid
+        cursor.close()
+        return last
 
     ############################################################################
     def do_getlist(self, stmt, *args, output=list): #, dslice=None):
@@ -171,8 +184,8 @@ class Interface(pool.Interface):
         specified, then the first element of each row is flattened into a single
         dimensional list.
         """
-        self.connect()
-        cursor = self.dbc.cursor(prepared=True)
+        cursor, stmt = self.prepare(stmt)
+        stmt = stmt.replace("?", "%s")
         cursor.execute(stmt, args)
 
         output = list()
@@ -186,30 +199,26 @@ class Interface(pool.Interface):
 
             output.append(result)
 
+        cursor.close()
+
         return output
 
     ############################################################################
     def do_getone(self, stmt, *args, output=dict):
         """execute and fetch one row"""
-        self.connect()
-        cursor = self.dbc.cursor(prepared=True)
+        cursor, stmt = self.prepare(stmt)
         cursor.execute(stmt, args)
 
         # pull one row
         try:
-            if output == dict:
-                result = row_to_dict(cursor, cursor.next())
-            else:
-                result = decode_row(cursor.next())
+            result = cursor.fetchone()
+            if result:
+                if output == dict:
+                    result = row_to_dict(cursor, result)
+                else:
+                    result = decode_row(result)
         except StopIteration:
             result = dict()
 
+        cursor.close()
         return result
-
-    ############################################################################
-    # pylint: disable=unused-argument
-    def cursor(self, *args, **kwargs):
-        """Return a cursor"""
-        self.connect()
-        kwargs['prepared'] = True
-        return self.dbc.cursor(prepared=True)

@@ -1,0 +1,48 @@
+#!/bin/bash
+
+stress=$1
+
+bench() {
+    count=$1
+    what=$2
+    shift
+    shift
+    cmd="$@"
+
+    echo "fork $cmd"
+    sleep $(perl -e 'print rand(2)')
+    ./stress-$what.py $count $cmd > /dev/null 2>&1
+#    echo ./stress-$what.py $count $cmd 
+}
+
+date +"starting at %s" >> start-times.log
+
+bench $stress launch juno-p1 &
+bench $stress launch  juno-s1 &
+bench $stress launch  web-houston-p1 &
+bench $stress launch  web-voyager-p1 &
+bench $stress launch  juno-p1 &
+bench $stress launch  juno-s1 &
+bench $stress launch  web-houston-p1 &
+bench $stress launch  web-voyager-p1 &
+bench $stress launch  juno-p1 &
+bench $stress launch  juno-s1 &
+bench $stress launch  web-houston-p1 &
+bench $stress launch  web-voyager-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+bench $stress engine config juno-p1 &
+
+wait
+
+date +"finished at %s" >> start-times.log

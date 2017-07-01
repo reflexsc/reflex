@@ -32,7 +32,9 @@ def main():
 
     os.chdir(latest)
 
-    noerr("python3 setup.py install")
+    args = sys.argv
+    args.pop(0)
+    noerr("python3 setup.py install " + " ".join(args))
     os.chdir(owd)
     noerr("rm -rf " + tmp)
 

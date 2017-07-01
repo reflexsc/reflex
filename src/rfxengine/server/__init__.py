@@ -31,7 +31,7 @@ import time
 import traceback
 import random
 import cherrypy
-from rfxengine import log, trace, do_DEBUG, set_DEBUG
+from rfxengine import log, do_DEBUG, set_DEBUG#, trace
 from rfxengine import exceptions
 
 ################################################################################

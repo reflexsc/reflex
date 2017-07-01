@@ -16,7 +16,7 @@ import jwt
 import nacl.pwhash
 import nacl.exceptions
 from rfx import json2data#, json4human#, json4store #, json2data
-from rfxengine import log, get_jti #, trace
+from rfxengine import log, get_jti#, trace
 from rfxengine import server # pylint: disable=cyclic-import
 from rfxengine import abac
 from rfxengine.db import objects as dbo
@@ -258,6 +258,7 @@ class Token(server.Rest, abac.AuthService):
     def rest_read(self, *args, **kwargs):
         """Receive an Apikey and give a Session Token"""
 
+#        trace("Token read")
         # authorize
         if 'X-ApiKey' not in cherrypy.request.headers:
             return self.respond_failure("Unauthorized", status=401)
@@ -316,6 +317,8 @@ class Token(server.Rest, abac.AuthService):
             else:
                 log(traceback.format_exc())
             return self.auth_fail(str(err))
+#        finally:
+#            trace("Token read DONE")
 
         return self.respond({
             "status": "success",
@@ -343,17 +346,24 @@ class Object(server.Rest, Attributes):
         """
         read
         """
+#        trace("READ: abac")
         attrs = self.abac_gather()
         if not attrs.token_nbr: # check policy instead
             self.auth_fail("Unauthorized")
 
+#        trace("READ: create object controller")
+
         obj = self.obj(master=self.server.dbm, reqid=self.reqid)
+
+#        trace("READ: post create")
         if not args:
             if kwargs.get('cols'):
                 cols = list(set(kwargs['cols'].split(',')))
                 errs = []
                 if errs:
                     raise server.Error(",".join(errs), 400)
+
+#                trace("READ: get list")
                 # todo: sanitize match
                 data = obj.list_cols(attrs, cols, match=kwargs.get('match'))
             else:
@@ -361,12 +371,15 @@ class Object(server.Rest, Attributes):
         else:
             target = args[0]
             try:
+#                trace("READ: obj.get")
                 data = obj.get(target, attrs).dump()
+#                trace("READ: obj.get (done)")
             except dbo.ObjectNotFound as err:
                 self.respond_failure({"status":"failed", "message": str(err)}, status=404)
             except dbo.InvalidParameter as err:
                 self.respond_failure({"status":"failed", "message": str(err)}, status=400)
 
+#        trace("READ: return data")
         return self.respond(data, status=200)
 
     ############################################################################

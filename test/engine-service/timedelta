@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $last = 0;
+for my $in (<STDIN>){
+    if ($in !~ /^\[\d+\] ([\d.]+) (.*)/) {
+        die("no parse: $in\n");
+    }
+    my $time = $1; #float($1);
+    my $str = $2;
+
+    printf "%0.0004f $str\n", ($time - $last);
+    $last = $time;
+}

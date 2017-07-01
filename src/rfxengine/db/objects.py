@@ -269,7 +269,6 @@ class RCObject(rfx.Base):
     ############################################################################
     def load(self, data):
         """Get an object from its dict/JSON representation"""
-#        trace("load()")
         self.obj = data
         return self.validate()
 
@@ -283,10 +282,11 @@ class RCObject(rfx.Base):
         If a archive is specified, pull the archived version (value is the date)
         archive is only appropriate for tables supporting Archive.
         """
-#        trace("get({})".format(target))
         sql = "SELECT * FROM " + self.table
         if isinstance(target, str):
+#            trace("name2id")
             idnbr = self.name2id_direct(target, dbi)[0]
+#            trace("name2id done")
         elif not isinstance(target, int):
             raise InvalidParameter("Invalid target type specified?")
         else:
@@ -294,9 +294,11 @@ class RCObject(rfx.Base):
 
         args = [idnbr]
 
+#        trace("get_policies start")
         if attrs is not True: # special override
             self.obj = {'id': idnbr} # mockup ID so policies will match
             self.policies = self._get_policies(dbi=dbi)
+#        trace("get_policies done")
 
         if archived:
             sql += 'Archive WHERE id=? AND updated_at = ?'
@@ -304,16 +306,22 @@ class RCObject(rfx.Base):
         else:
             sql += ' WHERE id=?'
 
+#        trace("dbi do_getone start")
         dbin = dbi.do_getone(sql, *args)
+#        trace("dbi do_getone done")
 
         if not dbin:
             raise ObjectNotFound("Unable to load {}: {}"
                                  .format(self.table, target))
 
+#        trace("decode start")
         self.obj = self._get_decode(attrs, dbin)
+#        trace("decode done")
 
+#        trace("authorized? start")
         if attrs is not True:
             self.authorized("read", attrs, sensitive=False, raise_error=True)
+#        trace("authorized? done")
 
         # are there any policies targeted to this object?
         return self
@@ -424,6 +432,7 @@ class RCObject(rfx.Base):
         cursor = dbi.do(sql, *args)
         for row in cursor:
             results.append(row_to_dict(cursor, row))
+        cursor.close()
         return results
 
     ############################################################################
@@ -516,6 +525,7 @@ class RCObject(rfx.Base):
                 self.policies = self._get_policies(dbi=dbi2)
                 row = self._get_decode(attrs, row, cols=cols)
                 result.append(row)
+            cursor.close()
         except:
             # if we broke, dump the rest of the vals so the connection is clean
             try:
@@ -616,7 +626,9 @@ class RCObject(rfx.Base):
             cursor = dbi.do(sql, *args)
             if cursor.lastrowid:
                 self.obj['id'] = cursor.lastrowid
-            if cursor.rowcount == 0:
+            rows = cursor.rowcount
+            cursor.close()
+            if rows == 0:
                 raise NoChanges("No changes were made")
         except IntegrityError as err:
             raise ObjectExists(str(err))
@@ -638,7 +650,6 @@ class RCObject(rfx.Base):
     @db_interface
     def create(self, attrs, dbi=None, doabac=True):
         """Create data from self into db.  Use on new objects"""
-#        trace("create()")
         if self.obj.get('id') and self.name2id_direct(self.obj['id'], dbi)[0] \
            or self.name2id_direct(self.obj['name'], dbi)[0]:
             raise ObjectExists(self.table + " named `{name}` already exists"
@@ -852,9 +863,10 @@ class RCObject(rfx.Base):
     ############################################################################
     def _delete_policyfor(self, dbi):
         """Delete PolicyFor pertaning to this object"""
-        dbi.do("""DELETE FROM PolicyFor
+        cursor = dbi.do("""DELETE FROM PolicyFor
                   WHERE obj = ? AND target_id = ?
                """, self.table, self.obj['id'])
+        cursor.close()
 
     ############################################################################
     def deleted(self, attrs, dbi=None):
@@ -1382,7 +1394,7 @@ class AuthSession(RCObject):
         secret_raw = nacl.utils.random(64)
         secret_encoded = base64.b64encode(secret_raw)
         data_txt = json4store(data)
-        dbi.do("""
+        cursor = dbi.do("""
             INSERT INTO AuthSession
                SET token_id=?,
                    name=?,
@@ -1390,6 +1402,7 @@ class AuthSession(RCObject):
                    expires_at=?,
                    session_data=?
             """, tok_id, session_id, secret_encoded, expires, data_txt)
+        cursor.close()
 
         if not self.obj:
             self.obj = dict()
@@ -1543,8 +1556,8 @@ class Policy(RCObject):
         # changes to parent matching self
         errors = super(Policy, self).deleted(attrs, dbi=dbi)
 
-        dbi.do("""DELETE FROM PolicyFor WHERE policy_id = ?""", self.obj['id'])
-        dbi.do("""DELETE FROM Policyscope WHERE policy_id = ?""", self.obj['id'])
+        dbi.do_count("""DELETE FROM PolicyFor WHERE policy_id = ?""", self.obj['id'])
+        dbi.do_count("""DELETE FROM Policyscope WHERE policy_id = ?""", self.obj['id'])
         self.master.cache.clear_type('policymap')
 
         return errors
@@ -1568,6 +1581,7 @@ def policyscope_get_direct(cache, dbi, mtype):
         pscope = row_to_dict(cursor, row)
         pscope['ast'] = compile(pscope['matches'], '<scope ' + str(pscope['id']) + '>', "eval")
         scopelist.append(pscope)
+    cursor.close()
 
     cache.set_cache('policyscope', mtype, scopelist)
     return scopelist
@@ -1599,11 +1613,11 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id, debug=False):
                         scope=pscope['id'],
                         policy=pscope['policy_id'],
                         target=target_id)
-                dbi.do("""REPLACE INTO PolicyFor
-                          SET obj = ?, policy_id = ?, target_id = ?,
-                              pscope_id = ?, action = ?
-                       """, table, pscope['policy_id'], target_id,
-                       pscope['id'], action)
+                dbi.do_count("""REPLACE INTO PolicyFor
+                                SET obj = ?, policy_id = ?, target_id = ?,
+                                    pscope_id = ?, action = ?
+                             """, table, pscope['policy_id'], target_id,
+                             pscope['id'], action)
 
     except Exception as err: # pylint: disable=broad-except
         if do_DEBUG("abac"):
@@ -1793,7 +1807,7 @@ class Policyscope(RCObject):
             debug = self.do_DEBUG('abac')
 
         # first cleanup previous mappings from this policyscope
-        dbi.do("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
+        dbi.do_count("""DELETE FROM PolicyFor WHERE pscope_id = ?""", self.obj['id'])
         if not groups:
             groups = Group(master=self.master).get_for_attrs()
 
@@ -1825,9 +1839,13 @@ class Policyscope(RCObject):
                     memarray = list()
                     cursor = dbi.do("SELECT id,name FROM " + tobj.table)
                     for row in cursor:
-                        memarray.append(dict(id=row[0], name=row[1].decode('utf-8')))
+                        val = row[1]
+                        if isinstance(val, bytes):
+                            val = val.decode('utf-8')
+                        memarray.append(dict(id=row[0], name=val))
                     if cache:
                         cache.objlist[tobj.table] = memarray
+                    cursor.close()
 
                 # fanout: for each row in the table
                 for row in memarray:
@@ -1940,7 +1958,7 @@ class Schema(rfx.Base):
             pscope.get("master", True, dbi=dbi)
 
             secret = base64.b64encode(nacl.utils.random(Apikey.keysize)).decode()
-            dbi.do("""
+            dbi.do_count("""
                 UPDATE Apikey
                    SET secrets = ?
                  WHERE id = 100

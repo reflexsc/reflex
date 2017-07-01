@@ -1,0 +1,37 @@
+MONITOR_CONFIG = {
+  interval: {
+     refresh: 900,
+     reporting: 300,
+     test: 60,
+     heartbeat: 300
+  }
+ // cross-section scan?
+  monitor-services: []
+  heartbeat-hook: url
+}
+
+threads.profile.number
+threads[profile].function
+interval.refresh
+interval.heartbeat
+interval.reporting
+interval.test
+monitor-services {
+  
+}
+
+each svc:
+   for mon in svc:pipeline.monitor
+      monitor {
+          query.path ''
+          query.method ''
+          query.headers {}
+          target = instance.address {port,host}
+          expect.response-code int
+          expect.content ''
+          expect.regex ''
+      }
+      for each svc:active-instances:
+        instance.address
+   svc: target . << {host}{port}
+   svc.p
