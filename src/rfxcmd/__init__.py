@@ -776,10 +776,18 @@ class CliAction(CliRoot):
 Usage:
 
 => """ + self.cmd + """ verify|env|list
-=> """ + self.cmd + """ run ACTION
-=> """ + self.cmd + """ ACTION
+=> """ + self.cmd + """ run [options] ACTION [args...]
+=> """ + self.cmd + """ [options] ACTION [args...]
 
 Where ACTION is one of the defined reflex actions in .pkg/actions.json
+
+[options] can be any of:
+
+  --export-meta      -- if set, REFLEX_APIKEY/URL will be sent to sub processes
+  --config=f         -- use action config file f
+  --notime           -- do not include timestamps
+  --logfmt=txt|json  -- log format as json or txt
+  --debug=module     -- debug output for module, or * for all
 
 """
 
@@ -794,9 +802,10 @@ Where ACTION is one of the defined reflex actions in .pkg/actions.json
         base.timestamp = False
         action = Action(base=base, extcfg=args.get('--config'))
         cmd = args.get('cmd')
-        target = self.args.argv
-        if target:
-            target = target[0]
+        opts = self.args.argv
+        target = None
+        if opts:
+            target = opts.pop(0)
 
         if cmd == 'list':
             actions = action.config['actions']
@@ -809,9 +818,11 @@ Where ACTION is one of the defined reflex actions in .pkg/actions.json
         elif cmd == 'verify':
             action.verify(target)
         elif cmd == 'run' and len(target):
-            action.do(target, export_meta=args.get('--export-meta'))
+            action.do(target, export_meta=args.get('--export-meta'), opts=opts)
         elif cmd in action.config['actions'].keys():
-            action.do(cmd, export_meta=args.get('--export-meta'))
+            if target:
+                opts = [target] + opts
+            action.do(cmd, export_meta=args.get('--export-meta'), opts=opts)
         else:
             if cmd:
                 self.fail("'" + cmd + "' is not a valid action, try one of:\n" +

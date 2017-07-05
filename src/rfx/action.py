@@ -177,7 +177,7 @@ class Action(rfx.Base):
             self.verify(actions[target]['onSuccess'])
 
     ############################################################################
-    def _do(self, target):
+    def _do(self, target, opts=None):
         """
         do an action (recursive)
 
@@ -199,15 +199,23 @@ class Action(rfx.Base):
                 path = self.action_fqpath + '/' + action['target']
             else:
                 path = self.action_fqpath + '/' + target
-            return self._do__cmd(target, action, [path], env=env)
+            cmd = [path]
+            if opts:
+                cmd += opts
+            return self._do__cmd(target, action, cmd, env=env)
         elif action['type'] == 'system':
-            # backwards compatible, deprecated use of "exec" vs "cmd"
+            # backwards compatible, deprecated use of "cmd" vs "cmd"
             cmd = action.get("exec", None)
             if not cmd:
                 cmd = action.get("cmd")
+            if opts:
+                cmd += opts
             return self._do__cmd(target, action, cmd, env=env)
         elif action['type'] == 'exec':
-            return self._do__cmd(target, action, action['cmd'], env=env, doexec=True)
+            cmd = action.get("cmd")
+            if opts:
+                cmd += opts
+            return self._do__cmd(target, action, cmd, env=env, doexec=True)
         else:
             try:
                 func = getattr(self, '_do__' + action['type'].replace('-', '_'))
@@ -564,7 +572,7 @@ class Action(rfx.Base):
 
     ############################################################################
     # pylint: disable=invalid-name
-    def do(self, target, export_meta=False):
+    def do(self, target, opts=None, export_meta=False):
         """
         do an action
         """
@@ -591,7 +599,7 @@ class Action(rfx.Base):
         self._do_setenv(self.config, export_meta=export_meta)
 
         try:
-            return self._do(target)
+            return self._do(target, opts=opts)
         except KeyboardInterrupt:
             return
 
