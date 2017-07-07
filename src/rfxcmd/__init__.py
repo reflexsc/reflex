@@ -293,6 +293,7 @@ Usage: """ + self.cmd + """ l?ist|ls
 
         action = args.get('action')
         control = ControlCli(base=new_base(args))
+        control.timestamp = False
         if action == 'demo':
             self.setup_demo(args)
         else:
