@@ -206,17 +206,23 @@ class Interface(pool.Interface):
     ############################################################################
     def do_getone(self, stmt, *args, output=dict):
         """execute and fetch one row"""
-        cursor, stmt = self.prepare(stmt)
-        cursor.execute(stmt, args)
-
         # pull one row
         try:
+            if "LIMIT" not in stmt: # doesn't match both cases; follow convention
+                stmt += " LIMIT 1" # or do a cursor.fetchall()
+            cursor, stmt = self.prepare(stmt)
+            cursor.execute(stmt, args)
             result = cursor.fetchone()
             if result:
                 if output == dict:
                     result = row_to_dict(cursor, result)
                 else:
                     result = decode_row(result)
+        except mysql.connector.errors.InternalError as err:
+            # bad coding, but this avoids blowing out future connections
+            if str(err) == "Unread result found":
+                self.close()
+            raise
         except StopIteration:
             result = dict()
 
