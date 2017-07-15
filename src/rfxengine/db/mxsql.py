@@ -133,10 +133,22 @@ class Interface(pool.Interface):
     # pylint: disable=invalid-name
     def prepare(self, stmt):
         """prepare a cursor and statement"""
-        self.connect()
-        cursor = self.dbc.cursor() # MySQLCursorPrepared()
-        stmt = stmt.replace("?", "%s")
-        return cursor, stmt
+
+        attempts = 3
+        while True:
+            attempts -= 1
+            self.connect()
+            try:
+                cursor = self.dbc.cursor()
+                stmt = stmt.replace("?", "%s")
+                return cursor, stmt
+            except mysql.connector.errors.OperationalError:
+                self.close()
+                # retry a few times
+                if attempts > 0:
+                    time.sleep(1)
+                else: # or give up
+                    raise
 
     ############################################################################
     # pylint: disable=invalid-name
