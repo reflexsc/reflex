@@ -112,7 +112,7 @@ do_engine() {
     APIKEY=
     echo "Waiting for engine to come online..."
     while [ -z "$APIKEY" ]; do
-        APIKEY=$(docker-compose logs | grep REFLEX_APIKEY |sed -e 's/^.*REFLEX_APIKEY=//')
+        APIKEY=$(docker-compose logs | grep '<CHANGE> REFLEX_APIKEY' |sed -e 's/^.*REFLEX_APIKEY=//')
         sleep 1
         echo -n "."
     done
