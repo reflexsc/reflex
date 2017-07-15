@@ -16,8 +16,6 @@ RUN yum -y install gcc gcc-c++ make curl libffi-devel python34-devel
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py
 
 RUN pip3 --no-cache-dir install -U rfxengine
-#COPY src /app/src
-#RUN src/rfxengine/db/get_mysql_connector.py --with-mysql-capi=/usr -O2
 RUN get_mysql_connector.py --with-mysql-capi=/usr -O2
 RUN rm -rf ~/.pip/cache $PWD/build/
 
