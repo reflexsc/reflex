@@ -8,7 +8,7 @@ services:
       - db
     #entrypoint: ["/usr/local/bin/reflex-engine", "--debug=*"]
     environment:
-      - REFLEX_ENGINE_CONFIG={"db":{"host":"db"}}
+      - REFLEX_ENGINE_CONFIG={"db":{"host":"db"},"crypto":{"000":{"key":"GENERATE_KEY","default":true}}}
       - PYTHONUNBUFFERED=true
   db:
     image: mariadb
