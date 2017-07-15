@@ -1317,7 +1317,7 @@ class Apikey(RCObject):
      ADD>     unique(name),
      ADD>     unique(uuid)
      ADD> ) engine=InnoDB;
-     ADD> insert into Apikey set id=100, uuid=uuid(), name='master', secrets='[]', data='{}';
+     ADD> INSERT INTO Apikey set id=100, uuid=uuid(), name='master', secrets='[]', data='{}', updated_by="";
     """
     # a list of object attributes which are part of the actual db object
 
@@ -1485,7 +1485,7 @@ class Policy(RCObject):
      ADD>     sort_order int not null default 1000,
      ADD>     primary key(id)
      ADD> ) engine=InnoDB;
-     ADD> INSERT INTO Policy SET id=100, name='master', policy='token_name=="master"', data='{}';
+     ADD> INSERT INTO Policy SET id=100, name='master', policy='token_name=="master"', data='{}', updated_by="";
 
     MIGRATE-001> alter table Policy add column sort_order int not null default 1000;
     MIGRATE-001> alter table Policy add column result enum('pass', 'fail') not null default 'pass';
