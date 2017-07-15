@@ -27,8 +27,8 @@ Uses Prepared Cursors by default.
 """
 
 import time
+import traceback
 import mysql.connector
-from mysql.connector import errors
 from rfxengine import log#, trace
 from rfxengine.db import pool
 
@@ -121,8 +121,11 @@ class Interface(pool.Interface):
             try:
                 # use_pure=False is asserting to use the native-c build
                 self.dbc = mysql.connector.connect(use_pure=False, **self.master.config)
-            except Exception as err: #(errors.ProgrammingError, errors.InterfaceError, errors.DatabaseError) as err:
-                log("Connect Problem, waiting...", error=str(err))
+            except Exception as err: # pylint: disable=broad-except
+                if self.do_DEBUG('db'):
+                    log("Connect Problem, waiting...", traceback=traceback.format_exc())
+                else:
+                    log("Connect Problem, waiting...", error=str(err))
                 time.sleep(1)
 
         self.dbc.autocommit = True

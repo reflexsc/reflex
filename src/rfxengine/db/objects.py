@@ -1303,6 +1303,7 @@ class Group(RCObject):
 
 ################################################################################
 class Apikey(RCObject):
+    # pylint: disable=line-too-long
     """
     DROP> drop table if exists Apikey;
      ADD> create table Apikey (
