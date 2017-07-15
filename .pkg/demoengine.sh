@@ -105,6 +105,8 @@ do_engine() {
     fi
 
     cmd "Pulling Docker Compose file" download -o docker-compose.yml -s "$dlurl"
+    key=$(dd if=/dev/urandom bs=32 count=1 2>/dev/null|base64)
+    sed -i -e "s:GENERATE_KEY:$key:" docker-compose.yml
     cmd "Starting Engines:"
     docker-compose up -d
     APIKEY=
