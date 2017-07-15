@@ -160,21 +160,21 @@ def setup():
     ########################################
     create(rcs.create, "policyscope", {
         "name": "bridge-all",
-        "policy_id": data.policies.support_not_sensitive.id,
+        "policy": "support-not-sensitive",
         "actions": 'read',
         "type": 'global',
         "matches": 'True'
     })
     create(rcs.create, "policyscope", {
         "name": "support-read-configs-sensitive",
-        "policy_id": data.policies.support_sensitive.id,
+        "policy": "support-sensitive",
         "actions": 'read',
         "type": 'global',
         "matches": 'obj_type == "Config" and re.match(r"^bct-", obj["name"])'
     })
     create(rcs.create, "policyscope", {
         "name": "support-read-configs",
-        "policy_id": data.policies.support_not_sensitive.id,
+        "policy": "support-not-sensitive",
         "actions": 'read',
         "type": 'global',
         "matches": 'obj_type == "Config" and not re.match(r"^bct-", obj["name"])'
@@ -236,6 +236,7 @@ def setup():
 
     create(rcs.create, "service", {
         "name": "bridge-navigation-train",
+        "title": "Navigation Bridge - Training",
         "config": "bridge-navigation-train",
         "pipeline": "bridge-navigation",
     })
@@ -243,12 +244,14 @@ def setup():
     create(rcs.create, "service", {
         "name": "bridge-navigation-battle",
         "config": "bridge-navigation-battle",
+        "title": "Navigation Bridge - Battle",
         "pipeline": "bridge-navigation",
     })
 
     create(rcs.create, "service", {
         "name": "bridge-navigation-main",
         "config": "bridge-navigation-main",
+        "title": "Navigation Bridge - Main",
         "pipeline": "bridge-navigation",
     })
 
@@ -373,18 +376,21 @@ def setup():
     create(rcs.create, "service", {
         "name": "bct-tst",
         "config": "bct-tst",
+        "title":"Bat'leth Combat Training - TST",
         "pipeline": "bct",
     })
 
     create(rcs.create, "service", {
         "name": "bct-qa",
         "config": "bct-qa",
+        "title":"Bat'leth Combat Training - QA",
         "pipeline": "bct",
     })
 
     create(rcs.create, "service", {
         "name": "bct-prd",
         "config": "bct-prd",
+        "title":"Bat'leth Combat Training - PRD",
         "pipeline": "bct",
     })
 

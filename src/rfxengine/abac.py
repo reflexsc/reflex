@@ -144,6 +144,7 @@ def abac_context():
         '__builtins__':{},
         'true': True,
         'false': False,
+        're': re,
         'rx': re.search,
         'debug': debug_hook
     }

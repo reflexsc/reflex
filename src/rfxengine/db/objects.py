@@ -909,7 +909,7 @@ class Pipeline(RCObject):
      ADD> create table Pipeline (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null,
+     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
@@ -921,7 +921,7 @@ class Pipeline(RCObject):
      ADD> create table PipelineArchive (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null,
+     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
@@ -959,7 +959,7 @@ class Service(RCObject):
      ADD> create table Service (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null,
+     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
@@ -975,7 +975,7 @@ class Service(RCObject):
      ADD> create table ServiceArchive (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null,
+     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
