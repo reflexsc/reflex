@@ -422,8 +422,13 @@ class EngineCli(rfx.Base):
         os.unlink(localfile)
 
         answer = get_input("Commit changes? [y] ")
+
         # incase of a rename
-        obj_name = data.get('name')
+        data_name = data.get('name', None)
+        if data_name is None:
+            data['name'] = obj_name
+        else:
+            obj_name = data_name
 
         if not answer or re.match("^(yes|y)$", answer, flags=re.IGNORECASE):
             try:
