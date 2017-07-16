@@ -1646,7 +1646,7 @@ class Policyscope(RCObject):
      ADD>     name varchar(64) not null,
      ADD>     policy_id int not null,
      ADD>     type enum('targeted', 'global') not null default 'targeted',
-     ADD>     matches text not null default 'False',
+     ADD>     matches text not null,
      ADD>     objects varchar(256) not null default '[]',
      ADD>     actions varchar(64) not null default 'read',
      ADD>     data text,
