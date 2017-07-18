@@ -259,8 +259,8 @@ class App(rfx.Base):
                         self.launch_exec[0])
         if self.do_DEBUG():
             msg = "Launch Env:\n"
-            for key, value in self.launch_config.setenv:
-                msg += "  {}={}".format(key, value)
+            for key in self.launch_config.setenv.keys():
+                msg += "  {}={}".format(key, self.launch_config.setenv[key])
             self.NOTIFY(msg) # keep it as one 'message' for log handlers
         self.NOTIFY("Launch working directory=" + self.launch_rundir)
         self.NOTIFY("Launch exec=['" + "','".join(self.launch_exec) + "']")
