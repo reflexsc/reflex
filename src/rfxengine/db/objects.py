@@ -740,7 +740,7 @@ class RCObject(rfx.Base):
                 kwargs["table"] = self.table
                 if self.obj:
                     kwargs["obj"] = self.obj.get('name', self.obj.get('id'))
-                log("abac", **kwargs)
+                log("type=abac", **kwargs)
             dbg = do_dbg
             abac_debug = True
             dbg(step="start-auth", action=action, sensitive=sensitive)
@@ -1608,7 +1608,7 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id, debug=False):
         if eval(pscope['ast'], abac.abac_context(), attribs):
             for action in pscope['actions'].split(","):
                 if debug:
-                    log("policymap",
+                    log("type=policymap",
                         action=action,
                         table=table,
                         scope=pscope['id'],
@@ -1623,14 +1623,14 @@ def policyscope_map_for(pscope, dbi, attribs, table, target_id, debug=False):
     except Exception as err: # pylint: disable=broad-except
         if do_DEBUG("abac"):
             context = dictlib.union(abac.abac_context(), attribs)
-            log("policymap_error", msg=str(err), # traceback=traceback.format_exc(),
+            log("type=error", msg="policymap failure: " + str(err),
                 expr=pscope.get('matches'),
                 context=context,
                 scope=pscope.get('id', 0),
                 policy=pscope.get('policy_id', 0),
                 target=target_id)
         else:
-            log("policymap_error", msg=str(err),
+            log("type=error", msg="policymap failure: " + str(err),
                 expr=pscope.get('matches'),
                 scope=pscope.get('id', 0),
                 policy=pscope.get('policy_id', 0),

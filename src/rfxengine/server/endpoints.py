@@ -139,9 +139,6 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             attrs['token_nbr'] = auth_session.obj['data']['token_id'] # pylint: disable=no-member
             attrs['token_name'] = auth_session.obj['data']['token_name'] # pylint: disable=no-member
 
-            # redundant -- included in http log
-            #log("auth", token_id=attrs.token_nbr, token=attrs.token_name)
-
         except: # pylint: disable=bare-except
             if self.server.do_DEBUG():
                 self.server.DEBUG(traceback.format_exc())
@@ -159,11 +156,11 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                 grp = groups.get(ingrp)
                 hdr = hdrs.get('X-Password')
                 if not hdr:
-                    log("Missing X-Password header, try adding --password")
+                    log("Missing X-Password header, try adding --password", type="error")
                     return False
                 pwd = base64.b64decode(hdr)
                 if not grp:
-                    log("policy cannot find group={}".format(grp))
+                    log("policy cannot find group={}".format(grp), type="error")
                 else:
                     for pwhash in grp:
                         pwhash = pwhash.encode()
@@ -173,7 +170,7 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                         except nacl.exceptions.InvalidkeyError:
                             pass
             except Exception as err: # pylint: disable=broad-except
-                log("pwin() error=" + str(err))
+                log("pwin() error=" + str(err), type="error")
             return False
 
         def pwsin(hdrs, ingrp):
@@ -183,14 +180,15 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                 grp = groups.get(ingrp)
                 hdr = hdrs.get('X-Passwords')
                 if not hdr:
-                    log("Missing X-Passwords header, try adding --password --password")
+                    log("Missing X-Passwords header, try adding --password --password",
+                        type="error")
                     return False
                 pwds = json2data(base64.b64decode(hdr))
                 pwdset = set(pwds)
                 if len(pwds) != len(pwdset):
                     raise Exception("Multiple passwords provided, but some are duplicates")
                 if not grp:
-                    log("policy cannot find group={}".format(grp))
+                    log("policy cannot find group={}".format(grp), type="error")
                 else:
                     matches = 0
                     for pwhash in grp:
@@ -205,7 +203,7 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                             except nacl.exceptions.InvalidkeyError:
                                 pass
             except Exception as err: # pylint: disable=broad-except
-                log("pwsin() error=" + str(err))
+                log("pwsin() error=" + str(err), type="error")
             return False
 
         attrs['groups'] = groups
@@ -308,14 +306,14 @@ class Token(server.Rest, abac.AuthService):
             cookie['sid']['path'] = self.server.conf.server.route_base
             cookie['sid']['max-age'] = self.server.conf.auth.expires or 300
             cookie['sid']['version'] = 1
-            log("login", apikey=token.obj['id'], token=token.obj['name'])
+            log("type=auth", apikey=token.obj['id'], token=token.obj['name'])
 
         except Exception as err: # pylint: disable=broad-except
             if self.server:
                 if self.server.do_DEBUG():
-                    log(traceback.format_exc())
+                    log(type="error", traceback=json2data(traceback.format_exc()))
             else:
-                log(traceback.format_exc())
+                log(type="error", traceback=json2data(traceback.format_exc()))
             return self.auth_fail(str(err))
 #        finally:
 #            trace("Token read DONE")

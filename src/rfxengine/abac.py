@@ -36,7 +36,7 @@ import traceback
 import dictlib
 import cherrypy
 #from rfx import json4human
-from rfxengine import log, server#, trace
+from rfxengine import log #, trace
 from rfxengine import exceptions
 
 ################################################################################
@@ -126,7 +126,7 @@ class Policy(object):
             if eval(self.policy_ast, abac_context(), attrs):
                 return True
         except KeyError as err:
-            log("policy failure id={} missing key={}".format(self.policy_id, err))
+            log("policy failure id={} missing key={}".format(self.policy_id, err), type="error")
         except Exception as err: # pylint: disable=broad-except
             if debug and base:
                 base.DEBUG("abac error={}, traceback={}"
@@ -138,7 +138,7 @@ def abac_context():
     """standard policy context"""
     def debug_hook(*args):
         """debug hook"""
-        log("ABAC DEBUG", *args)
+        log("ABAC DEBUG", *args, type="debug")
 
     return {
         '__builtins__':{},
@@ -191,6 +191,7 @@ class AuthService(object):
 
         super(AuthService, self).__init__(**kwargs)
 
+    # pylint: disable=no-self-use
     def auth_fail(self, reason):
         """Log the reason, and report a failure neutrally"""
 
@@ -200,7 +201,4 @@ class AuthService(object):
         reason = re.sub(r'\n(\s*)', _rmatch, reason)
 
         log(reason, type="authfail")
-        if self.server.conf.test_mode:
-            raise server.Error("Unauthorized: " + reason, 401)
-        else:
-            raise server.Error("Unauthorized", 401)
+        raise exceptions.AuthFailed("Unauthorized", reason)

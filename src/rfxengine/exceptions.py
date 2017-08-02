@@ -35,6 +35,10 @@ class InvalidContext(Exception):
     """We had a problem houston"""
     pass
 
+class AuthFailed(Exception):
+    """Unauthorized"""
+    pass
+
 class PolicyFailed(Exception):
     """We had a problem houston"""
     pass

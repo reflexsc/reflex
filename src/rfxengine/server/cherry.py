@@ -59,7 +59,7 @@ class CherryLog(cherrypy._cplogging.LogManager):
         if isinstance(msg, bytes):
             msg = msg.decode()
 
-        log(msg, type=context, severity=severity, **kwargs)
+        log(error=msg, type="error", context=context, severity=severity, **kwargs)
 
     ############################################################################
     def access(self):
@@ -87,7 +87,7 @@ class CherryLog(cherrypy._cplogging.LogManager):
             kwargs['token'] = login.token_name
             # Notes: insert other auth attributes?
 
-        log("http status=" + str(status),
+        log("type=http status=" + str(status),
             query=request.request_line,
             remote=remaddr,
             len=outheaders.get('Content-Length', '') or '-',
@@ -163,7 +163,7 @@ class Server(rfx.Base):
         self.stat.dbm.dead = dead
 
         if self.stat.next_report < self.stat.heartbeat.last:
-            log("status-report", **self.status_report())
+            log("type=status-report", **self.status_report())
 
     def status_report(self):
         """report on internal usage"""
@@ -319,7 +319,7 @@ class Server(rfx.Base):
 
         # if production mode
         if test:
-            log("Test mode enabled")
+            log("Test mode enabled", type="notice")
             conf['test_mode'] = True
         else:
             cherry_conf['environment'] = 'production'
@@ -420,7 +420,7 @@ class Server(rfx.Base):
                                                    self.monitor,
                                                    frequency=conf.heartbeat/2)
         int_mon.start()
-        log("Base path={}".format(conf.server.route_base))
+        log("Base path={}".format(conf.server.route_base), type="notice")
         cherrypy.engine.start()
         cherrypy.engine.block()
 

@@ -31,7 +31,7 @@ import time
 import traceback
 import random
 import cherrypy
-from rfxengine import log, do_DEBUG, set_DEBUG#, trace
+from rfxengine import json2data, log, do_DEBUG, set_DEBUG#, trace
 from rfxengine import exceptions
 
 ################################################################################
@@ -111,13 +111,19 @@ class Rest(object):
                 do_abac_log = True
         try:
             return getattr(self, method)(*args, **kwargs)
+        except exceptions.AuthFailed as err:
+            log("authfail", reason=err.args[1])
+            cherrypy.response.status = 401
+            return {"status": "failed", "message": "Unauthorized"}
+
         except exceptions.PolicyFailed as err:
             if do_DEBUG('auth'):
-                log("forbidden", traceback=traceback.format_exc())
+                log("forbidden", traceback=json2data(traceback.format_exc()))
             else:
-                log("forbidden", traceback=traceback.format_exc(0))
+                log("forbidden", reason=err.args[0])
             cherrypy.response.status = 403
             return {"status": "failed", "message": "Forbidden"}
+
         except (ValueError, exceptions.InvalidParameter, Error) as err:
             status = {"status": "failed"}
             cherrypy.response.status = 400
@@ -132,7 +138,7 @@ class Rest(object):
                 status['message'] = str(err)
             return status
         except Exception as err:
-            log("error", traceback=traceback.format_exc())
+            log("error", traceback=json2data(traceback.format_exc()))
             raise
         finally:
             if do_abac_log:

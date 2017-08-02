@@ -123,9 +123,10 @@ class Interface(pool.Interface):
                 self.dbc = mysql.connector.connect(use_pure=False, **self.master.config)
             except Exception as err: # pylint: disable=broad-except
                 if self.do_DEBUG('db'):
-                    log("Connect Problem, waiting...", traceback=traceback.format_exc())
+                    log("Connect Problem, waiting...", traceback=traceback.format_exc(),
+                        type="error")
                 else:
-                    log("Connect Problem, waiting...", error=str(err))
+                    log("Connect Problem, waiting...", error=str(err), type="error")
                 time.sleep(1)
 
         self.dbc.autocommit = True
@@ -165,7 +166,7 @@ class Interface(pool.Interface):
                 self.close()
             raise
         except mysql.connector.errors.OperationalError as err:
-            log("db error", error=str(err))
+            log("db error", error=str(err), type="error")
             self.close()
             raise
 
