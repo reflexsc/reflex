@@ -8,6 +8,7 @@ import subprocess
 
 def noerr(cmd):
     """noerr"""
+    print(">>> " + cmd)
     if subprocess.call(cmd, shell=True):
         sys.exit("Cannot continue")
 
@@ -28,7 +29,9 @@ def main():
 
     # could use requests lib instead
     noerr("curl --fail -L -O " + download_url)
-    noerr("tar -xzf " + latest + ".tar.gz")
+    noerr("tar --owner=" + str(os.getuid()) +
+          " --group=" + str(os.getgid()) +
+          " -xzf " + latest + ".tar.gz")
 
     os.chdir(latest)
 

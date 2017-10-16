@@ -38,9 +38,9 @@ def _fmt_txt(columns, rng):
                 maxs[rnx] = len_cell
 
     for rnx in rng:
-        fmt = "{:" + str(maxs[rnx]) + "}"
+        fmt = "{:" + str(maxs[rnx]) + "} "
         fmts[rnx] = fmt
-    fmts[-1] = ' {}\n'
+    fmts[-1] = '{}\n'
     return fmts
 
 def _fmt_tsv(columns, rng):

@@ -762,10 +762,10 @@ class RCObject(rfx.Base):
                     return True
                 if policy.policy_fail: # always drop out -- dangerous if misapplied
                     if raise_error:
-                        raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine") # pylint: disable=line-too-long
+                        raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine or --debug=remote-abac to cli") # pylint: disable=line-too-long
                     return False
         if raise_error:
-            raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine")
+            raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine or --debug=remote-abac to cli") # pylint disable=line-too-long
         dbg(step="FAILED")
         return False
 

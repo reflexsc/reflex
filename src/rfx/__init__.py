@@ -340,8 +340,13 @@ class Base(Colorize):
                 'timestamp':int(time.time()*1000),
                 'service':self.__class__.__name__,
             }, kwargs)
-            if 'message' in merged and not merged['message']:
-                del merged['message']
+            if 'msg' in merged and not merged['msg']:
+                del merged['msg']
+            if len(msg):
+                if not merged.get('msg'):
+                    merged['msg'] = msg.join(" ")
+                else:
+                    merged['_msg'] = msg.join(" ")
             json.dump(merged, self.notifyfd, escape_forward_slashes=False)
             return
 

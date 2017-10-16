@@ -54,10 +54,10 @@ setup_env() {
     install=$1
     python=$2
 
-	if [ $alt_python ]; then
-	    python=$alt_python
-	fi
-	echo "python==$python"
+    if [ $alt_python ]; then
+        python=$alt_python
+    fi
+    echo "python==$python"
 
     ################################################################################
     # validation
@@ -94,57 +94,57 @@ setup_env() {
 
     # virtual environ
     if [ $virtualenv = true ]; then
-    	if [ ! -d python ]; then
-    		$(dirname $python)/virtualenv -p $python python
-    		echo "$python" > $origin_file
-    	fi
-    	source $(pwd)/python/bin/activate
-    	python=$(which python3)
+        if [ ! -d python ]; then
+            $(dirname $python)/virtualenv -p $python python || exit
+            echo "$python" > $origin_file
+        fi
+        source $(pwd)/python/bin/activate
+        python=$(which python3)
     fi
 
-	export python
+    export python
 }
 
 setup_install() {
     install=$1
     python=$2
 
-	echo "i$install $python"
-	setup_env $install $python
-	echo "i$install $python"
+    echo "i$install $python"
+    setup_env $install $python
+    echo "i$install $python"
 
-	pip=$(dirname $python)/pip3
+    pip=$(dirname $python)/pip3
 
-	pip install -U rfxcmd rfxengine
+    pip install -U rfxcmd rfxengine
 }
 
 setup_development() {
     install=$1
     python=$2
 
-	setup_env $install $python
+    setup_env $install $python
 
     owd=$(pwd)
     cd $owd/pypi/rfx; noerr $python setup.py develop
     cd $owd/pypi/rfxcmd; noerr $python setup.py develop
     cd $owd/pypi/rfxengine; noerr $python setup.py develop
-	cd $owd
-	setup_mysql
+    cd $owd
+    setup_mysql
 }
 
 setup_mysql() {
     ############################################################################
     # reflex engine specific things
-	mysql_version=2.1.4
+    mysql_version=2.1.4
 
     owd=$(pwd)
-	if [ -f $owd/.pkg/did_mysql ]; then
-		msg "Skipping MySQL install -- appears to be already there."
-		echo "    run $0 clean to reset"
-		return
-	fi
+    if [ -f $owd/.pkg/did_mysql ]; then
+        msg "Skipping MySQL install -- appears to be already there."
+        echo "    run $0 clean to reset"
+        return
+    fi
 
-	$owd/src/rfxengine/db/get_mysql_connector.py
+    $owd/src/rfxengine/db/get_mysql_connector.py
 
     touch $owd/.pkg/did_mysql
     touch $owd/.pkg/did_engine
@@ -170,7 +170,7 @@ fi
 # setup default python
 python=/app/python-3/bin/python3
 if [ ! -x $python ]; then
-	python=$(which python3)
+    python=$(which python3)
 fi
 virtualenv=false
 opt_itype=
@@ -182,8 +182,8 @@ for x in "$@"; do
         --root)
             ;;
         --no-virtual)
-			virtualenv=false
-			;;
+            virtualenv=false
+            ;;
         --hosted)
             opt_itype=hosted
             virtualenv=true
@@ -204,31 +204,31 @@ case $action in
     dev|develop|devel)
         virtualenv=true
         if [ $opt_itype ]; then
-			setup_development $opt_itype $python
-		else
-			setup_development hosted $python
-		fi
+            setup_development $opt_itype $python
+        else
+            setup_development hosted $python
+        fi
         ;;
 
     ############################################################################
     install)
-		echo $python
-		if [ $opt_itype ]; then
-			setup_install $opt_itype $python
-		else
-			setup_install root $python
-		fi
-		setup_mysql
-		;;
+        echo $python
+        if [ $opt_itype ]; then
+            setup_install $opt_itype $python
+        else
+            setup_install root $python
+        fi
+        setup_mysql
+        ;;
 
     ############################################################################
     env)
         if [ "$0" = "-bash" ]; then
-			base=.
-		else
-	        base=$(dirname $0)
-		fi
-	    source $base/python/bin/activate
+            base=.
+        else
+            base=$(dirname $0)
+        fi
+        source $base/python/bin/activate
         ;;
 
     ############################################################################
