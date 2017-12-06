@@ -26,6 +26,47 @@ Policies:
     write-sensitive = sensitive=True and @in-sensitive-write and @in-team and @inside-network
     admin = requestor.name in obj.group['admin'] and @inside-network
 
+
+---------------------------------------------------------
+obj.group
+---------------------------------------------------------
+
+I want to have a generic policy where I can specify something on each object giving it context, rather than using magic in the hostname.
+
+Each object class should be able to group together.  Like 'all juno prod'.
+
+(obj.pipeline = contextual.pipeline and obj.netenv = cotextual.netenv)
+
+-- all objects related to pipeline, and with lane = x -- 
+
+   obj.pipeline.allowed('read')?
+
+
+(pipeline && zone match) + ingroup(name)
+
+
+specify objects by set, cross reference ingroup
+
+  obj.class = 'juno-prd' and groups.in('admins')
+  - problem is 'class' is not in eval environ
+
+
+obj:
+   abac-groups: {
+       monitors: [ list of groups ]
+       admins: [ "admins" ]
+   }
+
+ policy:
+    ingrp('monitors', ## I want to specify the group
+
+    read_grp
+    write_grp
+
+    groupok('read', token_name)
+---------------------------------------------------------
+
+
 Policy Mapping:
     name matches ~
     maps made at change of Policy, and at creation of object

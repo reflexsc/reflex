@@ -292,7 +292,9 @@ class Args(object):
             clen = len(current) + 1
             subprocess.call(["stty", "-echo"])
             try:
-                pwd = get_input("Password {}: ".format(clen))
+                sys.stderr.write("Password {}: ".format(clen))
+                sys.stderr.flush()
+                pwd = get_input()
                 print("")
             except:
                 raise

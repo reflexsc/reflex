@@ -150,6 +150,8 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
         """http headers as dictobj"""
 
         groups = dbo.Group(master=self.server.dbm).get_for_attrs()
+
+        # inline method
         def pwin(hdrs, ingrp):
             """closure for single password input in as X-Password"""
             try:
@@ -173,6 +175,7 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                 log("pwin() error=" + str(err), type="error")
             return False
 
+        # inline method
         def pwsin(hdrs, ingrp):
             """closure for multiple passwords input in as X-Passwords"""
             # pylint: disable=too-many-nested-blocks
@@ -205,6 +208,9 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             except Exception as err: # pylint: disable=broad-except
                 log("pwsin() error=" + str(err), type="error")
             return False
+
+#        def grptoken(token, obj):
+            
 
         attrs['groups'] = groups
         attrs['pwin'] = pwin

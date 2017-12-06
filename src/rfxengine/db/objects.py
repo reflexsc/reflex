@@ -1214,9 +1214,10 @@ class Group(RCObject):
     def validate(self):
         errors = super(Group, self).validate()
 
-        if self.obj['type'] not in ('Apikey', 'Pipeline', "set", "password"):
+        opts = Schema.table_names + ["set", "password"]
+        if self.obj['type'] not in opts:
             raise InvalidParameter("Invalid type=" + self.obj['type'] +
-                                   " not one of: Apikey, Pipeline, set or password")
+                                   " not one of: " + ", ".join(opts))
 
         return errors
 
@@ -1247,7 +1248,7 @@ class Group(RCObject):
                     grp.append(name.lower() + ":" + sha256)
             self.obj['group'] = grp
             self.obj['_grp'] = _grp
-        elif self.obj['type'] in ('Apikey', 'Pipeline'):
+        elif self.obj['type'] in Schema.table_names:
             # todo: look for better option
             # pylint: disable=eval-used
             class_obj = eval(self.obj['type'])(clone=self)
@@ -1878,6 +1879,7 @@ class Schema(rfx.Base):
     # also: order matters
     tables = [Policy, Policyscope, Pipeline, Service, Config, Instance, Apikey,
               Build, Group, AuthSession, State]
+    table_names = [map x.name in tables]
     master = ''
 
     # pylint: disable=super-init-not-called
