@@ -295,7 +295,7 @@ class Args(object):
                 sys.stderr.write("Password {}: ".format(clen))
                 sys.stderr.flush()
                 pwd = get_input()
-                print("")
+                sys.stderr.write("\n")
             except:
                 raise
             finally:
