@@ -3,7 +3,7 @@ setup(
   name = 'rfxcmd',
   packages = ['rfxcmd'],
   version = "1712.0001",
-  description = 'Container Config and Secret Management - commands',
+  description = 'Reflex - Container Config and Secret Management - commands',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
   url = 'https://reflex.cold.org/', 

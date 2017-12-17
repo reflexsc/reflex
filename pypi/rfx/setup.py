@@ -2,8 +2,8 @@ from setuptools import setup
 setup(
   name = 'rfx',
   packages = ['rfx'],
-  version = "1712.0001",
-  description = 'Container Config and Secret Management - core lib',
+  version = "1712.0002",
+  description = 'Reflex - Container Config and Secret Management - core lib',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
   url = 'https://reflex.cold.org/',

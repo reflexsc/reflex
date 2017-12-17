@@ -7,7 +7,7 @@ setup(
   },
   packages = ['rfxengine', 'rfxengine.db', 'rfxengine.server'],
   version = "1712.0001",
-  description = 'Container Config and Secret Management - engine',
+  description = 'Reflex - Container Config and Secret Management - engine',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
   url = 'https://reflex.cold.org/',
