@@ -478,6 +478,7 @@ class InstancePing(Object):
 
     def __init__(self, *args, **kwargs):
         self.obj = getattr(dbo, 'Instance')
+        kwargs['obj'] = 'Instance'
         super(InstancePing, self).__init__(*args, **kwargs)
 
     # pylint: disable=unused-argument
