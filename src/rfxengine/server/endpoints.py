@@ -503,7 +503,8 @@ class InstancePing(Object):
         # record where we saw them come in from
         if not body.get('address'):
             body['address'] = {}
-        body['address']['ping-from-ip'] = cherrypy.request.remote.ip
+
+        body['address']['ping-from-ip'] = attrs['ip']
 
         obj = self.obj(master=self.server.dbm, reqid=self.reqid)
         try:
