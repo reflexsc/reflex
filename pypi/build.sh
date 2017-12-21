@@ -32,7 +32,7 @@ for d in $targets; do
 	pwd
     sed --in-place -e 's/version = .*$/version = "'$VER'",/' setup.py
     rm -rf ./dist rfx.egg-info || exit 1
-    python3 setup.py sdist
+    python3 setup.py sdist || exit 1
     find .
-    twine upload $PYPI_DIST dist/*
+    twine upload $PYPI_DIST dist/* || exit 1
 done

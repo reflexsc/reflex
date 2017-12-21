@@ -234,6 +234,12 @@ class Session(rfx.Base):
         return self._call(requests.put, path, data=json4store(obj_data))
 
     ############################################################################
+    def instance_ping(self, obj_target, obj_data):
+        """special instance update ping"""
+        path = "instance-ping/" + str(obj_target)
+        return self._call(requests.put, path, data=json4store(obj_data))
+
+    ############################################################################
     def delete(self, obj_type, obj_target):
         """session DELETE"""
         return self._call(requests.delete, obj_type + "/" + str(obj_target))

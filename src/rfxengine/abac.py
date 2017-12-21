@@ -33,8 +33,8 @@ Be very careful.
 
 import re
 import traceback
-import dictlib
 import cherrypy
+import dictlib
 #from rfx import json4human
 from rfxengine import log #, trace
 from rfxengine import exceptions

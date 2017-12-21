@@ -96,7 +96,7 @@ class Rest(object):
         """Respond with normal content (or not)"""
         if not content:
             cherrypy.response.status = 204
-            return
+            return None
         cherrypy.response.status = status
         return content
 

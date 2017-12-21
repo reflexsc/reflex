@@ -35,6 +35,8 @@ import re
 import base64
 import io
 
+sys.exit(0)
+
 rfx_base = "../../src"
 sys.path.append(rfx_base + '/lib')
 

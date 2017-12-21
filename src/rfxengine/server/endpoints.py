@@ -11,10 +11,10 @@ import time
 import base64
 import traceback
 import cherrypy
-import dictlib
 import jwt
 import nacl.pwhash
 import nacl.exceptions
+import dictlib
 from rfx import json2data#, json4human#, json4store #, json2data
 from rfxengine import log, get_jti#, trace
 from rfxengine import server # pylint: disable=cyclic-import
@@ -208,9 +208,6 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             except Exception as err: # pylint: disable=broad-except
                 log("pwsin() error=" + str(err), type="error")
             return False
-
-#        def grptoken(token, obj):
-            
 
         attrs['groups'] = groups
         attrs['pwin'] = pwin
@@ -465,3 +462,66 @@ class Object(server.Rest, Attributes):
             return self.respond({'status': 'failed'}, status=401)
         except dbo.ObjectNotFound as err:
             self.respond_failure({'status': 'failed', "message": str(err)}, status=404)
+
+################################################################################
+class InstancePing(Object):
+    """
+    Instance Ping - a service checkin for Instances
+
+    POST path/instance-ping/service-name
+    {optional merge data}
+
+    Similar to an object update, but we include meta-information, such as the
+    ping-from-ip we saw them come in from.
+    """
+    obj = ''
+
+    def __init__(self, *args, **kwargs):
+        self.obj = getattr(dbo, 'Instance')
+        super(InstancePing, self).__init__(*args, **kwargs)
+
+    # pylint: disable=unused-argument
+    def rest_update(self, *args, **kwargs):
+        """
+        update
+        """
+        attrs = self.abac_gather()
+        if not attrs.token_nbr: # check policy instead
+            self.auth_fail("Unauthorized")
+
+        if not args:
+            return self.respond({"status":"failed"}, status=404)
+
+        body = get_json_body()
+        target = args[0]
+        if target and target[:1] in "0123456789":
+            body['id'] = int(target)
+        else:
+            body['name'] = target
+
+        # record where we saw them come in from
+        if not body.get('address'):
+            body['address'] = {}
+        body['address']['ping-from-ip'] = cherrypy.request.remote.ip
+
+        obj = self.obj(master=self.server.dbm, reqid=self.reqid)
+        try:
+            # merge the new info with the current object
+            data = obj.get(target, attrs).dump()
+        except dbo.ObjectNotFound as err:
+            data = obj.skeleton()
+
+        try:
+            obj.load(dictlib.union(data, body))
+            warnings = obj.update(attrs)
+        except dbo.ObjectNotFound as err:
+            self.respond_failure({"status":"failed", "message": str(err)}, status=404)
+        except dbo.InvalidParameter as err:
+            self.respond_failure({"status":"failed", "message": str(err)}, status=400)
+        except dbo.NoChanges as err:
+            self.respond_failure({"status":"unknown", "message": str(err)}, status=202)
+        if warnings:
+            return self.respond({"status":"updated", "warning":"; ".join(warnings)},
+                                status=201)
+        return self.respond({"status":"updated"}, status=201)
+

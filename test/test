@@ -28,8 +28,8 @@ banner() {
 }
 
 if [ ! -f .testbase ]; then
-	echo "Must be run from the working directory of the test folder"
-	exit 1
+    echo "Must be run from the working directory of the test folder"
+    exit 1
 fi
 #if [ ! -f ~/.reflex/cfg ]; then
 #    echo "Initializing reflex with null configuration"
@@ -44,16 +44,20 @@ unset REFLEX_URL
 unset REFLEX_APIKEY
 
 export TESTROOT=$(pwd)
+tests=$(ls -1)
+if [ "$@" ]; then
+    tests="$@"
+fi
 total=0
-for d in *; do
-	cd $TESTROOT
-	if [ -d $d ]; then
-		cd $TESTROOT/$d
-		banner
-		echo "-- $d"
-		./test
-		total=$(expr $total + $?)
-	fi
+for d in $tests; do
+    cd $TESTROOT
+    if [ -d $d ]; then
+        cd $TESTROOT/$d
+        banner
+        echo "-- $d"
+        ./test
+        total=$(expr $total + $?)
+    fi
 done
 
 banner

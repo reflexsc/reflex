@@ -212,12 +212,12 @@ def main():
 
 	# with store-package this is the MD5
     #tap.ok_run("action roll-package", '5aad32443c0ce586c6dc3ac41033e907',
-    tap.ok_run("action roll-package", '32520c19cd392d9b28496a17f888a2fb',
-               ["action", "--notime", "--debug=test", "run", "roll-package"] + addargs)
-
-    tap.ok_run("verify package", 'ded41bf4bebb2e61e41c01d628eac82a',
-               'tar -tzf ' + depfile + '| sort -u', shell=True)
-
+#    tap.ok_run("action roll-package", '32520c19cd392d9b28496a17f888a2fb',
+#               ["action", "--notime", "--debug=test", "run", "roll-package"] + addargs)
+#
+#    tap.ok_run("verify package", 'ded41bf4bebb2e61e41c01d628eac82a',
+#               'tar -tzf ' + depfile + '| sort -u', shell=True)
+#
     if not args.noclean and not tap._tap_bad:
         clean()
 

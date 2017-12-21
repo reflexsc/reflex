@@ -765,7 +765,7 @@ class RCObject(rfx.Base):
                         raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine or --debug=remote-abac to cli") # pylint: disable=line-too-long
                     return False
         if raise_error:
-            raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine or --debug=remote-abac to cli") # pylint disable=line-too-long
+            raise PolicyFailed("Unable to get permission, try adding --debug=abac arg to engine or --debug=remote-abac to cli") # pylint: disable=line-too-long
         dbg(step="FAILED")
         return False
 
@@ -1115,6 +1115,14 @@ class Instance(RCObject):
         self.omap['address'] = RCMap(stored="data", dtype=dict)
         super(Instance, self).__init__(*args, **kwargs)
 
+    def skeleton(self):
+        """return a set of required attributes with default values"""
+        return dict(
+            address=dict(),
+            service="unknown",
+            status="new"
+        )
+
     def validate(self):
         errors = super(Instance, self).validate()
 
@@ -1215,7 +1223,7 @@ class Group(RCObject):
         errors = super(Group, self).validate()
 
         opts = Schema.table_names + ["set", "password"]
-        if self.obj['type'] not in opts:
+        if self.obj['type'].lower() not in opts:
             raise InvalidParameter("Invalid type=" + self.obj['type'] +
                                    " not one of: " + ", ".join(opts))
 
@@ -1248,7 +1256,7 @@ class Group(RCObject):
                     grp.append(name.lower() + ":" + sha256)
             self.obj['group'] = grp
             self.obj['_grp'] = _grp
-        elif self.obj['type'] in Schema.table_names:
+        elif self.obj['type'].lower() in Schema.table_names:
             # todo: look for better option
             # pylint: disable=eval-used
             class_obj = eval(self.obj['type'])(clone=self)
@@ -1879,7 +1887,7 @@ class Schema(rfx.Base):
     # also: order matters
     tables = [Policy, Policyscope, Pipeline, Service, Config, Instance, Apikey,
               Build, Group, AuthSession, State]
-    table_names = [map x.name in tables]
+    table_names = [x.__name__.lower() for x in tables]
     master = ''
 
     # pylint: disable=super-init-not-called

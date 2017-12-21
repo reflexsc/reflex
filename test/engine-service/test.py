@@ -72,7 +72,7 @@ class Tester(rfx.Base):
     auth = None
     attrs = None
     count = 0
-    results = {}
+    results = dict()
 
     def __init__(self, *args, **kwargs):
         if kwargs.get('baseurl'):
@@ -781,6 +781,20 @@ def test_full_stack(schema, base, tester, baseurl, args):
     os.environ['REFLEX_APIKEY'] = tester.auth.apikey.key
     rcs_master = client.Session().cfg_load()
 
+    # verify instance ping
+    tester.okcmp("Reflex Instance Ping", tester, tester.rcs,
+                 [rcs_master.instance_ping, "test-instance", {
+                     "address": {
+                         "ip0": "10.0.0.0"
+                     },
+                 }], {},
+                 r"'status': 'updated'"
+                 )
+    tester.okcmp("Reflex Instance Ping Verify", tester, tester.rcs,
+                 [rcs_master.get, "instance", "test-instance"], {},
+                 r"'ping-from-ip': '127.0.0.1'")
+
+    # create a new apikey
     tester.okcmp("Reflex Apikey Create", tester, tester.rcs,
                  [rcs_master.create, "apikey", {
                      "name": "amy-pond"
@@ -791,7 +805,9 @@ def test_full_stack(schema, base, tester, baseurl, args):
                  [rcs_master.get, "apikey", "amy-pond"], {},
                  r"'name': 'amy-pond'")
 
-    pond_apikey = tester.results[1]['name'] + "." + tester.results[1]['secrets'][0]
+    # tester object keeps all its results based on order.  If added to above,
+    # increment the order
+    pond_apikey = tester.results[3]['name'] + "." + tester.results[3]['secrets'][0]
     os.environ['REFLEX_APIKEY'] = pond_apikey
     rcs_pond = client.Session().cfg_load()
     tester.okcmp("Reflex Client Create (limited)", tester, tester.rcs,
