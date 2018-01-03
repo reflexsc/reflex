@@ -225,7 +225,6 @@ class EngineCli(rfx.Base):
         stdout = list()
         stderr = list()
         show = list() # uppercase header
-        cols = list()
         if parsed.get('--stderr'):
             stderr = [x.lower() for x in re.split(r"\s*,\s*", parsed['--stderr'])]
         if parsed.get('--stdout'):
@@ -235,12 +234,14 @@ class EngineCli(rfx.Base):
             show = [x.lower() for x in re.split(r"\s*,\s*", parsed['--show'])]
             if not stderr and not stdout:
                 stderr = [x for x in range(0, len(show)) if show[x] != "name"]
-            cols = show.copy()
         elif stderr or stdout:
             show = stdout + stderr
 
         if not show:
             show = ['name', 'id']
+
+        cols = show.copy()
+        ncols = len(cols)
 
         # find out any sub.key references -- we can only request the top level
         subs = dict()
@@ -282,7 +283,7 @@ class EngineCli(rfx.Base):
                 obj_lower[key.lower()] = value
 
             row = list()
-            for key in range(0, len(cols)):
+            for key in range(0, ncols):
                 try:
                     if subs and subs.get(key):
                         row.append(dictlib.dig(obj_lower[cols[key]], subs[key]))
