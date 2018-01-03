@@ -235,15 +235,25 @@ class EngineCli(rfx.Base):
             show = [x.lower() for x in re.split(r"\s*,\s*", parsed['--show'])]
             if not stderr and not stdout:
                 stderr = [x for x in range(0, len(show)) if show[x] != "name"]
-            cols = show
+            cols = show.copy()
         elif stderr or stdout:
             show = stdout + stderr
 
         if not show:
             show = ['name', 'id']
 
-        show = [x.upper() for x in show]
-        new = [show]
+        # find out any sub.key references -- we can only request the top level
+        subs = dict()
+        for x in range(0, len(cols)):
+            if '.' in cols[x]:
+                elem = cols[x]
+                top = elem[0:elem.index('.')]
+                sub = elem[elem.index('.')+1:]
+                subs[x] = sub
+                cols[x] = top
+
+        cols = [x.lower() for x in cols]
+        results = [[x.upper() for x in show]]
 
         try:
             objs = self.rcs.list(obj_type, cols=cols, match=limit_expr)
@@ -267,19 +277,22 @@ class EngineCli(rfx.Base):
                     self.ABORT(traceback.format_exc())
 
             # make it insensitive
-            objup = dict()
+            obj_lower = dict()
             for key, value in obj.items():
-                objup[key.upper()] = value
+                obj_lower[key.lower()] = value
 
             row = list()
-            for key in show:
-                if objup.get(key):
-                    row.append(objup[key])
-                else:
+            for key in range(0, len(cols)):
+                try:
+                    if subs and subs.get(key):
+                        row.append(dictlib.dig(obj_lower[cols[key]], subs[key]))
+                    else:
+                        row.append(obj_lower[cols[key]])
+                except (KeyError, TypeError):
                     row.append('')
-            new.append(row)
+            results.append(row)
 
-        rfx.tabulate.cols(new, stderr=stderr, header=True, fmt=parsed.get('--format', 'txt'))
+        rfx.tabulate.cols(results, stderr=stderr, header=True, fmt=parsed.get('--format', 'txt'))
 
     ###########################################################################
     def copy_cli(self, obj_type, obj_source, obj_dest):
