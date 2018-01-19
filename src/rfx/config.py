@@ -227,7 +227,8 @@ class ConfigProcessor(VerboseBase):
 
         # pass4, do setenv last, it does not merge into allvars view
         for key in conf.setenv:
-            conf.setenv[key] = self.macro_expand(conf.setenv[key], allvars)
+            #conf.setenv[key] = self.macro_expand(conf.setenv[key], allvars)
+            conf.setenv[key] = self.sed_env(conf.setenv[key], allvars, key)
 
         if conf.content.get('dest'):
             conf.content.dest = self.macro_expand(conf.content.dest, allvars)
