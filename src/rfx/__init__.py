@@ -43,10 +43,9 @@ from stat import S_IRWXU # LOG2FILE
 import requests
 import nacl.utils
 import jwt
-
+import ujson as json
 # cipher bits
 from rfx import crypto
-import ujson as json
 
 # find the reflex base install folder based on this lib
 BASEDIR = os.path.realpath(os.path.dirname(__file__)).rsplit("/", 1)[0]
@@ -342,7 +341,7 @@ class Base(Colorize):
             }, kwargs)
             if 'msg' in merged and not merged['msg']:
                 del merged['msg']
-            if len(msg):
+            if msg:
                 if not merged.get('msg'):
                     merged['msg'] = msg.join(" ")
                 else:
@@ -545,6 +544,7 @@ class Base(Colorize):
                 return env[match_key]
             elif match_key != source_value and match_key in dictionary:
                 return dictionary[match_key]
+            return None
         return re.sub(r"\$\{([a-zA-Z0-9_-]+)\}", env_match, value)
 
     ###########################################################################

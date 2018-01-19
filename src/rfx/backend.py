@@ -245,13 +245,13 @@ class EngineCli(rfx.Base):
 
         # find out any sub.key references -- we can only request the top level
         subs = dict()
-        for x in range(0, len(cols)):
-            if '.' in cols[x]:
-                elem = cols[x]
+        for pos in range(len(cols)): # pylint: disable=consider-using-enumerate
+            if '.' in cols[pos]:
+                elem = cols[pos]
                 top = elem[0:elem.index('.')]
                 sub = elem[elem.index('.')+1:]
-                subs[x] = sub
-                cols[x] = top
+                subs[pos] = sub
+                cols[pos] = top
 
         cols = [x.lower() for x in cols]
         results = [[x.upper() for x in show]]

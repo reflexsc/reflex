@@ -28,6 +28,7 @@ import sys
 import copy
 # subprocess and input are used by password
 import subprocess
+# pylint: disable=duplicate-code
 try:
     from builtins import input # pylint: disable=redefined-builtin
     get_input = input # pylint: disable=invalid-name

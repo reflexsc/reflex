@@ -67,7 +67,7 @@ class VerboseBase(rfx.Base):
             self.verbose = False
         super(VerboseBase, self).__init__(*args, **kwargs)
 
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name,inconsistent-return-statements
     def NOTIFY(self, *msg, **kwargs):
         if self.verbose:
             return super(VerboseBase, self).NOTIFY(*msg, **kwargs)
@@ -109,6 +109,7 @@ class ConfigProcessor(VerboseBase):
     cfgdir = ''
     did = None
     rx_var = re.compile(r"%\{([a-zA-Z0-9_.-]+)\}") # macro_expand
+    rx_env = re.compile(r"\$(\{([a-zA-Z0-9_]+)\}|([a-zA-Z0-9_]+))") # environ_var
     expanded_vars = None
     engine = None
     peers = None
@@ -131,7 +132,7 @@ class ConfigProcessor(VerboseBase):
 
 
     ############################################################################
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name,inconsistent-return-statements
     def NOTIFY(self, *msg, **kwargs):
         if self.verbose:
             return super(ConfigProcessor, self).NOTIFY(*msg, **kwargs)
@@ -186,12 +187,14 @@ class ConfigProcessor(VerboseBase):
             if match_key != source and dict_match != None:
                 return str(dict_match)
             self.NOTIFY("Unable to find expansion match for key '" + match_key + "'")
+            return None
 
         # loop to recurse properly (handling macros in macros)
         if isinstance(value, bytes):
             value = value.decode()
         if not isinstance(value, str):
             value = str(value)
+        # first do our configs
         while self.rx_var.search(value):
             value = self.rx_var.sub(do_match, value)
         return value
@@ -227,8 +230,8 @@ class ConfigProcessor(VerboseBase):
 
         # pass4, do setenv last, it does not merge into allvars view
         for key in conf.setenv:
-            #conf.setenv[key] = self.macro_expand(conf.setenv[key], allvars)
-            conf.setenv[key] = self.sed_env(conf.setenv[key], allvars, key)
+            conf.setenv[key] = self.macro_expand(conf.setenv[key], allvars)
+            #conf.setenv[key] = self.sed_env(conf.setenv[key], allvars, key)
 
         if conf.content.get('dest'):
             conf.content.dest = self.macro_expand(conf.content.dest, allvars)

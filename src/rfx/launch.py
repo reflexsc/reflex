@@ -312,6 +312,7 @@ class LaunchCli(App):
     """CLI interface to Launch"""
 
     ############################################################################
+    # pylint: disable=inconsistent-return-statements
     def get_target(self, *argv):
         """
         Pull the target from either the first arg, environment, or abort.

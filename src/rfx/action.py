@@ -447,7 +447,7 @@ class Action(rfx.Base):
         return False
 
     ############################################################################
-    # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches
+    # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches,inconsistent-return-statements
     def _do__cmd(self, target, action, exc, env=dict(), echo=False, doexec=False):
         """
         Execute a sub process as part of a action, and handle the subsequent step
@@ -488,8 +488,9 @@ class Action(rfx.Base):
         self.notifyfd.flush()
         self.outputfd.flush()
         if doexec:
-            os.execv(fqexc[0], fqexc)
+            # pylint: disable=inconsistent-return-statements
             # this is the end
+            os.execv(fqexc[0], fqexc)
         else:
             proc = subprocess.Popen(fqexc, stdin=subprocess.PIPE, env=env)
             if extcfg:
@@ -509,7 +510,7 @@ class Action(rfx.Base):
         self.ABORT("Unable to continue after failure on '" + target + "'")
 
     ############################################################################
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument,inconsistent-return-statements
     def _do_success(self, target, action):
         """
         Handle a success
@@ -571,7 +572,7 @@ class Action(rfx.Base):
             self.NOTIFY(msg)
 
     ############################################################################
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name,inconsistent-return-statements
     def do(self, target, opts=None, export_meta=False):
         """
         do an action
