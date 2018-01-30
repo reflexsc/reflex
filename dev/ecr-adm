@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+# :set expandtab ts=4 sw=4 ai ft=python
+# This is work extracted, drived or from Reflex, and is licensed using the GNU AFFERO License, Copyright Brandon Gillespie
+
+import boto3
+import json
+import datetime
+import sys
+import os
+import rfx
+import rfx.client
+import re
+import copy
+import argparse
+import dictlib
+
+################################################################################
+def get_imgs(ecr, repo_name):
+    images = []
+
+    maximgs = 25
+
+    paginator = ecr.get_paginator('describe_images')
+    page_iterator = paginator.paginate(repositoryName=repo_name)
+    for results in page_iterator:
+        for img in results['imageDetails']:
+            pushed_time = img["imagePushedAt"]
+            images.append([pushed_time, img])
+
+    return sorted(images, key=lambda elem: elem[0])
+
+################################################################################
+def scan_registry(builds, ecr, *repos):
+
+    desc = ecr.describe_repositories()
+
+    regimgs = dict()
+
+    for repo in desc["repositories"]:
+        repo_name = repo["repositoryName"]
+        if repos and repo_name not in repos:
+            continue
+
+        regimgs[repo_name] = dict(
+            ver=dict(),
+            key=dict(),
+            used=dict(),
+            digest=dict(),
+        )
+        myrepo = regimgs[repo_name] 
+
+        for iinfo in get_imgs(ecr, repo_name):
+            img = iinfo[1]
+            digest = img['imageDigest']
+            myrepo['digest'][digest] = img
+
+    return regimgs
+
+################################################################################
+def rm_all(array, item):
+    try:
+        while True:
+            array.remove(item)
+    except ValueError:
+        return
+
+################################################################################
+def fprint(buf, *args):
+    if args:
+        sys.stdout.write(buf.format(*args))
+    else:
+        sys.stdout.write(buf)
+
+################################################################################
+class Repo(object):
+    images = None   # ordered list of image ids in repo (by age)
+    idata = None  # repo as dict of image ids
+    untagged = None # ordered list of untagged items in repo
+    builds = None   # dict of image ids as builds in reflex
+    rcs = None      # reflex client object
+    ecr = None
+    version_rx = re.compile(r'^\d+\.\d+\.\d+$')
+    max_images = 15 # 20
+    name = ''
+
+    ############################################################################
+    def __init__(self, data=None, name='', rcs=None, builds=None, args=None, ecr=None):
+        self.builds = builds
+        self.rcs = rcs
+        self.args = args
+        self.ecr = ecr
+        self.images = list()
+        self.untagged = list()
+        self.idata = idata = data['digest'] # dictlib.Obj(data['digest'])
+        self.data = data
+        self.name = name
+
+        pipe = None
+        if builds:
+            pipe = self.builds.get(self.name, {}).copy()
+
+        # create ordered list by imagePushedAt date, oldest first
+        for img_id in sorted(idata.keys(), key=lambda x: idata[x]['imagePushedAt']):
+            self.images.append(img_id)
+            idata[img_id] = this = dictlib.Obj(idata[img_id]) # easier to read
+
+            this['short'] = img_id
+            if this.short[:7] == 'sha256:':
+                this.short = this.short[7:]
+                this.short = this.short[:12]
+
+            # separate our versions from our release labels
+            labels = list()
+            vers = list()
+            for tag in this.get('imageTags', []):
+                if self.version_rx.match(tag):
+                    vers.append(tag)
+                else:
+                    labels.append(tag)
+
+            this['labels'] = labels
+            this['vers'] = vers
+            this['builds'] = dict()
+
+            if not labels:
+                self.untagged.append(img_id)
+
+            # everything after this is to reconcile reflex
+            if not pipe:
+                continue
+
+            for ver in this.vers:
+                key = self.name + "-" + ver.replace(".", "-")
+                if pipe.get(key):
+                    this['builds'][key] = 1
+                    del(pipe[key]) # drop keys we've found
+
+            # xref shas?
+
+        fprint("==> {} ({})\n", name, len(self.images))
+
+        self.reconcile_reflex_builds(pipe) # remainders
+
+        if args.max_images:
+            self.max_images = int(args.max_images)
+            sys.stderr.write("    (using args.max-images={})\n".format(self.max_images))
+        else:
+            if self.builds:
+                try:
+                    pipe = self.rcs.get('pipeline', name)
+                    if pipe.get('max-images'):
+                        self.max_images = int(app_obj.get('max-images', self.max_images))
+                        sys.stderr.write("    (using pipeline {}.max-images={})\n".format(name, self.max_images))
+                except:
+                    pass
+
+    def reconcile_reflex_builds(self, pipe_builds):
+        if not pipe_builds:
+            return
+
+        fprint("    Builds with no correlated image:\n")
+        for remainder in pipe_builds:
+            fprint("{:15} {}", '', remainder)
+            self.drop_build(remainder)
+            fprint("\n")
+
+    ############################################################################
+    def next_untagged(self):
+        if self.untagged:
+            return self.untagged.pop(0)
+        return None
+
+    ############################################################################
+    def list(self):
+        padding = 0
+
+        for img_id in self.images:
+            img_o = self.idata[img_id]
+            if img_o.get('imageTags'):
+                maxlen = sum(map(len, img_o.imageTags)) + len(img_o.imageTags)
+                if maxlen > padding:
+                    padding = maxlen
+    
+        for img_id in self.images:
+            img_o = self.idata[img_id]
+            fprint(self._format(img_o, padding=padding))
+            if self.builds:
+                if not img_o.builds:
+                    fprint("<MISSING Reflex build object>")
+                else:
+                    fprint(' '.join(img_o.builds))
+            fprint("\n")
+                
+
+    ############################################################################
+    def _format(self, image_o, padding=0):
+        builds = ' '
+        if not image_o.builds:
+            builds = '*'
+        fmt = "  {}{} ({:%Y-%m-%d.%H:%M:%S}) {"
+        if padding:
+            fmt += ":" + str(padding)
+        fmt += "}"
+        return fmt.format(image_o.short, builds, image_o.imagePushedAt, " ".join(image_o.vers + image_o.labels))
+
+    ############################################################################
+    def drop(self, image_id):
+        fprint(self._format(self.idata[image_id]))
+        if not self.args.clean:
+            fprint("<WOULD DROP>")
+
+        self.drop_build_for_image(image_id)
+        self.drop_image(image_id)
+
+        rm_all(self.untagged, image_id)
+        rm_all(self.images, image_id)
+
+        fprint("\n")
+
+    ############################################################################
+    def drop_build_for_image(self, image_id):
+        if not self.args.clean:
+            return
+
+        if not self.builds:
+            return
+
+        img_o = self.idata[image_id]
+        for build_name in img_o.builds:
+            self.drop_build(build_name)
+
+    ############################################################################
+    def drop_build(self, build_name):
+        if not self.args.clean:
+            return
+
+        if not self.builds:
+            return
+
+        # need to xref
+        try:
+            self.rcs.delete('build', build_name)
+            fprint(" <drop {}>".format(build_name))
+        except Exception as err:
+            fprint(" <Failed to delete: {}>", err)
+
+    ############################################################################
+    def drop_image(self, image_id):
+        if not self.args.clean:
+            return
+
+        fprint(".drop_image()")
+        this = self.idata[image_id]
+
+        self.ecr.batch_delete_image(
+            registryId=this.registryId,
+            repositoryName=this.repositoryName,
+            imageIds=[{
+                'imageDigest': this.imageDigest
+            }])
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reflex", "--reflex-sync", action='store_true')
+    parser.add_argument("--clean", action='store_true')
+    parser.add_argument("--max-images", "--max", type=int)
+    parser.add_argument("repos", nargs='*')
+
+    args = parser.parse_args()
+
+    # reflex
+    builds = None
+    rcs = rfx.client.Session().cfg_load()
+
+    if args.reflex:
+        # pre-scan reflex
+        builds = dict()
+        for obj in rcs.list('build', cols=["name", "state", "application", "services", "version"]):
+            build = obj['name']
+            pipe = obj.get('application')
+            if not builds.get(pipe):
+                builds[pipe] = {}
+            builds[pipe][build] = obj
+
+    # load the appropriate keys
+    if not os.environ.get('EXTERNAL_HOST'):
+        sys.exit("Unable to find EXTERNAL_HOST variable")
+    try:
+        match = re.match(r'adm-([a-z][0-9])', os.environ.get('EXTERNAL_HOST'))
+        cfg_name = 'ops-admin-' + match.group(1)
+        fprint("==> Loading reflex config for " + cfg_name + "\n")
+        config = rcs.get("config", cfg_name).get('sensitive', {}).get('parameters',{})
+        os.environ['AWS_SECRET_ACCESS_KEY'] = config.get('aws-access-secret')
+        os.environ['AWS_ACCESS_KEY_ID'] = config.get('aws-access-key')
+    except Exception as err:
+        sys.exit("Unable to continue: {}".format(err))
+
+    # requires the env to be setup, either by reflex above or in local env
+    ecr = boto3.client('ecr', region_name='us-west-2')
+
+    # scan registry and cross-ref builds
+    docker_registry = scan_registry(builds, ecr, *args.repos)
+
+    # Now do the mojo
+    for repo_name in docker_registry:
+
+        repo = Repo(data=docker_registry[repo_name],
+                    name=repo_name,
+                    args=args,
+                    ecr=ecr,
+                    builds=builds,
+                    rcs=rcs)
+
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        while len(repo.images) > repo.max_images:
+            oldest = repo.next_untagged()
+            if not oldest:
+                fprint("ERROR: Not enough untagged images to prune!\n")
+                break
+            repo.drop(oldest)
+
+        repo.list()
+
+################################################################################
+try:
+    main()
+except KeyboardInterrupt:
+    pass

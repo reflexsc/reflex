@@ -1,0 +1,610 @@
+#!/usr/bin/env python3
+# vim modeline (put ":set modeline" into your ~/.vimrc)
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+# This is work extracted, drived or from Reflex, and is licensed using the GNU AFFERO License, Copyright Brandon Gillespie
+
+import sys
+import os
+import re
+import argparse
+import requests
+import time
+import json
+from requests import ConnectionError, Timeout
+from requests.models import InvalidURL
+import traceback
+import dictlib
+import rfx
+from rfx import json2data, json4store, json4human, NotFoundError
+import rfx.backend
+import dns.resolver
+
+################################################################################
+# Our monitor definition is borken
+class InvalidMonitor(BaseException):
+    pass
+
+################################################################################
+def main():
+    syntax = """
+Syntax:
+
+    version-check {test-args} --service=name 
+    version-check {test-args} --pipeline=name [--lanes=x,y,z] [--region=x]
+
+Test args:
+
+    --report             - do not wait and retry if the version doesn't match,
+                           just report success/fail on first call
+    --expect=content|path - expect version to match raw content vs json content
+                           (if a path is specified, i.e. status.version)
+                           default is 'content' (i.e. raw data compare)
+    --instance-refresh=30 - refresh service instances list every x seconds
+    --retry-delay=1      - delay between failed tests x seconds
+    --total-wait=900     - how long to wait on all tests
+    --deployable         - only test services matching with service.deploy=true
+    --not-disabled       - do not test services with service.disabled=true
+    --timestamp|--no-timestamp - enable / disable timestamps
+
+Additional:
+
+    --debug=*            - debug showing module (or * for all modules)
+
+"""
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--help", action='store_true')
+    parser.add_argument("--debug", action='append')
+    parser.add_argument("--service")
+    parser.add_argument("--pipeline")
+    parser.add_argument("--lanes")
+    parser.add_argument("--region")
+    parser.add_argument("--timestamp", action='store_true')
+    parser.add_argument("--no-timestamp", "--notimestamp", action='store_true')
+    parser.add_argument("--report", action='store_true')
+    parser.add_argument("--deployable", "--deploy", action='store_true')
+    parser.add_argument("--disabled", "--not-disabled", "--disable", action='store_true')
+    parser.add_argument("--instance-refresh", default=30)
+    parser.add_argument("--retry-delay", default=1)
+    parser.add_argument("--total-wait", default=900)
+    parser.add_argument("--expect")
+    args = parser.parse_args()
+    base = rfx.Base(debug=args.debug).cfg_load()
+    if args.timestamp:
+        base.timestamp = True
+    if args.no_timestamp:
+        base.timestamp = False
+    if args.help:
+        base.ABORT(syntax)
+
+    retry_delay = float(args.retry_delay)
+
+    rcs = rfx.client.Session(debug=args.debug, base=base)
+
+    total_wait = int(args.total_wait)
+
+    counter = Counter(base, total_wait, retry_delay)
+
+    if args.service and args.pipeline:
+        base.ABORT(syntax +
+                   "\n!! Only one of --pipeline or --service may be specified")
+
+    services = list()
+    if args.pipeline:
+        pipe = Pipeline(args.pipeline, rcs)
+        services = pipe.list_cached(args.region, args.lanes,
+                                    disabled=args.disabled,
+                                    deployable=args.deployable)
+
+    elif args.service:
+        services = [args.service]
+
+    else:
+        base.ABORT(syntax +
+                   "\n!! One of --pipeline or --service may be specified")
+
+    if not services:
+        base.ABORT("no services found")
+
+    failed = 0
+    for svc in services:
+        svco = Service(svc, rcs, counter, args)
+        svco.test(report=args.report)
+        for url, status in svco.status.items():
+            if not status:
+                failed += 1
+
+    sys.exit(failed)
+
+################################################################################
+class Counter(object):
+    remaining = 0
+    retry_delay = 0
+    start = 0
+    base = None
+    interval = 0
+
+    ############################################################################
+    def __init__(self, base, remaining, retry_delay):
+        self.base = base
+        self.remaining = remaining
+        self.retry_delay = retry_delay
+        self.start = time.time()
+        self.end = self.start + self.remaining
+
+    ############################################################################
+    def start_interval(self):
+        self.interval = time.time()
+
+    ############################################################################
+    def interval_time(self):
+        return time.time() - self.interval
+
+    ############################################################################
+    def time_remaining(self):
+        return time.time() <= self.end
+
+    ############################################################################
+    def time_left(self, msg):
+        if self.time_remaining():
+            return True
+        self.base.ABORT("Timeout " + msg)
+
+################################################################################
+class Pipeline(rfx.Base):
+    rcs = None
+    name = ''
+
+    ############################################################################
+    def __init__(self, name, rcs):
+        rfx.Base.__inherit__(self, rcs)
+        self.name = name.lower()
+        self.rcs = rcs
+
+    ############################################################################
+    def list(self, region=None, lanes=None, deployable=False, disabled=False):
+        """list"""
+        lanes_array = set()
+        if lanes:
+            lanes_array = set(re.split("\s*,\s*", lanes))
+        if region:
+            region = region.lower()
+
+        matched = set()
+        for svc in self.rcs.cache_list('service',
+                                       match="%" + self.name + "%",
+                                       cols=['region','deploy','disabled','lane','name']):
+            if region and svc.get('region', region).lower() != region:
+                continue
+            if deployable and not svc.get('deploy', False):
+                continue
+            if disabled and svc.get('disabled', False):
+                continue
+            if lanes:
+                lane = svc.get('lane', '').lower()
+                if lane not in lanes_array:
+                    continue
+            matched.add(svc.get('name'))
+
+        return list(matched)
+
+################################################################################
+class Service(rfx.Base):
+    name = ''
+    obj = None
+    conf = None
+    instance_list = None
+    instances = None
+    instances_refreshed_at = 0
+    instance_refresh = 30
+    tested = None
+    check = None
+    rcs = None
+    counter = None
+    status = None
+    total = 0
+    last_result = None
+
+    ############################################################################
+    def __init__(self, name, rcs, counter, args):
+        rfx.Base.__inherit__(self, rcs)
+        self.name = name
+        self.obj = rcs.cache_get('service', name)
+        self.pipeline = rcs.cache_get('pipeline', self.obj['pipeline'])
+        self.tested = set()
+        self.status = dict()
+        self.counter = counter
+        self.rcs = rcs
+        self.instances = dict()
+        self.update_instances()
+        if args.instance_refresh:
+            self.instance_refresh = int(args.instance_refresh)
+
+        if self.pipeline.get('monitor'):
+            for monitor in self.pipeline.get('monitor'):
+                if monitor.get('name') == 'version-check':
+                    self.check = monitor
+                    break
+
+        if not self.check:
+            rcs.ABORT("Missing pipeline({}.monitor[].name=version-check) definition"
+                      .format(self.obj['pipeline'].split(".")[0]))
+
+        target = self.obj.get('target', '')
+        if target:
+            try:
+                expect = self.check['expect']
+                if expect.get('no-version-insert'): # special override
+                    return
+
+                rel = rcs.cache_get('build', target)
+                vers = rel.get('version', '')
+                if rel:
+                    if args.expect and args.expect != "content":
+                        expect['json'] = [[args.expect, vers]]
+                    else:
+                        expect['content'] = vers
+            except rfx.client.ClientError:
+                rcs.ABORT("Missing build({})".format(target))
+
+        if not self.check['expect'].get('json') and not self.check['expect'].get('content'):
+            rcs.ABORT("Unable to identify version to check")
+
+    ############################################################################
+    def log(self, *args, **kwargs):
+        msg = ''
+        if self.timestamp:
+            msg += time.strftime("%Y-%m-%d %H:%M:%S")
+        msg += ' '.join(args)
+
+        if kwargs:
+            for kwarg in sorted(kwargs.keys()):
+                val = str(kwargs[kwarg])
+                if " " in val or '"' in val:
+                    val = json.dumps(val)
+                msg += " " + kwarg + "=" + val
+        print(msg)
+
+    ############################################################################
+    def report(self, res):
+        # need to get the version into this
+        rep = {
+          "service":self.name,
+          "status":res['status'],
+          "node":res['nodesvc']
+        }
+        if res.get('elapsedms') > 0:
+            rep['latency'] = round(res.get('elapsedms'), 3)
+        if res.get('message'):
+            rep['reason'] = res.get('message')
+        else:
+            rep['reason'] = 'ok'
+        self.log(**rep)
+
+    ############################################################################
+    def next_target(self):
+        """because instances gets refreshed periodically"""
+        if not self.instance_list:
+            return None
+        target = self.instance_list[0]
+        self.instance_list = self.instance_list[1:]
+        while self.instance_list and target in self.tested:
+            target = self.instance_list[0]
+            self.instance_list = self.instance_list[1:]
+
+        return target
+
+    ############################################################################
+    def test(self, report=False):
+        """Loop and retry the list of instances until we get a good result"""
+        try:
+            last = 'unknown'
+            target = self.next_target()
+            while target is not None:
+                self.DEBUG("Checking target={}".format(target))
+                self.counter.time_left("waiting for instances")
+
+                monitor = self.check.copy()
+                monitor['target'] = self.instances[target]
+                if self.last_result and last != target:
+                    last = target
+                if self.test_version(monitor, report=report):
+                    # on a good test, mark it as done and move onto the next target
+                    self.tested.add(target)
+                    target = self.next_target()
+                elif self.update_instances():
+                    # or if we failed see if we should update instances.  if so,
+                    # also update target
+                    target = self.next_target()
+                    last = 'unknown'
+
+                # otherwise we just retry the same target
+
+        except InvalidURL as err:
+            self.ABORT(str(err))
+
+    ############################################################################
+    def update_instances__dns(self, force=False, discovery=None):
+        """Lookup a base name in DNS and resolve it to one or more A name IPs"""
+        answers = dns.resolver.query(discovery.get('name'), 'A')
+        port = str(discovery.get('port'))
+        for rdata in answers:
+            addr = str(rdata)
+            self.instances[addr] = dict(
+                host=addr,
+                port=port,
+                hostport=addr + ":" + port
+            )
+            self.instance_list.append(addr)
+
+    ############################################################################
+    def update_instances__mapped(self, force=False, discovery=None):
+        for inst in self.obj.get('active-instances', []):
+            self.rcs.cache_drop('instance', inst)
+            ino = self.rcs.cache_get('instance', inst)
+            if ino.get('status') != 'ok':
+                continue
+            addr = ino.get('address', {})
+            # static-host overrides ping-from-ip(dynamic), and fall back to just host(legacy)
+            host = addr.get('static-host', addr.get('ping-from-ip', addr.get('host')))
+            if not host:
+                self.log(error="Instance {} does not have an address.static-host or address.ping-from-ip!".format(inst))
+                continue
+            if not self.instances.get(inst):
+                self.instances[inst] = dict()
+            self.instances[inst]['host'] = host
+            self.instance_list.append(inst)
+            if addr.get('port'):
+                self.instances[inst]['hostport'] = host + ":" + str(addr['port'])
+            if addr.get('service'):
+                self.instances[inst]['service'] = addr['service']
+
+    ############################################################################
+    def update_instances(self, force=False):
+        """if instance_refresh interval is up, refresh our instances list"""
+        if not force and time.time() - self.instances_refreshed_at <= self.instance_refresh:
+            return False
+        refresh = False
+        if self.total > 0:
+            self.log(info="refreshing targets")
+            self.total = 0
+            refresh = True
+        self.instance_list = list()
+        disc = self.obj.get('instance-discovery', {'strategy': 'mapped'})
+        
+        try:
+            method = getattr(self, 'update_instances__' + disc.get('strategy'))
+        except AttributeError:
+            self.ABORT("Invalid service({}.{}={}), try: dns or mapped"
+                       .format(self.name, "instance-discovery.strategy", disc.get('strategy')))
+        try:
+            method(force=force, discovery=disc)
+        except Exception as err:
+            traceback.print_exc()
+            self.ABORT("Cannot run instance strategy")
+        self.instances_refreshed_at = time.time()
+        self.DEBUG("update_instances({}) => {}".format(self.name, self.instance_list))
+        return True
+
+    ############################################################################
+    def test_version(self, monitor, report=False):
+        """wrapper"""
+        httpmon = HttpMonitor(base=self)
+
+        self.counter.start_interval()
+        result = self._test_version(httpmon, monitor, report=report)
+        self.DEBUG("times: retry={} total={}".format(self.counter.interval_time(),
+                                                     self.counter.time_remaining()))
+        return result
+
+    ############################################################################
+    def _test_version(self, httpmon, monitor, report=False):
+        """the guts"""
+        self.total += 1
+
+        try:
+            self.last_result = res = httpmon.check(monitor)
+            if res['status'] != 'ok':
+                self.status[res['nodesvc']] = False
+                if report:
+                    self.report(res)
+                    return True
+                self.increment(report)
+            else:
+                self.status[res['nodesvc']] = True
+                self.report(res)
+                return True
+        except KeyboardInterrupt:
+            raise
+        except InvalidMonitor as err:
+            self.ABORT(str(err))
+        except InvalidURL:
+            raise
+        except:
+            self.log(traceback=traceback.format_exc())
+#            traceback.print_exc()
+            self.increment(report)
+
+        return False
+
+    def increment(self, report):
+        if not self.do_DEBUG() and not report:
+            sys.stdout.write(".")
+            if not self.total % 80:
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+        time.sleep(self.counter.retry_delay)
+
+# merge in to use utility function from reflex, copied here for now
+RX_VAR = re.compile(r"%\{([a-zA-Z0-9_.-]+)\}") # macro_expand
+def sed_env(value, dictionary, source_value, env=None):
+    """
+    search and replace ${VARIABLE} in stream, using os.environ for vars,
+    or keyword argument 'env' if it is defined
+    """
+    if not env:
+        env = os.environ
+
+    def env_match(match):
+        """sub function used in matching"""
+        match_key = match.group(1)
+        if match_key in env:
+            return env[match_key]
+        dict_match = dictlib.dig_get(dictionary, match_key, None)
+        if match_key != source_value and dict_match != None:
+            return str(dictionary[match_key])
+        return None
+
+    if isinstance(value, bytes):
+        value = value.decode()
+    if not isinstance(value, str):
+        value = str(value)
+
+    while RX_VAR.search(value):
+        value = RX_VAR.sub(env_match, value)
+    return value
+
+################################################################################
+def sed_env_dict(dictionary, env=None):
+    """
+    reference dictionary for sed_env
+    """
+    for key in dictionary:
+        # only search/replace if elem value is a string
+        if isinstance(dictionary[key], str):
+            dictionary[key] = sed_env(dictionary[key], dictionary, key, env=env)
+    return dictionary
+
+################################################################################
+class HttpMonitor(rfx.Base):
+    def __init__(self, base=None):
+        rfx.Base.__inherit__(self, base)
+
+    def check(self, monitor):
+        try:
+            environ = dict(os.environ)
+            target = monitor['target']
+            if target.get('hostport') and (not target.get('host') or not target.get('port')):
+                host, port = target['hostport'].split(":")
+                target['host'] = host
+                target['port'] = port
+            environ.update(target)
+            query = sed_env_dict(monitor['query'].copy(), env=environ)
+            method = query['method'].lower()
+            url = query.get('url')
+
+            # a default target
+            if not url:
+                url = 'http://{host}:{port}{path}'.format(path=query['path'], **target)
+
+            response = {
+                'url': url,
+                'nodesvc': "{host}:{port}".format(**target),
+                'status': 'unstable',
+                'result': {},
+            #    'monitor': monitor,
+                'message': 'did not meet expected result or no expected result defined',
+                'elapsedms': monitor['timeout']*1000,
+                'code':0
+            }
+
+            # not sed_env_dict -- we do not want to also source in headers
+            headers = query.get('headers', {}).copy()
+            for elem in headers:
+                headers[elem] = sed_env(headers[elem], {}, '', env=environ)
+
+            kwargs = dict(headers=headers, timeout=monitor['timeout'], proxies=dict())
+            if query.get('proxies'): # same syntax as requests lib
+                proxies = query.get('proxies').copy()
+                scheme = url.split(":", 1)[0]
+                if not proxies.get(scheme):
+                    raise InvalidMonitor("proxies defined on monitor but not matching scheme=" + scheme)
+                kwargs['proxies'] = sed_env_dict(proxies, env=environ)
+
+            self.DEBUG(msg="check", url=url, **kwargs)
+            res = response['result'] = getattr(requests, method)(url, **kwargs)
+
+            response['code'] = res.status_code
+            response['elapsedms'] = res.elapsed.total_seconds() * 1000
+
+            expect = monitor['expect'].copy()
+            if expect.get("no-version-insert"):
+                del(expect["no-version-insert"])
+            oks = len(expect.keys())
+            expect = dictlib.Obj(sed_env_dict(expect, env=environ))
+            if expect.get('response-code'):
+                if int(expect.response_code) == res.status_code:
+                    response['message'] = ''
+                    oks -= 1
+                else: # abort with failure, do not pass go
+                    response['message'] = "Expected response {}, received {}".format(
+                        expect.response_code, res.status_code
+                    )
+                    self.DEBUG(msg="failed-expect", reason=response['message'])
+                    return response
+
+            if expect.get('content'):
+                if expect.content in res.text:
+                    response['message'] = ''
+                    oks -= 1
+                else: # abort with failure, do not pass go
+                    response['message'] = "expect mis-match {} != {}".format(expect.content, res.text)
+                    self.DEBUG(msg="failed-expect", reason=response['message'])
+                    return response
+
+            if expect.get('regex'):
+                if re.search(expect.regex, res.text):
+                    response['message'] = ''
+                    oks -= 1
+                else: # abort with failure, do not pass go
+                    response['message'] = "{} !~ {}".format(expect.regex, res.text)
+                    self.DEBUG(msg="failed-expect", reason=response['message'])
+                    return response
+
+            if expect.get('json'):
+                body = None
+                try:
+                    if "application/json" in res.headers.get('Content-Type'):
+                        body = json2data(res.text)
+                    else: # abort with failure, do not pass go
+                        response['message'] = "Resulting content was not JSON (" +\
+                                              res.headers.get('Content-Type') + ")"
+                        self.DEBUG(msg="failed-expect", reason=response['message'])
+                        return response
+                except:
+                    response['message'] = "Invalid JSON in body " + str(res.text)
+                    self.DEBUG(msg="failed-expect", reason=response['message'])
+                    return response
+
+                value = str(dictlib.dig_get(body, expect.json[0][0], ''))
+                if value:
+                    if value == expect.json[0][1]:
+                        response['message'] = ''
+                        oks -= 1
+                    else:
+                        response['message'] = "current {} is not {}".format(value, expect.json[0][1])
+                        self.DEBUG(msg="failed-expect", reason=response['message'])
+                        return response
+                else:
+                    response['message'] = "Could not find key " + expect.json[0][0]
+                    self.DEBUG(msg="failed-expect", reason=response['message'])
+                    return response
+
+            if oks == 0:
+                response['status'] = 'ok'
+
+        except requests.exceptions.Timeout:
+            response['message'] = 'timeout'
+        except requests.exceptions.ConnectionError:
+            response['message'] = 'connect-failed'
+            response['elapsedms'] = -1
+        self.DEBUG(msg="response", response=response)
+        return response
+
+################################################################################
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(1)
+

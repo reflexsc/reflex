@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+# vim modeline (put ":set modeline" into your ~/.vimrc)
+# This is work extracted, drived or from Reflex, and is licensed using the GNU AFFERO License, Copyright Brandon Gillespie
+
+import os
+import sys
+import common
+import build
+import json
+import rfx
+import rfx.optarg
+import rfx.client
+import re
+import requests
+from action import Action
+
+################################################################################
+def syntax(self, msg):
+    print("Syntax: " + self._cmd  + """ {pipeline} {args}
+
+Where arguments are:
+
+    --l?ane|-l={lane}       -- which lane to deploy into?  (i.e. stg, prd)
+  * --v?ersion|-v={version} -- references existing build.  If undefined,
+                               uses svc.target
+  * --r?epo|-r={repo}       -- use which docker repo?  defaults to prod
+  * --promote={lane}        -- promote to {lane} (i.e. stg, prd)
+  * --build-info=JSON       -- add meta-data as JSON
+
+* Optional arguments
+
+Where repo can be one of :\n""")
+    print("    " + ", ".join(common.config.ECR.keys()))
+
+    if msg:
+        print("\n" + msg)
+
+    sys.exit(1)
+
+# define our fail method
+class Core(common.Core):
+    def fail(self, *reason):
+        if reason:
+            syntax(self, *reason)
+        else:
+            syntax(self, "")
+
+def get_services(rcs, pipeline, lane):
+    svcs = dict()
+    for svc in rcs.list('service',
+                        match="%" + pipeline + "%",
+                        cols=['name', 'disabled', 'lane', 'pipeline',
+                              'target', 'deploy-hook', 'actions']):
+
+        if svc.get("pipeline").split(".")[0] != pipeline:
+            continue
+
+        if svc.get('disabled', False):
+            continue
+
+        svc_lane = svc.get('lane', '').lower()
+        if svc_lane == lane:
+            svcs[svc['name']] = svc
+
+    return svcs
+
+################################################################################
+def main():
+    rcs = rfx.client.Session(base=rfx.Base().cfg_load())
+    core = Core(syntax=syntax)
+
+    ######## Argument Parsing
+    optarg = rfx.optarg.Args([
+        "pipe", {
+            "type": "set-value"
+        }
+    ],[
+        "--l?ane|-l", {
+            "type": "set-value"
+        }
+    ],[
+        "--v?ersion|-v", {
+            "type": "set-value"
+        }
+    ],[
+        "--r?epo|-r", {
+            "type": "set-value"
+        }
+    ],[
+        "--b?uild-info|-b", {
+            "type": "set-value"
+        }
+    ],[
+        "--p?romote|-p", {
+            "type": "set-value"
+        }
+    ])
+
+    ######## parse arguments
+    args = optarg.handle_parse(caller=core, argv=sys.argv)
+
+    # repository
+    repo = args.get("--repo", "")
+    if not repo:
+        repo = "prod"
+    if not common.config.ECR.get(repo.lower()):
+        syntax(core, "Invalid or missing docker image repo: " + repo)
+
+    # lane
+    lane = args.get("--lane", "")
+    if not lane:
+        syntax(core, "No lane defined?  Try somethig like: stg, prd, etc")
+
+    # pipeline. assumption: pipeline and base image name are the same...
+    try:
+        pipe = rcs.get('pipeline', args.get("pipe"))
+    except:
+        syntax(core, "Unable to find pipeline: " + args.get("pipe"))
+
+    # find services matching lane
+    svcs = get_services(rcs, pipe['name'], lane)
+    if not svcs:
+        syntax(core,
+               "Unable to find services for pipeline {} and lane {}"
+               .format(pipe['name'], lane)) 
+
+    core.log("Found services: " + ", ".join(svcs.keys()))
+
+    ######## get the version
+    ver = args.get("--version", None)
+    if ver:
+        core.log("Using version override: " + ver)
+        target = pipe['name'] + "-" + ver.replace(".", "-")
+    else:
+        # assumption is all svcs use same version
+        svc = list(svcs.keys())[0]
+        target = svcs[svc].get('target')
+        if not target:
+            core.die("Unable to get target from service:" + svc)
+
+    # cross reference the build object
+    try:
+        buildobj = rcs.get('build', target)
+    except:
+        core.die("Unable to find build: " + target)
+
+    # make sure they all match
+    for svc in svcs:
+        rcs.patch('service', svc, {"target": target})
+
+    ver = buildobj.get("version")
+    if not ver:
+        core.die("Unable to find build:" + target + ".version")
+
+    ######## for build object updates
+    rcsbuild = build.Obj(rcs, pipe['name'], ver, core=core)
+
+    # build-info
+    info = args.get("--build-info", "")
+    if info:
+        try:
+            rcsbuild.add_info(json.loads(info))
+        except Exception as err:
+            syntax("Unable to load build info: " + str(err))
+        print(info)
+        print(rcsbuild.obj)
+        rcsbuild.commit()
+
+    ######## pull and retag in repo
+    core.ecr_login(repo) # because aws/ecr is a pita
+    repofull = common.config.ECR[repo]['host']
+    if repofull:
+        repofull += "/"
+
+    image = pipe.get("docker", {}).get("image")
+    if image:
+        repofull += image
+    else:
+        repofull += pipe['name']
+
+    core.log("Docker pull " + repo + ":" + ver)
+    core.do(["docker", "pull", repofull + ":" + ver])
+
+    rcsbuild.status("tag-repo-" + repo + "-" + lane, "started").commit()
+    core.log("Docker tag " + repo + ":" + lane)
+    core.do(["docker", "tag", repofull + ":" + ver, repofull + ":" + lane])
+
+    core.log("Docker push " + repo + ":" + lane)
+    core.do(["docker", "push", repofull + ":" + lane])
+    rcsbuild.status("tag-repo-" + repo + "-" + lane, "success").commit()
+
+    core.log("Docker clean local")
+    core.do(["docker", "rmi", repofull + ":" + ver])
+    core.do(["docker", "rmi", repofull + ":" + lane])
+
+    ######## run action
+    core.log("Deploy Actions...")
+    for svc_name in svcs:
+        svc = svcs[svc_name]
+        Action().run_svc_action('deploy', svc=svc, replace={"version": ver})
+
+    ######### promote
+    if args.get('--promote'):
+        core.log("Promote\n")
+        try:
+            rcsbuild.state("done")
+            for lane in re.split(r'\s*,\s*', args.get("--promote", "")):
+                rcsbuild.promote(lane).commit()
+        except ValueError as err:
+            sys.exit(str(err))
+
+    core.log("Finished\n")
+
+################################################################################
+if __name__ == '__main__':
+    main()
+

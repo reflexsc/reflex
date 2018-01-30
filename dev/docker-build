@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+# vim modeline (put ":set modeline" into your ~/.vimrc)
+# This is work extracted, drived or from Reflex, and is licensed using the GNU AFFERO License, Copyright Brandon Gillespie
+
+import os
+import sys
+import json
+import common
+import build
+import rfx
+import rfx.optarg
+import rfx.client
+import re
+
+################################################################################
+def syntax(self, msg):
+    print("Syntax: " + self._cmd  + """ {image} {version} --repos={a,b,c} [args...]
+
+Optional arguments:
+
+    --build-args={args} -- where args is a comma separated list of environ vars
+    --promote={lane}    -- promote to Reflex lane {lane} (i.e. prd, stg, etc)
+    --tag={tag}         -- add {tag} to resulting docker image
+
+Where repos can be:\n""")
+    print("    " + ", ".join(common.config.ECR.keys()))
+
+    if msg:
+        print("\n" + msg)
+
+    sys.exit(1)
+
+# define our fail method
+class Core(common.Core):
+    def fail(self, *reason):
+        if reason:
+            syntax(self, *reason)
+        else:
+            syntax(self, "")
+
+################################################################################
+def main():
+    rcs = rfx.client.Session(base=rfx.Base().cfg_load())
+    core = Core(syntax=syntax)
+
+    ######## Argument Parsing
+    optarg = rfx.optarg.Args([
+        "image", {
+            "type": "set-value"
+        }
+    ],[
+        "version", {
+            "type": "set-value"
+        }
+    ],[
+        "--tag|-t", {
+            "type": "set-value"
+        }
+    ],[
+        "--r?epos|-r", {
+            "type": "set-value"
+        }
+    ],[
+        "--p?romote|-p", {
+            "type": "set-value"
+        }
+    ],[
+        "--build-args", {
+            "type": "set-value"
+        }
+    ],[
+        "--no-cache", {
+            "type": "set-true"
+        }
+    ],[
+        "--d?ockerfile|-d", {
+            "type": "set-value"
+        }
+    ])
+
+    args = optarg.handle_parse(caller=core, argv=sys.argv)
+    repos = re.split(r'\s*,\s*', args.get("--repos", ""))
+    if not repos:
+        syntax(core, "Missing --repos")
+    for repo in repos:
+        if not common.config.ECR.get(repo.lower()):
+            syntax(core, "Invalid repo: " + repo)
+        core.ecr_login(repo) # because aws/ecr is a pita
+    img = args.get("image")
+    ver = args.get("version")
+    imgver = img + ":" + ver
+
+    core.log("Docker Build\n")
+    cmd = ["docker", "build"]
+    if args.get('--no-cache') or os.environ.get('NO_CACHE', "f").lower() == "true":
+        cmd += ["--no-cache"]
+    build_version = False
+    if args.get('--build-args'):
+        for arg in args.get('--build-args').split(","):
+            if arg == "BUILD_VERSION":
+                build_version = True
+            val = os.environ.get(arg)
+            if not val:
+                core.die("Unable to find build arg {} in ENV".format(arg))
+            cmd += ["--build-arg", "{}={}".format(arg, val)]
+    if not build_version and os.environ.get('BUILD_VERSION'):
+        cmd += ["--build-arg", "BUILD_VERSION={}".format(os.environ.get('BUILD_VERSION'))]
+    cmd += ["-f", args.get("--dockerfile", "Dockerfile")]
+    cmd += ["-t", imgver]
+    cmd += ["."]
+
+    # Get a reflex build object for status and other metadata tracking
+    rcsbuild = build.Obj(rcs, img, ver, core=core)
+    rcsbuild.status("build", "started").commit()
+
+    # run the build
+    core.do(cmd)
+    rcsbuild.status("build", "success").commit()
+
+    # find & record the image id
+    status, output = core.sys_out(["docker", "inspect", imgver], abort=True)
+    image_data = json.loads(output)[0]
+    image_digest = image_data.get('Id')
+    rcsbuild.change("docker-image-digest", image_digest).commit()
+
+    # push to each repo
+    for repo in repos:
+        full = common.config.ECR[repo]['host']
+        if full:
+            full += "/"
+
+        ######## docker tag
+        core.log("Docker Tag\n")
+        rcsbuild.status("tag-repo-" + repo + "-version", "started").commit()
+        core.do(["docker", "tag", imgver, full + imgver])
+
+        ######## docker push
+        core.log("Docker Push\n")
+        core.do(["docker", "push", full + imgver])
+        rcsbuild.status("tag-repo-" + repo + "-version", "success").commit()
+
+        ######## docker rmi
+        core.log("Docker RMI\n")
+        core.do(["docker", "rmi", full + imgver])
+
+        ######## additional docker tag
+        if args.get("--tag"):
+            imgtag = full + img + ":" + args.get("--tag")
+
+            core.log("Docker Extra Tag\n")
+            core.do(["docker", "tag", imgver, imgtag])
+
+            core.log("Docker Push Extra Tag\n")
+            core.do(["docker", "push", imgtag])
+
+            core.log("Docker RMI Extra Tag\n")
+            core.do(["docker", "rmi", imgtag])
+
+    if args.get('--promote'):
+        core.log("Promote\n")
+        try:
+            rcsbuild.state("done")
+            for lane in re.split(r'\s*,\s*', args.get("--promote", "")):
+                rcsbuild.promote(lane).commit()
+        except ValueError as err:
+            sys.exit(str(err))
+
+    core.log("Finished\n")
+
+################################################################################
+if __name__ == '__main__':
+    main()
+
