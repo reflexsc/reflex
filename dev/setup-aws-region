@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+# vim:set expandtab ts=4 sw=4 ai ft=python:
+# vim modeline (put ":set modeline" into your ~/.vimrc)
+# License by GNU Affrero - Derived from Protos Library code and online examples
+
+# http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#service-resource
+import sys
+import argparse
+import re
+import traceback
+import dictlib
+import botocore.exceptions
+import boto3
+import copy
+import json
+
+# a place to keep track of stuff
+class MyAws(object):
+    region = dictlib.Obj(tok='', aws='', typ='', nbr='')
+    net_base = 0
+    obj = dictlib.Obj(aws=None, ec2=None)
+
+    def __init__(self, args):
+        match = re.search(r'^([dp])(\d+)$', args.reflex_region)
+        if not match:
+            sys.exit("reflex region must be like: p1, d2, etc ([pd]\d+), not " + args.reflex_region)
+        self.region.tok = args.reflex_region
+        self.region.aws = args.aws_region
+        self.region.typ = match.group(1)
+        self.region.nbr = match.group(2)
+        self.net_base = 0 # prod
+        if self.region.typ == 'd':
+            self.net_base = 100 # dev
+
+        self.obj.aws = boto3.session.Session(region_name=self.region.aws, profile_name=args.aws_profile)
+        self.obj.ec2 = self.obj.aws.resource('ec2')
+        
+    def set_tag(self, idnbr, key, value):
+        response = self.obj.ec2.create_tags(
+            Resources=[idnbr],
+            Tags=[{ 'Key': key, 'Value': value }])
+
+    def preload(self, cstr):
+        items = getattr(self.obj.ec2, cstr + 's')
+        for item in items.filter(): # Filters = [{'Name': 'tag:Name', 'Values' : [label]}]):
+            if not item.tags:
+                continue
+            for tag in item.tags:
+                if tag['Key'] == 'Name':
+                    name = tag['Value']
+                    if name:
+                        self.obj[name] = item
+                    break
+
+    def present(self, cstr, label, obj, *args, **kwargs):
+        """cstr is the class string, like 'ec2' or 'vpc'"""
+
+        # use our local cache; assumes no name duplication
+        existing = ' (existing)'
+        created = False
+        if self.obj.get(label):
+            item = self.obj.get(label)
+            existing = ' (existing; cached)'
+
+        # otherwise check remote and create if necessary
+        else:
+            items = getattr(obj, cstr + 's')
+            matches = dict()
+            for item in items.filter(Filters = [{'Name': 'tag:Name', 'Values' : [label]}]):
+                matches[item.id] = item
+            match_keys = list(matches.keys())
+            if len(match_keys) > 1:
+                raise TypeError("Too many mathes for {}={}".format(cstr, label))
+
+            elif len(match_keys) == 1:
+                item = matches[match_keys[0]]
+
+            else: # matches=0
+                item = getattr(obj, 'create_' + cstr)(*args, **kwargs)
+                self.set_tag(item.id, "Name", label)
+                existing = ''
+                created = False
+
+            self.obj[label] = item
+            self.obj[cstr] = item
+
+        print("{} {} = {}{}".format(cstr, label, item.id, existing))
+        return item, created
+
+    def present_subnet(self, name, zone, block):
+        label = "net-{}{}{}".format(name, self.region.nbr, zone)
+        cidr = "10.{}.{}.0/24".format(self.region.nbr, self.net_base + block)
+
+        subnet, created = self.present('subnet', label, self.obj.ec2,
+                 CidrBlock=cidr, VpcId=self.obj.vpc.id)
+
+        # associate the route table with the subnet - short of querying RouteTableAssociation to verify
+        ignore(self.obj.route_table.associate_with_subnet, SubnetId=subnet.id)
+        return subnet
+
+    def present_sg(self, label):
+        # *sigh* aws doesn't want us to have GroupNames beginning with sg-; but we want it to keep a clean namespace
+        name = label + '-' + self.region.tok
+        sg, created = self.present('security_group', 'sg-' + name, self.obj.ec2,
+             GroupName=name, Description='sg-' + name + ' auto-created', VpcId=self.obj.vpc.id)
+        return sg
+
+    def set_sg_rules(self, rule_type, sg, rules):
+        # not easy to compare, when we have default values coming back at us
+        # trim up the current rules so we can more reliably compare
+        if rule_type == 'ingress':
+            cur2 = copy.deepcopy(sg.ip_permissions)
+        else:
+            cur2 = copy.deepcopy(sg.ip_permissions_egress)
+
+        for rule in cur2:
+            for key in list(rule.keys()):
+                if key == 'UserIdGroupPairs':
+                    for x in range(0, len(rule[key])):
+                        if rule[key][x].get('UserId'):
+                            del(rule[key][x]['UserId'])
+                if not rule[key]:
+                    del(rule[key])
+
+    #    print(json.dumps(cur2, indent=2))
+    #    print(json.dumps(rules, indent=2))
+        sg_add = list()
+        sg_del = list()
+        for rule in rules:
+            if rule not in cur2:
+                print("add {} rule {}".format(sg.group_name, rule))
+                sg_add.append(rule)
+        for rule in cur2:
+            if rule not in rules:
+                print("del {} rule {}".format(sg.group_name, rule))
+                sg_del.append(rule)
+
+        if sg_add:
+            getattr(sg, 'authorize_' + rule_type)(IpPermissions=sg_add)
+        if sg_del:
+            getattr(sg, 'revoke_' + rule_type)(IpPermissions=sg_del)
+
+################################################################################
+def ignore_boto(errs, func, *args, **kwargs):
+    try:
+        func(*args, **kwargs)
+    except botocore.exceptions.ClientError as err:
+        if err.response['Error']['Code'] in errs:
+            return
+        print("boto error = {}".format(err.response['Error']))
+        traceback.format_exc()
+        sys.exit(1)
+
+################################################################################
+def ignore(func, *args, **kwargs):
+    try:
+        func(*args, **kwargs)
+    except:
+        pass
+
+################################################################################
+def cidr_ip_group(ips, rule):
+    out = list()
+    for ip in ips:
+        new = copy.deepcopy(rule)
+        new['IpRanges'] = [ip]
+        out.append(new)
+    return out
+
+################################################################################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("aws_profile")
+    parser.add_argument("aws_region")
+    parser.add_argument("reflex_region")
+    args = parser.parse_args()
+
+    ############################################################################
+    # use a session -- it allows named profiles
+    aws = MyAws(args)
+
+    # setup a pubkey
+    ignore(aws.obj.ec2.import_key_pair,
+        KeyName='salt-prdzone.0',
+        PublicKeyMaterial='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDJkBSzPOBSYlpppjvPd08rdrpEje8TDE5nk7zdmIqZ48ZW67v5msIit2oj2aiKdfh2CnJbMKAMDCwAZrmdU1VXiLcGmuR9NovH9KbFx8Kyo+emnS5xwCUeMvmCpxIv0teH2jVcPSl4aobe70YLBs1Ct7tkRLL65h6dIQPacHon71iLLVkIUQUvYg7BxTbHFsPBo1cxaAQIjRZQlBRqjU2GeeFD42bqq5y9v6/AfIvrb+sfVqkFwBLl4QiLAH6+Ro5ODnsJWEbTmCSs7O+ZXWAuVSHJdfq2dGz8ELdZv7Ue7yAi1GwJkv1GNQHw4zNIy+sdQt6vJSe5RZp/oHIPS/IfHokQC2OvYW754V3393h7cQFTVLwGw9+SV21Md+GSPlVDeNm+BQbxYvhVp5czCM38KDzSq8JR5huKze6+KX6No25TtLvA3kym29jesD8GhSmhm7TlMk0KbjcNleeFtpuxV/HPeEyhRKVInWZpxWJQSjxaHkGCjM0FsH7lAy3ekGiPUBGfYh/iS55kk1GFABCGetai2MyOryiqpmUhejNq7sonYlkUswWKpnozf0IcrXvjTvJ79Nma2Bn1HpjaXRDopNsqRVFP47xjGWP+DCiKPOq22CWC5ntyNR3qkcfO2mDjj6zCk5heITcnMnYWsWg5NAclLcfENZ+qHvG1FSUK5w=='
+    )
+
+    # create VPC
+    vpc_cidr = "10.{}.0.0/16".format(aws.region.nbr)
+    vpc, created = aws.present('vpc', "vpc-" + aws.region.tok, aws.obj.ec2,
+            CidrBlock=vpc_cidr)
+    vpc.wait_until_available()
+
+    # create then attach internet gateway
+    igw, created = aws.present('internet_gateway', "igw-" + aws.region.tok, aws.obj.ec2)
+
+    # see if our VPC is attached and available
+    attached = filter(lambda x: x['VpcId'] == vpc.id and x['State'] == 'available', igw.attachments)
+    if not attached:
+        print("    attaching igw to vpc...")
+        ignore(vpc.attach_internet_gateway, InternetGatewayId=igw.id)
+
+    # create a route table and a public route
+    route_table, created = aws.present('route_table', 'rtb-' + aws.region.tok, vpc)
+    # add a 0.0.0.0/0 route?
+    public = filter(lambda x: x.destination_cidr_block=='0.0.0.0/0', route_table.routes)
+    if not public:
+        print("    adding public route...")
+        route = route_table.create_route(
+            DestinationCidrBlock='0.0.0.0/0',
+            GatewayId=igw.id
+        )
+
+    # speedup - cache a list of all subnets
+    aws.preload('subnet')
+
+    # create subnets
+    aws.present_subnet('mgz', 'a', 0) # 10.x.0.0/24
+    aws.present_subnet('mgz', 'b', 1)
+    aws.present_subnet('mgz', 'c', 2)
+
+    aws.present_subnet('dmz', 'a', 4)
+    aws.present_subnet('dmz', 'b', 5)
+    aws.present_subnet('dmz', 'c', 6)
+
+    aws.present_subnet('security', 'a', 8)
+
+    aws.present_subnet('apz', 'a', 12)
+    aws.present_subnet('apz', 'b', 13)
+    aws.present_subnet('apz', 'c', 14)
+
+    aws.present_subnet('dbz', 'a', 16)
+    aws.present_subnet('dbz', 'b', 17)
+    aws.present_subnet('dbz', 'c', 18)
+
+    # Security Groups are a little more involved
+    aws.preload('security_group')
+
+    # common groupings
+    prod_admin = [
+      {'CidrIp': #pull from reflex, 'Description': 'admin public IP'},
+    ]
+    private_in_region = [
+      {'CidrIp': vpc_cidr, 'Description': 'all IPs in region'}
+    ]
+    global_ip = [
+      {'CidrIp': '0.0.0.0/0', 'Description': 'all IPs everywhere'}
+    ]
+
+    ############################################################################
+    # find definitions of sg's so we can reference them later
+    sg_sysadm_host = aws.present_sg('sysadm-host')
+    sg_sysadm_in = aws.present_sg('sysadm-in')
+    sg_mgz_salt = aws.present_sg('mgz-salt')
+    sg_out_all_pub = aws.present_sg('outbound-ALL-PUBLIC')
+    sg_out_whitelist = aws.present_sg('outbound-WHITELIST')
+
+    ############################################################################
+    # 01: only used for grouping -- members of this are other sysadm hosts
+
+    # remove all ingress/egress
+    aws.set_sg_rules('ingress', sg_sysadm_host, [])
+    aws.set_sg_rules('egress', sg_sysadm_host, [])
+
+    ############################################################################
+    # 02: SSH and Ping inbound
+    aws.set_sg_rules('ingress', sg_sysadm_in,
+        [
+         {
+           "IpProtocol": "tcp",
+           "FromPort": 22,
+           "ToPort": 22,
+           "IpRanges": prod_admin,                                    # RefId#02.2
+           'UserIdGroupPairs': [{'GroupId': str(sg_sysadm_host.id)}], # RefID#02.1
+         },
+         {
+           'IpProtocol': 'icmp',
+           'FromPort': -1,
+           'ToPort': -1,
+           'IpRanges': prod_admin,                                    # RefId#02.3
+           'UserIdGroupPairs': [{'GroupId': str(sg_sysadm_host.id)}], # RefId#02.4
+         }
+        ]
+     )
+
+    ############################################################################
+    # 02: Salt Outbound
+    aws.set_sg_rules('egress', sg_sysadm_in,
+        [
+         {
+           "IpProtocol": "tcp",
+           "FromPort": 4505,
+           "ToPort": 4506,
+           'UserIdGroupPairs': [{'GroupId': str(sg_mgz_salt.id)}  ], # RefID#02.5
+         },
+        ]
+     )
+
+    ############################################################################
+    # 03: Salt Inbound
+    aws.set_sg_rules('ingress', sg_mgz_salt,
+        [
+         {
+           "IpProtocol": "tcp",
+           "FromPort": 4505,
+           "ToPort": 4506,
+           "IpRanges": private_in_region,                             # RefId#03.1
+         },
+        ]
+     )
+
+    aws.set_sg_rules('egress', sg_mgz_salt, [])
+
+    ############################################################################
+    # 04: Outbound All public
+    aws.set_sg_rules('ingress', sg_out_all_pub, [])
+    aws.set_sg_rules('egress', sg_out_all_pub, [])
+        [
+         {
+           "IpProtocol": "-1",
+           "IpRanges": global_ip,                                     # RefId#04.1
+         },
+        ]
+     )
+
+################################################################################
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,40 @@
+
+
+service (per svc/lane) {
+  - target - 
+
+  status: ok, deploying, failed, maintenance
+
+  release: {
+    current: build-obj <- for monitoring
+    next: build-obj <- queued but not actively deploying (on deck)
+    <actively deploying>
+  }
+  releases: [
+    # softlinks to current~past releases
+    (for rollback)
+  }
+}
+
+
+
+
+
+build {
+
+  lanes: {
+
+    <lane>: [ -- send to Splunk
+      {by: ??,
+       approved: ??,
+       started: time,
+       online: time,
+       status: ok|deploying|failed
+       links: jira?
+       meta?  - gitlab tags & stuff
+      }
+      ...
+    ]
+  } 
+}
+
