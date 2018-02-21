@@ -331,8 +331,10 @@ class Base(Colorize):
         """
         if len(msg) > 1:
             msg = " ".join(msg)
-        else:
+        elif msg:
             msg = msg[0]
+        else:
+            msg = ''
 
         if self.logfmt == 'json':
             merged = self.union_dict({
