@@ -2,7 +2,7 @@ from setuptools import setup
 setup(
   name = 'rfx',
   packages = ['rfx'],
-  version = "1801.0002",
+  version = "1802.0002",
   description = 'Reflex - Container Config and Secret Management - core lib',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',
@@ -10,6 +10,7 @@ setup(
   keywords = ['docker','config','secrets'],
   install_requires = [
     'urllib3',
+    'dateparser',
     'ujson',
     'pynacl',
     'requests',
