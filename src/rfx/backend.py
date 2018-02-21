@@ -43,6 +43,7 @@ import rfx
 import rfx.tabulate
 from rfx import NotFoundError, threadlock, json4human
 import rfx.client
+import dateparser
 
 ################################################################
 # helper wraps around a conf object
@@ -58,6 +59,19 @@ def _getconf(cfg, *key):
     if len(key) == 1:
         return cfg[key[0]]
     return _getconf(cfg[key[0]], *key[1:])
+
+def parse_dates(input_str):
+    if not input_str:
+        return None
+    split = re.split(r'\s*~\s*', input_str + "~")[0:2]
+    start = dateparser.parse(split[0])
+    if not start:
+        raise ValueError("Invalid date: " + split[0])
+    end = dateparser.parse(split[1] or 'now')
+    if not end:
+        raise ValueError("Invalid date: " + split[1])
+
+    return dict(start=start, end=end)
 
 ################################################################
 class Engine(rfx.Base):
@@ -215,9 +229,23 @@ class EngineCli(rfx.Base):
     # pylint: disable=too-many-locals, too-many-branches, too-many-statements
     def list_cli(self, obj_type, parsed, argv):
         """list an object.  see --help"""
+        try:
+            archive = parse_dates(parsed.get('--archive'))
+        except ValueError as err:
+            self.ABORT(str(err))
+
+        # if it is a real regex, we must reduce scope on our side
         filter_re = None
+        name = None
         if argv and argv[0]:
-            filter_re = re.compile(argv[0])
+            if re.search(r'[^a-z0-9.-]', argv[0]):
+                try:
+                    filter_re = re.compile(argv[0])
+                except Exception as err:
+                    self.ABORT("Invalid regular expression: {}\n\t{}".format(argv[0], str(err)))
+            else:
+                name = argv[0]
+
         limit_expr = None
         if parsed.get('--expression'):
             limit_expr = parsed['--expression']
@@ -239,6 +267,8 @@ class EngineCli(rfx.Base):
 
         if not show:
             show = ['name', 'id']
+            if archive:
+                show += ['updated_at']
 
         cols = show.copy()
         ncols = len(cols)
@@ -257,7 +287,7 @@ class EngineCli(rfx.Base):
         results = [[x.upper() for x in show]]
 
         try:
-            objs = self.rcs.list(obj_type, cols=cols, match=limit_expr)
+            objs = self.rcs.list(obj_type, cols=cols, match=name, archive=archive)
         except rfx.client.ClientError as err:
             self.ABORT(str(err))
 
@@ -320,9 +350,13 @@ class EngineCli(rfx.Base):
     ###########################################################################
     def get_cli(self, obj_type, parsed, argv):
         """get an object.  see --help"""
+        try:
+            archive = parse_dates(parsed.get('--archive'))
+        except ValueError as err:
+            self.ABORT(str(err))
         obj_name = parsed['name']
         try:
-            obj = self.rcs.get(obj_type, obj_name)
+            obj = self.rcs.get(obj_type, obj_name, archive=archive)
             if argv and argv[0]:
                 key = argv[0]
                 if key[:4] == 'obj.':
@@ -340,6 +374,7 @@ class EngineCli(rfx.Base):
             else:
                 self.OUTPUT(json4human(obj))
         except rfx.client.ClientError as err:
+            #self.ABORT("Exception: " + traceback.format_exc())
             self.ABORT(str(err))
         except NotFoundError:
             self.ABORT("Cannot find object '" + obj_name + "'")

@@ -99,7 +99,6 @@ class RCObject(rfx.Base):
     obj.delete()
     obj.list_buffered()
     obj.list_iterated()
-    obj.archives()
     """
 
     table = ''
@@ -140,19 +139,6 @@ class RCObject(rfx.Base):
             kwargs['base'] = self.master
 
         super(RCObject, self).__init__(*args, **kwargs)
-
-    ############################################################################
-    # pylint: disable=unused-argument
-    @db_interface
-    def archives(self, target, dbi=None):
-        """Returns a list of archived dates, or NoArchive exception"""
-
-        if not self.archive:
-            raise NoArchive(self.table + " does not support archives")
-
-        #################### AUTHORIZED
-        return dbi.do_getlist("SELECT updated_at FROM " + self.table +
-                              "Archive WHERE id = ?", target, output=OutputSingle)
 
     ############################################################################
     def _get_policies(self, dbi=None):
@@ -275,7 +261,7 @@ class RCObject(rfx.Base):
     ############################################################################
     # pylint: disable=too-many-branches
     @db_interface
-    def get(self, target, attrs, dbi=None, archived=None):
+    def get(self, target, attrs, dbi=None, archive=None):
         """
         Get an object from the DB
 
@@ -300,9 +286,11 @@ class RCObject(rfx.Base):
             self.policies = self._get_policies(dbi=dbi)
 #        trace("get_policies done")
 
-        if archived:
+        if archive:
+            if not self.archive:
+                raise NoArchive(self.table + " does not support archives")
             sql += 'Archive WHERE id=? AND updated_at = ?'
-            args.append(archived)
+            args.append(archive[0])
         else:
             sql += ' WHERE id=?'
 
@@ -351,8 +339,11 @@ class RCObject(rfx.Base):
 
             if col.stored == "data":
                 value = data.get(name, None)
-            elif name == "updated_at" and dbin.get("unix_timestamp(updated_at)", None):
-                value = dbin.get("unix_timestamp(updated_at)")
+            elif name == "updated_at":
+                if dbin.get("unix_timestamp(updated_at)", None):
+                    value = dbin.get("unix_timestamp(updated_at)")
+                else:
+                    value = str(dbin.get("updated_at"))
             else:
                 value = dbin.get(col.stored, None)
 
@@ -414,7 +405,7 @@ class RCObject(rfx.Base):
 
     ############################################################################
     @db_interface
-    def list_buffered(self, attrs, dbi=None, limit=0, match=None):
+    def list_buffered(self, attrs, dbi=None, limit=0, match=None, archive=None):
         """
         Query and get a list of objects, using a buffer for results.
         Do not worry about the dbi.
@@ -426,7 +417,7 @@ class RCObject(rfx.Base):
         Use .list_iterated() for an iterator based list, but you must
         also provide the dbi.
         """
-        (sql, args) = self._list_prep(attrs, limit=limit, match=match, dbi=dbi)
+        (sql, args) = self._list_prep(attrs, limit=limit, match=match, dbi=dbi, archive=archive)
 
         results = []
         cursor = dbi.do(sql, *args)
@@ -436,18 +427,18 @@ class RCObject(rfx.Base):
         return results
 
     ############################################################################
-#    def list_iterated(self, attrs, dbi=None, limit=0, match=None):
+#    def list_iterated(self, attrs, dbi=None, limit=0, match=None, archive=archive):
 #        """
 #        List objects, using an iterator.  Same as .list_buffered() but you also
 #        must include the dbi, and results are given as an iterator (cursor)
 #        """
-#        (sql, args) = self._list_prep(attrs, limit=limit, match=match)
+#        (sql, args) = self._list_prep(attrs, limit=limit, match=match, archive=archive)
 #        cursor = dbi.do(sql, args)
 #        return cursor
 
     ############################################################################
     # pylint: disable=too-many-arguments
-    def _list_prep(self, attrs, dbi=None, limit=0, match=None):
+    def _list_prep(self, attrs, dbi=None, limit=0, match=None, archive=None):
         """
         Prepare sql and args for list
         """
@@ -457,11 +448,20 @@ class RCObject(rfx.Base):
 
         args = []
         sql = "SELECT id,name,updated_by,unix_timestamp(updated_at) FROM " + self.table
-        if match:
-            sql += " WHERE name like ?"
-            args += [match.replace("*", "%")] # translate from glob
+        where = []
+        if archive:
+            if not self.archive:
+                raise NoArchive(self.table + " does not support archives")
+            sql += 'Archive'
+            args += [archive[1], archive[0]]
+            where = ["(updated_at <= ? AND updated_at >= ?)"]
 
-        sql += " ORDER BY name"
+        if match:
+            where = ["name like ?"] + where
+            args += [match + "%"] + args # translate from glob
+
+        sql += ' WHERE ' + " AND ".join(where) + " ORDER BY name"
+
         if limit:
             sql += " LIMIT ?"
             args += [str(limit)]
@@ -471,7 +471,7 @@ class RCObject(rfx.Base):
     ############################################################################
     # pylint: disable=too-many-locals
     @db_interface
-    def list_cols(self, attrs, cols, dbi=None, limit=0, match=None):
+    def list_cols(self, attrs, cols, dbi=None, limit=0, match=None, archive=None):
         """
         List objects, using an iterator, with a specific called set of columns.
         """
@@ -490,22 +490,29 @@ class RCObject(rfx.Base):
             cols = set(self.omap.keys())
 
         for item in cols:
-            if item == "updated_at":
-                keys.add("unix_timestamp(updated_at)")
+            col = self.omap.get(item)
+            if not col or col.stored == 'data':
+                if not added_data:
+                    keys.add("data")
+                    added_data = True
             else:
-                col = self.omap.get(item)
-                if not col or col.stored == 'data':
-                    if not added_data:
-                        keys.add("data")
-                        added_data = True
-                else:
-                    keys.add(col.stored)
+                keys.add(col.stored)
 
         sql = "SELECT " + ",".join(keys) + " FROM " + self.table
+        where = []
+        if archive:
+            if not self.archive:
+                raise NoArchive(self.table + " does not support archives")
+            sql += 'Archive'
+            args += [archive[0], archive[1]]
+            where = ["(updated_at <= ? AND updated_at >= ?)"]
+
         if match:
-            sql += " WHERE name like ?"
-            args += [match.replace("*", "%")] # translate from glob
-        sql += " ORDER BY name"
+            where = ["name like ?"] + where
+            args = [match + "%"] + args # translate from glob
+
+        sql += ' WHERE ' + " AND ".join(where) + " ORDER BY name"
+
         if limit:
             sql += " LIMIT ?"
             args += [str(limit)]
@@ -750,13 +757,9 @@ class RCObject(rfx.Base):
         else:
             actions = ['admin']
         for act in actions:
-            if abac_debug:
-                for policy in self.policies[act]:
-                    dbg(step="matching-policy", action=policy.policy_action,
-                        name=policy.policy_name)
-
             for policy in self.policies[act]:
-                dbg(step="check-policy", id=policy.policy_id, act=act, expr=policy.policy_expr)
+                if abac_debug:
+                    dbg(step="check-policy", id=policy.policy_id, action=act, expr=policy.policy_expr, name=policy.policy_name)
                 if policy.allowed(attrs, debug=abac_debug, base=self):
                     dbg(step="AUTHORIZED", id=policy.policy_id, act=act)
                     return True
@@ -995,6 +998,7 @@ class Service(RCObject):
     # a list of object attributes which are part of the actual db object
 
     table = 'Service'
+    archive = True
 
     def __init__(self, *args, **kwargs):
         self.omap = dictlib.Obj()
@@ -1059,6 +1063,7 @@ class Config(RCObject):
     # a list of object attributes which are part of the actual db object
 
     table = 'Config'
+    archive = True
 
     # note: translate export->exports at some point (typo_for)
     def __init__(self, *args, **kwargs):
@@ -1524,6 +1529,7 @@ class Policy(RCObject):
     """
 
     table = 'Policy'
+    archive = True
     vardata = True
 
     def __init__(self, *args, **kwargs):
@@ -1709,6 +1715,7 @@ class Policyscope(RCObject):
     """
 
     table = 'Policyscope'
+    archive = True
     policy_map = True
     vardata = True
 

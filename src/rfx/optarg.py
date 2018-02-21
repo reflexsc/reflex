@@ -255,7 +255,10 @@ class Args(object):
                     continue
 
         if self.args:
-            caller.fail("Missing argument: {" + self.args[0][0] + "}")
+            if caller:
+                caller.fail("Missing argument: {" + self.args[0][0] + "}")
+            else:
+                sys.exit("Missing argument: {" + self.args[0][0] + "}")
 
         self.argv = unparsed
         return self.out

@@ -618,6 +618,10 @@ class CliEngine(CliRoot):
                     "type":"set-value",
                 }
             ], [
+                "--archive|-a", {
+                    "type":"set-value",
+                }
+            ], [
                 "--f?ormat|-f", {
                     "type":"from-set",
                     "set": ["txt", "json", "list", "csv", "tsv"]
@@ -646,18 +650,24 @@ Usage: """ + self.cmd + """ {object} {action} [args & options]
 
 Arguments and options vary by action:
 
-=> """ + self.cmd + """ {object} li?st|ls [name-filter] [-e=expr] [-s=col,col]
+=> """ + self.cmd + """ {object} li?st|ls [name-filter] [-e=expr] [-s=col,col] [--archive]
    [name-filter] is a regex to limit name matches
    --ex?presssion|-e provides a logical expression referencing obj.{key} in
        dot notation (i.e. obj.stage="STG").  python expression syntax.
    --sh?ow|-s is a comma list of available columns: name, title, id, updated
+   --archive=[FROM[~TO]] directs it to show archived copies, not current. FROM and
+       TO date is optional, but will limit results within range (default is all time,
+       and TO defaults to now).  A tight scope on the name filter is helpful to
+       reduce the set of objects returned. Dates for FROM and TO are allowed
+       in many formats, including relative time (5 minutes ago).
 
 => """ + self.cmd + """ {object} cr?eate {name} [-c=json]
    If --c?ontent|-c is not specified, reads content from stdin.
 
-=> """ + self.cmd + """ {object} get {name} [key]
+=> """ + self.cmd + """ {object} get {name} [key] [--archive=DATE]
    {name} is the absolute name of the object
    [key] is an optional key in dot notation (.e. obj.name)
+   --archive=DATE get a specific version (matching date) from archive
 
 => """ + self.cmd + """ {object} ed?it {name}
    edit object named {name} in your environment's $EDITOR.  If $EDITOR is

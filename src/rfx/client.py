@@ -186,12 +186,16 @@ class Session(rfx.Base):
         return func(*args, **kwargs)
 
     ############################################################################
-    def get(self, obj_type, obj_target):
+    def get(self, obj_type, obj_target, archive=False):
         """session GET"""
-        return self._call(requests.get, obj_type + "/" + str(obj_target))
+        args = []
+        if archive:
+            args.append("archive=" + str(archive['start'].timestamp()))
+        return self._call(requests.get,
+                          obj_type + "/" + str(obj_target) + "?" + "&".join(args))
 
     ############################################################################
-    def list(self, obj_type, match=None, cols=None, raise_error=True):
+    def list(self, obj_type, match=None, cols=None, raise_error=True, archive=False):
         """
         session LIST.  Match is a glob pattern (optional), cols is a list
         of column names
@@ -202,6 +206,10 @@ class Session(rfx.Base):
                 args.append("match=" + urllib.parse.quote(match))
             except: # pylint: disable=bare-except, no-member
                 args.append("match=" + urllib.pathname2url(match))
+        if archive:
+            args.append("archive=" +
+                        str(archive['start'].timestamp()) + "~" +
+                        str(archive['end'].timestamp()))
         if cols:
             args.append("cols=" + ",".join(cols))
 

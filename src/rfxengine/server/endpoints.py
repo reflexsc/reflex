@@ -10,11 +10,13 @@ Endpoints for Reflex Engine API
 import time
 import base64
 import traceback
+import datetime
 import cherrypy
 import jwt
 import nacl.pwhash
 import nacl.exceptions
 import dictlib
+import re
 from rfx import json2data#, json4human#, json4store #, json2data
 from rfxengine import log, get_jti#, trace
 from rfxengine import server # pylint: disable=cyclic-import
@@ -357,23 +359,52 @@ class Object(server.Rest, Attributes):
         obj = self.obj(master=self.server.dbm, reqid=self.reqid)
 
 #        trace("READ: post create")
-        if not args:
-            if kwargs.get('cols'):
-                cols = list(set(kwargs['cols'].split(',')))
-                errs = []
-                if errs:
-                    raise server.Error(",".join(errs), 400)
+        archive = None
+        if kwargs.get('archive'):
+            dates = (kwargs.get('archive') + "~0").split("~")[0:2]
+            try:
+                archive = [
+                    str(datetime.datetime.fromtimestamp(float(dates[0]))),
+                ]
+                if dates[1]:
+                    date = str(datetime.datetime.fromtimestamp(float(dates[1])))
+                    archive.append(date)
+                else:
+                    archive.append(0)
+            except ValueError:
+                self.respond_failure({"status":"failed", "message": "Invalid archive dates (not POSIX time)"})
+                return
 
-#                trace("READ: get list")
-                # todo: sanitize match
-                data = obj.list_cols(attrs, cols, match=kwargs.get('match'))
-            else:
-                data = obj.list_buffered(attrs, match=kwargs.get('match'))
+        match = kwargs.get('match')
+        if match:
+            if re.search(r'[^a-z0-9-]', match):
+                self.respond_failure({"status": "failed", "message": "match may only be a-z0-9-"})
+                return
+
+        if not args:
+            try:
+                if kwargs.get('cols'):
+                    cols = list(set(kwargs['cols'].split(',')))
+                    errs = []
+                    if errs:
+                        raise server.Error(",".join(errs), 400)
+
+                    data = obj.list_cols(attrs,
+                                         cols,
+                                         match=kwargs.get('match'),
+                                         archive=archive)
+                else:
+                    data = obj.list_buffered(attrs,
+                                             match=kwargs.get('match'),
+                                             archive=archive)
+            except dbo.NoArchive as err:
+                self.respond_failure({"status": "failed", "message": str(err)})
+
         else:
             target = args[0]
             try:
 #                trace("READ: obj.get")
-                data = obj.get(target, attrs).dump()
+                data = obj.get(target, attrs, archive=archive).dump()
 #                trace("READ: obj.get (done)")
             except dbo.ObjectNotFound as err:
                 self.respond_failure({"status":"failed", "message": str(err)}, status=404)
