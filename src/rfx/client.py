@@ -195,6 +195,7 @@ class Session(rfx.Base):
                           obj_type + "/" + str(obj_target) + "?" + "&".join(args))
 
     ############################################################################
+    # pylint: disable=too-many-arguments
     def list(self, obj_type, match=None, cols=None, raise_error=True, archive=False):
         """
         session LIST.  Match is a glob pattern (optional), cols is a list

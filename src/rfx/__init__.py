@@ -320,7 +320,8 @@ class Base(Colorize):
             self.cfg[key] = os.environ[key]
 
     ############################################################
-    def NOTIFY(self, *msg, **kwargs): # pylint: disable=invalid-name
+    # pylint: disable=invalid-name,too-many-branches
+    def NOTIFY(self, *msg, **kwargs):
         """
         Internal print wrapper, so it can be easily overloaded--Notify is for human readable
 

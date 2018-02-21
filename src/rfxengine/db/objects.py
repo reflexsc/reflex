@@ -45,7 +45,7 @@ from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
                                  PolicyFailed
 from rfxengine import abac, log, do_DEBUG#, trace
 from rfxengine.db.pool import db_interface
-from rfxengine.db.mxsql import OutputSingle, row_to_dict
+from rfxengine.db.mxsql import row_to_dict
 import dictlib
 
 # todo: want to hook object and its relationships
@@ -460,7 +460,10 @@ class RCObject(rfx.Base):
             where = ["name like ?"] + where
             args += [match + "%"] + args # translate from glob
 
-        sql += ' WHERE ' + " AND ".join(where) + " ORDER BY name"
+        if where:
+            sql += ' WHERE ' + " AND ".join(where)
+
+        sql += " ORDER BY name"
 
         if limit:
             sql += " LIMIT ?"
@@ -469,7 +472,7 @@ class RCObject(rfx.Base):
         return (sql, args)
 
     ############################################################################
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-statements
     @db_interface
     def list_cols(self, attrs, cols, dbi=None, limit=0, match=None, archive=None):
         """
@@ -511,7 +514,9 @@ class RCObject(rfx.Base):
             where = ["name like ?"] + where
             args = [match + "%"] + args # translate from glob
 
-        sql += ' WHERE ' + " AND ".join(where) + " ORDER BY name"
+        if where:
+            sql += ' WHERE ' + " AND ".join(where)
+        sql += " ORDER BY name"
 
         if limit:
             sql += " LIMIT ?"
@@ -736,12 +741,12 @@ class RCObject(rfx.Base):
         attrs['obj_type'] = self.table
         attrs['obj'] = self.obj
         abac_debug = False
-        def null(**kwargs):
+        def null(**kwargs): # pylint: disable=unused-argument
             """do nothing"""
         dbg = null
 
         if self.do_DEBUG(module="abac"):
-            def do_dbg(*args, **kwargs):
+            def do_dbg(*args, **kwargs): # pylint: disable=unused-argument
                 """debugging"""
                 kwargs["obj"] = "?"
                 kwargs["table"] = self.table
@@ -759,7 +764,8 @@ class RCObject(rfx.Base):
         for act in actions:
             for policy in self.policies[act]:
                 if abac_debug:
-                    dbg(step="check-policy", id=policy.policy_id, action=act, expr=policy.policy_expr, name=policy.policy_name)
+                    dbg(step="check-policy", id=policy.policy_id, action=act,
+                        expr=policy.policy_expr, name=policy.policy_name)
                 if policy.allowed(attrs, debug=abac_debug, base=self):
                     dbg(step="AUTHORIZED", id=policy.policy_id, act=act)
                     return True
@@ -773,7 +779,7 @@ class RCObject(rfx.Base):
         return False
 
     ############################################################################
-    def map_soft_relationships(self, dbi):
+    def map_soft_relationships(self, dbi): # pylint: disable=unused-argument
         """
         Review all object relationship arrays and revise them as:
 
@@ -817,7 +823,7 @@ class RCObject(rfx.Base):
             self.obj[key] = target
             if error:
                 return list([error])
-            return list()
+        return list()
 
     ############################################################################
     def _map_soft_relationships(self, dbi, table, key):
@@ -862,6 +868,7 @@ class RCObject(rfx.Base):
         #     import list of instances
         else:
             raise ValueError("class object must be Pipeline or Service")
+        return list()
 
     ############################################################################
     def _delete_policyfor(self, dbi):
@@ -872,14 +879,14 @@ class RCObject(rfx.Base):
         cursor.close()
 
     ############################################################################
-    def deleted(self, attrs, dbi=None):
+    def deleted(self, attrs, dbi=None): # pylint: disable=unused-argument
         """
         Any actions or updates required on delete of this object
         """
         self._delete_policyfor(dbi=dbi)
 
     ############################################################################
-    def changed(self, attrs, dbi=None):
+    def changed(self, attrs, dbi=None): # pylint: disable=unused-argument
         """
         Any actions or updates required on change of this object
         """
@@ -1120,7 +1127,7 @@ class Instance(RCObject):
         self.omap['address'] = RCMap(stored="data", dtype=dict)
         super(Instance, self).__init__(*args, **kwargs)
 
-    def skeleton(self):
+    def skeleton(self): # pylint: disable=no-self-use
         """return a set of required attributes with default values"""
         return dict(
             address=dict(),
@@ -1235,7 +1242,7 @@ class Group(RCObject):
         return errors
 
     ############################################################################
-    def map_soft_relationships(self, dbi):
+    def map_soft_relationships(self, dbi): # pylint: disable=too-many-locals
         """map out my relationships"""
         errors = super(Group, self).map_soft_relationships(dbi)
 
@@ -1249,8 +1256,7 @@ class Group(RCObject):
             for elem in self.obj['group']:
                 parts = elem.split(":")
                 if len(parts) != 2:
-                    # pylint: disable=line-too-long
-                    raise InvalidParameter("password group items should be a list of name:passwords")
+                    raise InvalidParameter("password group items should be a list of name:passwords") # pylint: disable=line-too-long
                 name, pword = parts
                 if pword[:3] == '$7$':
                     _grp.append(pword)

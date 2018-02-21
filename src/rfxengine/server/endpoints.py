@@ -11,12 +11,12 @@ import time
 import base64
 import traceback
 import datetime
+import re
 import cherrypy
 import jwt
 import nacl.pwhash
 import nacl.exceptions
 import dictlib
-import re
 from rfx import json2data#, json4human#, json4store #, json2data
 from rfxengine import log, get_jti#, trace
 from rfxengine import server # pylint: disable=cyclic-import
@@ -344,7 +344,7 @@ class Object(server.Rest, Attributes):
         super(Object, self).__init__(*args, **kwargs)
 
     ############################################################################
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument,too-many-branches
     def rest_read(self, *args, **kwargs):
         """
         read
@@ -372,14 +372,14 @@ class Object(server.Rest, Attributes):
                 else:
                     archive.append(0)
             except ValueError:
-                self.respond_failure({"status":"failed", "message": "Invalid archive dates (not POSIX time)"})
-                return
+                return self.respond_failure({"status": "failed",
+                                             "message": "Invalid archive dates (not POSIX time)"})
 
         match = kwargs.get('match')
         if match:
             if re.search(r'[^a-z0-9-]', match):
-                self.respond_failure({"status": "failed", "message": "match may only be a-z0-9-"})
-                return
+                return self.respond_failure({"status": "failed",
+                                             "message": "match may only be a-z0-9-"})
 
         if not args:
             try:
@@ -557,4 +557,3 @@ class InstancePing(Object):
             return self.respond({"status":"updated", "warning":"; ".join(warnings)},
                                 status=201)
         return self.respond({"status":"updated"}, status=201)
-

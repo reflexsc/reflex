@@ -31,6 +31,7 @@ import re
 import logging
 import sys
 import traceback
+import dateparser
 try:
     from builtins import input # pylint: disable=redefined-builtin
     get_input = input # pylint: disable=invalid-name
@@ -43,7 +44,6 @@ import rfx
 import rfx.tabulate
 from rfx import NotFoundError, threadlock, json4human
 import rfx.client
-import dateparser
 
 ################################################################
 # helper wraps around a conf object
@@ -61,6 +61,10 @@ def _getconf(cfg, *key):
     return _getconf(cfg[key[0]], *key[1:])
 
 def parse_dates(input_str):
+    """
+    Accept a string of two posix dates separated by ~,
+    Return two datetime objects
+    """
     if not input_str:
         return None
     split = re.split(r'\s*~\s*', input_str + "~")[0:2]
@@ -241,7 +245,7 @@ class EngineCli(rfx.Base):
             if re.search(r'[^a-z0-9.-]', argv[0]):
                 try:
                     filter_re = re.compile(argv[0])
-                except Exception as err:
+                except Exception as err: # pylint: disable=broad-except
                     self.ABORT("Invalid regular expression: {}\n\t{}".format(argv[0], str(err)))
             else:
                 name = argv[0]
