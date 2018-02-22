@@ -1,6 +1,51 @@
 
+pipeline {
+  flow: {
+    <lane-name>: {
+      prev: <lane-name>, -- or undefined; lane is xref'd on service
+      next: <lane-name>, -- or undefined; lane is xref'd on service
+      ready: all(default)|one|none -- how many matching svcs have to be ok
+      trigger: {
+        type: 
+          previous(default)-- start once the previous stage is ready
+          schedule         -- start at a scheduled time 
+          action           -- webhook or manual button-push
+        ... - data for type
+      }
+      release: future(default)|current -- override/specified in action?
+    }
+  }
+}
 
-service (per svc/lane) {
+bct {
+  flow: {
+    build: {
+      next: dev,
+      ready: all,
+      trigger: {
+         type: action -- implicit path based on flow/name
+      }
+    },
+    dev: {
+      next: tst,
+    },
+    tst: {
+      next: prd,
+      prev: dev,
+    },
+    prd: {
+      prev: tst,
+      ready: all,
+      trigger: {
+         type: schedule,
+         at: TIME-SPEC
+      }
+    }
+}
+
+## NOTE: promote to future stack should come from version-check, not deploy script
+
+service {
   - target - 
 
   status: ok, deploying, failed, maintenance
@@ -17,24 +62,25 @@ service (per svc/lane) {
 }
 
 
-
-
-
-build {
-
+build<aka release> {
   lanes: {
-
-    <lane>: [ -- send to Splunk
-      {by: ??,
-       approved: ??,
-       started: time,
-       online: time,
-       status: ok|deploying|failed
-       links: jira?
-       meta?  - gitlab tags & stuff
-      }
-      ...
-    ]
-  } 
+    lane: {
+       events|log: [
+         event
+       ]
+       status: X
+    },
+    ...
+  }
 }
+
+   event: {
+     _time: posix.time,
+     services: [list,of,service,names,effected]
+     status: status
+     <meta as passed in--suggested:
+     approved_by: name
+     started_by: name
+     links: [external links to thinks like jira, gitlab]
+   }
 

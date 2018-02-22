@@ -447,7 +447,7 @@ class RCObject(rfx.Base):
         self.authorized("read", attrs, sensitive=False, raise_error=True)
 
         args = []
-        sql = "SELECT id,name,updated_by,unix_timestamp(updated_at) FROM " + self.table
+        sql = "SELECT id,name,updated_by,updated_at FROM " + self.table
         where = []
         if archive:
             if not self.archive:
