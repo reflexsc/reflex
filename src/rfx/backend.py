@@ -31,8 +31,8 @@ import re
 import logging
 import sys
 import traceback
-import dateparser
 import datetime
+import dateparser
 try:
     from builtins import input # pylint: disable=redefined-builtin
     get_input = input # pylint: disable=invalid-name
