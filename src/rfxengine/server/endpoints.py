@@ -391,7 +391,7 @@ class Object(server.Rest, Attributes):
 
                     data = obj.list_cols(attrs, cols, match=match, archive=archive)
                 else:
-                    data = obj.list_buffered(attrs, match=match archive=archive)
+                    data = obj.list_buffered(attrs, match=match, archive=archive)
             except dbo.NoArchive as err:
                 self.respond_failure({"status": "failed", "message": str(err)})
 

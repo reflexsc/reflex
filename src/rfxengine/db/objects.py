@@ -340,10 +340,13 @@ class RCObject(rfx.Base):
             if col.stored == "data":
                 value = data.get(name, None)
             elif name == "updated_at":
+                log("WHAAAT?")
                 if dbin.get("unix_timestamp(updated_at)", None):
                     value = dbin.get("unix_timestamp(updated_at)")
+                    log("Unix?")
                 else:
                     value = str(dbin.get("updated_at"))
+                log("value={}".format(value))
             else:
                 value = dbin.get(col.stored, None)
 
@@ -407,72 +410,10 @@ class RCObject(rfx.Base):
     @db_interface
     def list_buffered(self, attrs, dbi=None, limit=0, match=None, archive=None):
         """
-        Query and get a list of objects, using a buffer for results.
-        Do not worry about the dbi.
-        Arguments:
-
-            limit=X  -- optional, limit to X results
-            match=X  -- optional, match name as provided (glob)
-
-        Use .list_iterated() for an iterator based list, but you must
-        also provide the dbi.
+        too much duplicate code, just redirected to list_buffered
         """
-        (sql, args) = self._list_prep(attrs, limit=limit, match=match, dbi=dbi, archive=archive)
-
-        results = []
-        cursor = dbi.do(sql, *args)
-        for row in cursor:
-            results.append(row_to_dict(cursor, row))
-        cursor.close()
-        return results
-
-    ############################################################################
-#    def list_iterated(self, attrs, dbi=None, limit=0, match=None, archive=archive):
-#        """
-#        List objects, using an iterator.  Same as .list_buffered() but you also
-#        must include the dbi, and results are given as an iterator (cursor)
-#        """
-#        (sql, args) = self._list_prep(attrs, limit=limit, match=match, archive=archive)
-#        cursor = dbi.do(sql, args)
-#        return cursor
-
-    ############################################################################
-    # pylint: disable=too-many-arguments
-    def _list_prep(self, attrs, dbi=None, limit=0, match=None, archive=None):
-        """
-        Prepare sql and args for list
-        """
-
-        self.policies = self._get_policies(dbi=dbi)
-        self.authorized("read", attrs, sensitive=False, raise_error=True)
-
-        args = []
-        sql = "SELECT id,name,updated_by,updated_at FROM " + self.table
-        where = []
-        if archive:
-            if not self.archive:
-                raise NoArchive(self.table + " does not support archives")
-            sql += 'Archive'
-            if archive[1] > archive[0]:
-                args += [archive[1], archive[0]]
-            else:
-                args += [archive[0], archive[1]]
-            where = ["(updated_at <= ? AND updated_at >= ?)"]
-
-        if match:
-            where = ["name like ?"] + where
-            args += [match + "%"] + args # translate from glob
-
-        if where:
-            sql += ' WHERE ' + " AND ".join(where)
-
-        sql += " ORDER BY name"
-
-        if limit:
-            sql += " LIMIT ?"
-            args += [str(limit)]
-
-        return (sql, args)
+        return self.list_cols(attrs, ['name', 'id'],
+                              dbi=dbi, limit=limit, match=match, archive=archive)
 
     ############################################################################
     # pylint: disable=too-many-locals,too-many-statements
