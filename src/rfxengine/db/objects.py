@@ -289,7 +289,7 @@ class RCObject(rfx.Base):
         if archive:
             if not self.archive:
                 raise NoArchive(self.table + " does not support archives")
-            sql += 'Archive WHERE id=? AND updated_at = ?'
+            sql += 'Archive WHERE id=? AND updated_at = from_unixtime(?)'
             args.append(archive[0])
         else:
             sql += ' WHERE id=?'
@@ -323,8 +323,7 @@ class RCObject(rfx.Base):
         """
         data = dict()
         obj = dict()
-#        if not attrs.get('obj'):
-#            attrs['obj'] = dict()
+
         if self.vardata and dbin.get('data'):
             data = json2data(dbin['data'])
 
@@ -340,13 +339,10 @@ class RCObject(rfx.Base):
             if col.stored == "data":
                 value = data.get(name, None)
             elif name == "updated_at":
-                log("WHAAAT?")
-                if dbin.get("unix_timestamp(updated_at)", None):
+                if dbin.get("unix_timestamp(updated_at)"):
                     value = dbin.get("unix_timestamp(updated_at)")
-                    log("Unix?")
                 else:
-                    value = str(dbin.get("updated_at"))
-                log("value={}".format(value))
+                    value = dbin.get("updated_at").timestamp()
             else:
                 value = dbin.get(col.stored, None)
 
@@ -432,6 +428,9 @@ class RCObject(rfx.Base):
         if 'id' not in cols: # needed for get_policies
             cols.add('id')
 
+#        if 'updated_at' in cols:
+#            cols[cols.index('updated_at')] = 'unix_timestamp(updated_at)'
+
         # special case '*'
         if "*" in cols:
             cols = set(self.omap.keys())
@@ -442,6 +441,8 @@ class RCObject(rfx.Base):
                 if not added_data:
                     keys.add("data")
                     added_data = True
+            elif col == 'updated_at':
+                keys.add('unix_timestamp(updated_at)')
             else:
                 keys.add(col.stored)
 
@@ -455,7 +456,7 @@ class RCObject(rfx.Base):
                 args += [archive[1], archive[0]]
             else:
                 args += [archive[0], archive[1]]
-            where = ["(updated_at <= ? AND updated_at >= ?)"]
+            where = ["(updated_at <= from_unixtime(?) AND updated_at >= from_unixtime(?))"]
 
         if match:
             where = ["name like ?"] + where

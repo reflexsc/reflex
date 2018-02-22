@@ -190,7 +190,7 @@ class Session(rfx.Base):
         """session GET"""
         args = []
         if archive:
-            args.append("archive=" + str(archive['start'].timestamp()))
+            args.append("archive=" + str(archive['start']))
         return self._call(requests.get,
                           obj_type + "/" + str(obj_target) + "?" + "&".join(args))
 
@@ -209,8 +209,8 @@ class Session(rfx.Base):
                 args.append("match=" + urllib.pathname2url(match))
         if archive:
             args.append("archive=" +
-                        str(archive['start'].timestamp()) + "~" +
-                        str(archive['end'].timestamp()))
+                        str(archive['start']) + "~" +
+                        str(archive['end']))
         if cols:
             args.append("cols=" + ",".join(cols))
 

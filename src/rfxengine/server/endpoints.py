@@ -10,7 +10,6 @@ Endpoints for Reflex Engine API
 import time
 import base64
 import traceback
-import datetime
 import re
 import cherrypy
 import jwt
@@ -364,11 +363,10 @@ class Object(server.Rest, Attributes):
             dates = (kwargs.get('archive') + "~0").split("~")[0:2]
             try:
                 archive = [
-                    str(datetime.datetime.fromtimestamp(float(dates[0]))),
+                    float(dates[0])
                 ]
                 if dates[1]:
-                    date = str(datetime.datetime.fromtimestamp(float(dates[1])))
-                    archive.append(date)
+                    archive.append(float(dates[1]))
                 else:
                     archive.append(0)
             except ValueError:

@@ -32,6 +32,7 @@ import logging
 import sys
 import traceback
 import dateparser
+import datetime
 try:
     from builtins import input # pylint: disable=redefined-builtin
     get_input = input # pylint: disable=invalid-name
@@ -75,7 +76,7 @@ def parse_dates(input_str):
     if not end:
         raise ValueError("Invalid date: " + split[1])
 
-    return dict(start=start, end=end)
+    return dict(start=start.timestamp(), end=end.timestamp())
 
 ################################################################
 class Engine(rfx.Base):
@@ -317,14 +318,20 @@ class EngineCli(rfx.Base):
                 obj_lower[key.lower()] = value
 
             row = list()
-            for key in range(0, ncols):
-                try:
-                    if subs and subs.get(key):
-                        row.append(dictlib.dig(obj_lower[cols[key]], subs[key]))
-                    else:
-                        row.append(obj_lower[cols[key]])
-                except (KeyError, TypeError):
-                    row.append('')
+            for key_x in range(0, ncols):
+                if cols[key_x] == 'updated_at':
+                    posix_time = int(obj_lower[cols[key_x]])
+                    val = "{} ({})".format(posix_time,
+                                           datetime.datetime.fromtimestamp(posix_time))
+                    row.append(val)
+                else:
+                    try:
+                        if subs and subs.get(key_x):
+                            row.append(dictlib.dig(obj_lower[cols[key_x]], subs[key_x]))
+                        else:
+                            row.append(obj_lower[cols[key_x]])
+                    except (KeyError, TypeError):
+                        row.append('')
             results.append(row)
 
         rfx.tabulate.cols(results, stderr=stderr, header=True, fmt=parsed.get('--format', 'txt'))
