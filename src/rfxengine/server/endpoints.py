@@ -389,14 +389,9 @@ class Object(server.Rest, Attributes):
                     if errs:
                         raise server.Error(",".join(errs), 400)
 
-                    data = obj.list_cols(attrs,
-                                         cols,
-                                         match=kwargs.get('match'),
-                                         archive=archive)
+                    data = obj.list_cols(attrs, cols, match=match, archive=archive)
                 else:
-                    data = obj.list_buffered(attrs,
-                                             match=kwargs.get('match'),
-                                             archive=archive)
+                    data = obj.list_buffered(attrs, match=match archive=archive)
             except dbo.NoArchive as err:
                 self.respond_failure({"status": "failed", "message": str(err)})
 

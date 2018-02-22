@@ -453,7 +453,10 @@ class RCObject(rfx.Base):
             if not self.archive:
                 raise NoArchive(self.table + " does not support archives")
             sql += 'Archive'
-            args += [archive[1], archive[0]]
+            if archive[1] > archive[0]:
+                args += [archive[1], archive[0]]
+            else:
+                args += [archive[0], archive[1]]
             where = ["(updated_at <= ? AND updated_at >= ?)"]
 
         if match:
@@ -507,7 +510,10 @@ class RCObject(rfx.Base):
             if not self.archive:
                 raise NoArchive(self.table + " does not support archives")
             sql += 'Archive'
-            args += [archive[0], archive[1]]
+            if archive[1] > archive[0]:
+                args += [archive[1], archive[0]]
+            else:
+                args += [archive[0], archive[1]]
             where = ["(updated_at <= ? AND updated_at >= ?)"]
 
         if match:
