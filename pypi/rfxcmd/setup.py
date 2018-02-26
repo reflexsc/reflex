@@ -2,7 +2,7 @@ from setuptools import setup
 setup(
   name = 'rfxcmd',
   packages = ['rfxcmd'],
-  version = "1802.0004",
+  version = "1802.0007",
   description = 'Reflex - Container Config and Secret Management - commands',
   author = 'Brandon Gillespie',
   author_email = 'bjg-pypi@cold.org',

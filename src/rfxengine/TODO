@@ -1,3 +1,10 @@
 - Expose archives via API
 - Reactions using policy hook engine
 
+```pip3 install rfxcmd --upgrade```
+```engine svc list juno-t1 --archive='1 day ago'```
+
+svc get not working (sigh)
+verify that policies are still applied even on Archive objects
+
+

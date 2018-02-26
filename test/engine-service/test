@@ -8,8 +8,8 @@ export PYTHONUNBUFFERED=true
 declare -a test_opts
 did=0
 do_all() {
-#    DO_LINT=yes
-#    DO_UNIT=yes
+    DO_LINT=yes
+    DO_UNIT=yes
     DO_INTEGRATION=no
     DO_FUNCTIONAL=yes
     DO_STACK=yes
