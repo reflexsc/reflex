@@ -273,7 +273,7 @@ class App(rfx.Base):
 
         self.launch_peers = dict(ip0=dict(), ip1=dict())
         for inst in self.rcs.list('instance',
-                                  match=self.launch_service['name'] + "*",
+                                  match=self.launch_service['name'],
                                   cols=['address', 'status', 'name'],
                                   raise_error=False):
             if inst['name'] == self.my_host:
