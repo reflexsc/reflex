@@ -456,7 +456,7 @@ def test_functional(schema, base, tester, baseurl, args):
             '-mcreate': {
                 'name': 'gallifrey'
             },
-            '-mcreate-expect': [r'Response \[400\]', r'message": "Object validate'],
+            '-mcreate-expect': [r'Response \[400\]', r'message": "Pipeline named.*already exists'],
             'mupdate': {
                 'name': 'gallifrey',
                 'title': 'College of Cardinals',

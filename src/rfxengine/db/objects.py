@@ -37,11 +37,11 @@ import base64
 import hashlib # hashlib is fastest for hashing
 import nacl.utils # for keys -- faster than cryptography lib
 import nacl.pwhash # for password hashing
-from mysql.connector.errors import ProgrammingError, IntegrityError
+from mysql.connector.errors import ProgrammingError, IntegrityError, DatabaseError
 import rfx
 from rfx import json4store, json2data #, json4human
 from rfxengine.exceptions import ObjectNotFound, NoArchive, ObjectExists,\
-                                 NoChanges, CipherException, InvalidParameter,\
+                                 NoChanges, InvalidParameter,\
                                  PolicyFailed
 from rfxengine import abac, log, do_DEBUG#, trace
 from rfxengine.db.pool import db_interface
@@ -592,6 +592,9 @@ class RCObject(rfx.Base):
                 raise NoChanges("No changes were made")
         except IntegrityError as err:
             raise ObjectExists(str(err))
+        except DatabaseError as err:
+            log("type=error", msg=str(err), subtype="dberror", sql=sql)
+            raise InvalidParameter(str(err))
 
         if self.obj['id']:
             errors += self.changed(attrs, dbi=dbi)
@@ -671,9 +674,14 @@ class RCObject(rfx.Base):
             key_name = data[3:6]
             if key_name == '___': # not encrypted
                 return data[6:]
-            if not key_name in crypto:
-                raise CipherException("Cannot find key ({}) to decrypt data?".format(key_name))
-            return crypto[key_name]['cipher'].key_decrypt(data[6:])
+            if not crypto.get(key_name):
+                log("type=error", msg="cannot decrypt data: crypto key {} missing".format(key_name))
+                return '"unencryptable--see logs"'
+            try:
+                return crypto[key_name]['cipher'].key_decrypt(data[6:])
+            except nacl.exceptions.CryptoError as err:
+                log("type=error", msg="cannot decrypt data: {}".format(err))
+                return '"unencryptable--see logs"'
         else:
             return data[6:]
 
@@ -867,7 +875,6 @@ class Pipeline(RCObject):
      ADD> create table Pipeline (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
@@ -879,7 +886,6 @@ class Pipeline(RCObject):
      ADD> create table PipelineArchive (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
@@ -900,7 +906,6 @@ class Pipeline(RCObject):
     def __init__(self, *args, **kwargs):
         self.omap = dictlib.Obj()
 
-        self.omap['title'] = RCMap(stored='title')
         self.omap['contacts'] = RCMap(stored="data",
                                       dtype=dict,
                                       stype="opt")
@@ -917,11 +922,10 @@ class Service(RCObject):
      ADD> create table Service (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
-     ADD>     stage varchar(32) not null default '',
+     ADD>     lane varchar(32) not null default '',
      ADD>     region varchar(32) not null default '',
      ADD>     pipeline_id int not null default 0,
      ADD>     config_id int not null default 0,
@@ -933,11 +937,10 @@ class Service(RCObject):
      ADD> create table ServiceArchive (
      ADD>     id int auto_increment not null,
      ADD>     name varchar(64) not null,
-     ADD>     title varchar(255) not null default '',
      ADD>     updated_at timestamp not null,
      ADD>     updated_by varchar(32) not null,
      ADD>     data text,
-     ADD>     stage varchar(32) not null default '',
+     ADD>     lane varchar(32) not null default '',
      ADD>     region varchar(32) not null default '',
      ADD>     pipeline_id int not null default 0,
      ADD>     config_id int not null default 0,
@@ -1677,7 +1680,6 @@ class Policyscope(RCObject):
         self.omap = dictlib.Obj()
         self.omap['policy'] = RCMap(stored="data", hasid='policy_id')
         self.omap['policy_id'] = RCMap(stype="read", stored='policy_id')
-        # TODO: Change 'objects' to required in the future (alter)
         self.omap['objects'] = RCMap(stype="opt", stored='objects', dtype=list)
         self.omap['matches'] = RCMap(stype="alter", stored='matches')
         self.omap['actions'] = RCMap(stype="alter", stored='actions')
