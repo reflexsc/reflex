@@ -11,16 +11,17 @@ services:
         target: 54000
         mode: host
     deploy:
-      placement:
-        constraints:
-          - node.role == worker
-          - engine.labels.co.divvy.zone == mgz
-          - engine.labels.co.divvy.region == p1
-      replicas: 3
-      update_config:
-        parallelism: 1
-        delay: 30s
-        max_failure_ratio: 0
+# use what makes sense for your configuration
+#      placement:
+#        constraints:
+#          - node.role == worker
+#          - engine.labels.zone == mgz
+#          - engine.labels.region == p1
+#      replicas: 3
+#      update_config:
+#        parallelism: 1
+#        delay: 30s
+#        max_failure_ratio: 0
       restart_policy:
         condition: on-failure
         delay: 5s
