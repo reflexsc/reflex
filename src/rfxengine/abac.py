@@ -193,12 +193,11 @@ class AuthService(object):
 
     # pylint: disable=no-self-use
     def auth_fail(self, reason):
-        """Log the reason, and report a failure neutrally"""
+        """Report a failure"""
 
         def _rmatch(match):
             return "\n\t" + match.group(1)
 
         reason = re.sub(r'\n(\s*)', _rmatch, reason)
 
-        log(reason, type="authfail")
         raise exceptions.AuthFailed("Unauthorized", reason)

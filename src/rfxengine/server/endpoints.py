@@ -21,6 +21,7 @@ from rfxengine import log, get_jti#, trace
 from rfxengine import server # pylint: disable=cyclic-import
 from rfxengine import abac
 from rfxengine.db import objects as dbo
+from rfxengine import exceptions
 
 ################################################################################
 def get_json_body():
@@ -121,12 +122,16 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             if not auth_session:
                 self.auth_fail("Session not found")
 
-            try:
-                jwt_data = jwt.decode(jwt_token, auth_session.obj['secret_raw']) # pylint: disable=no-member
-            except jwt.DecodeError: # pylint: disable=no-member
-                self.auth_fail("JWT cannot be decoded properly")
-            except jwt.ExpiredSignatureError: # pylint: disable=no-member
-                self.auth_fail("JWT expired")
+            jwt_data = None
+            for secret in (auth_session.obj['secret_raw'], auth_session.obj['secret_encoded']):
+                try:
+                    # pylint: disable=no-member
+                    jwt_data = jwt.decode(jwt_token, secret)
+                    break
+                except jwt.exceptions.DecodeError:
+                    continue
+                except jwt.exceptions.ExpiredSignatureError: # pylint: disabble=no-member
+                    self.auth_fail("JWT expired")
 
             if not jwt_data:
                 self.auth_fail("JWT cannot be decoded")
@@ -140,6 +145,8 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
             attrs['token_nbr'] = auth_session.obj['data']['token_id'] # pylint: disable=no-member
             attrs['token_name'] = auth_session.obj['data']['token_name'] # pylint: disable=no-member
 
+        except exceptions.AuthFailed:
+            raise
         except: # pylint: disable=bare-except
             if self.server.do_DEBUG():
                 self.server.DEBUG(traceback.format_exc())
@@ -275,22 +282,27 @@ class Token(server.Rest, abac.AuthService):
 
             # validate base on array of secrets
             jwt_data = None
-            for secret in token.obj.get('secrets', []):
-                try:
-                    # pylint: disable=no-member
-                    jwt_data = jwt.decode(jwt_apikey, base64.b64decode(secret))
-                except jwt.exceptions.DecodeError:
-                    continue
-                except jwt.exceptions.ExpiredSignatureError: # pylint: disable=no-member
-                    self.auth_fail("JWT expired")
+            for secret_raw in token.obj.get('secrets', []):
+                # there is a problem with binary secrets across language bases
+                for secret in (secret_raw, base64.b64decode(secret_raw)):
+                    try:
+                        # pylint: disable=no-member
+                        jwt_data = jwt.decode(jwt_apikey, secret)
+                        break
+                    except jwt.exceptions.DecodeError:
+                        continue
+                    except jwt.exceptions.ExpiredSignatureError: # pylint: disabble=no-member
+                        self.auth_fail("JWT expired")
+                if jwt_data:
+                    break
 
             if not jwt_data:
                 self.auth_fail("JWT cannot be decoded")
             if not jwt_data.get('exp'):
                 self.auth_fail("JWT missing expiration")
 
-            # 256 base64 != 256 bytes, but this is close enough to tell; save a few cycles
-            if not jwt_data.get('seed') or len(jwt_data.get('seed')) < 256:
+            # 36 chars is a UUID4
+            if not jwt_data.get('seed') or len(jwt_data.get('seed')) < 36:
                 self.auth_fail("JWT seed missing")
 
             if time.time() - jwt_data['exp'] > self.server.conf.auth.expires:
