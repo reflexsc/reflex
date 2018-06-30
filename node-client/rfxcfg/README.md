@@ -14,7 +14,7 @@ Pulling in configurations is intentionally done synchronously, which means you c
       const config = await reflex.load()
       console.log(config)
     }
-}
+    main()
 
 # configuring environment
 
@@ -55,5 +55,5 @@ And the secrets are setup via CLI:
 
 * setup as a supported option in to be called via the conventional npm-config project
 * allow for variant shims besides reflex, for `.load()`, such as AWS secrets
-* verify and document functionality for lambda's and [openfaas](https://www.openfaas.org/)
+* verify and document functionality for lambda's and [openfaas](https://www.openfaas.com/)
 
