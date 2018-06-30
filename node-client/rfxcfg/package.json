@@ -1,0 +1,45 @@
+{
+  "name": "rfxcfg",
+  "title": "simple client for accessing reflex.cold.org engine configurations",
+  "main": "index.js",
+  "keywords": [
+    "secrets",
+    "container",
+    "lambda",
+    "config",
+    "reflex"
+  ],
+  "author": "Brandon Gillespie",
+  "license": "GNU Affero",
+  "version": "1.0.0",
+  "bugs": {
+    "url": "https://github.com/reflexsc/reflex/issues"
+  },
+  "homepage": "https://github.com/reflexsc/reflex/tree/master/node-client/rfxcfg/",
+  "engines": {
+    "node": ">=8.10.0"
+  },
+  "scripts": {
+    "test": "npm run test-unit",
+    "test-unit": "standard && mocha && npm run doctest",
+    "doctest": "TEST_MODE=true doctest -m commonjs index.js reflex.js",
+    "mocha": "mocha",
+    "standard": "standard"
+  },
+  "dependencies": {
+    "axios": "*",
+    "base-64": "*",
+    "jsonwebtoken": "^8.3.0",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "standard": "*",
+    "doctest": "*",
+    "mocha": "^5.2.0"
+  },
+  "standard": {
+    "env": [
+      "mocha"
+    ]
+  }
+}
