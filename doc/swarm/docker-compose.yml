@@ -2,22 +2,24 @@
 version: '3.2'
 services:
   engine:
-    image: your-repo/reflex:prd
+    image: reflex-engine:prd
     entrypoint: /usr/bin/reflex-engine
     environment:
       - PYTHONUNBUFFERED=true
     ports:
-      - published: 4234
+      - published: 54000
         target: 54000
         mode: host
+    #entrypoint: sleep 9000
+    links:
+      - db
     deploy:
-# use what makes sense for your configuration
 #      placement:
 #        constraints:
 #          - node.role == worker
-#          - engine.labels.zone == mgz
-#          - engine.labels.region == p1
-#      replicas: 3
+#          - engine.labels.co.divvy.zone == mgz
+#          - engine.labels.co.divvy.region == p1
+      replicas: 1
 #      update_config:
 #        parallelism: 1
 #        delay: 30s
@@ -30,9 +32,18 @@ services:
     # setup a docker secret with the engine config
     # see example file: REFLEX_ENGINE_CONFIG.json
     secrets:
-      - source: reflex-cfg
+      - source: reflex-cfg-v1
         target: REFLEX_ENGINE_CONFIG
 
+  db:
+    image: mariadb
+    environment:
+      - MYSQL_DATABASE=engine
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+    volumes:
+      - "/data/reflex/mysql:/var/lib/mysql"
+      - "/data/shared:/shared"
+
 secrets:
-  reflex-cfg:
+  reflex-cfg-v1:
     external: true

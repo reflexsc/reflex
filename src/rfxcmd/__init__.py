@@ -48,7 +48,8 @@ from rfx.control import ControlCli
 from rfx.launch import LaunchCli
 from rfx.optarg import Args
 from rfx.action import Action
-import rfxcmd.demo
+import rfxcmd.setup_demo
+import rfxcmd.setup_basic
 
 ################################################################################
 def new_base(args):
@@ -256,7 +257,7 @@ class CliSetup(CliRoot):
                     "type": "from-set",
                     "set": ["l?ist|ls", "set", "get", "unset",
                             "wiz?ard",
-                            "demo"]
+                            "demo", "basic"]
                 }
             ], [
                 "--confirm", {
@@ -281,6 +282,7 @@ Usage: """ + self.cmd + """ l?ist|ls
        """ + self.cmd + """ unset key
        """ + self.cmd + """ wiz?ard
        """ + self.cmd + """ demo
+       """ + self.cmd + """ basic    -- use this to initialize your engine
 
 """
 
@@ -296,6 +298,8 @@ Usage: """ + self.cmd + """ l?ist|ls
         control.timestamp = False
         if action == 'demo':
             self.setup_demo(args)
+        elif action == 'basic':
+            self.setup_basic(args)
         else:
             getattr(control, action + "_cli")(self.args.argv, args)
 
@@ -303,7 +307,13 @@ Usage: """ + self.cmd + """ l?ist|ls
         if not args.get('--confirm'):
             get_input("This will populate your engine with demo data.\n" +
                       "Press [Enter/Return] to continue...")
-        rfxcmd.demo.setup()
+        rfxcmd.setup_demo.setup()
+
+    def setup_basic(self, args):
+        if not args.get('--confirm'):
+            get_input("This will populate your engine with basic a schema.\n" +
+                      "Press [Enter/Return] to continue...")
+        rfxcmd.setup_basic.setup()
 
 ################################################################################
 class CliApp(CliRoot):

@@ -21,41 +21,9 @@
 #
 #$#HEADER-END
 
-import sys
 import rfx.client
 import dictlib
-import requests.exceptions
-
-################################################################################
-def create(func, otype, odata):
-    """Wrapper to handle errors"""
-    try:
-        sys.stdout.write("Create " + otype + "." + odata.get('name'))
-        res = do(func, otype, odata)
-        if res.get('status') != 'created':
-            msg = res.get('message')
-            print(" - " + res.get('message'))
-        else:
-            print("")
-        return dictlib.Obj(res)
-
-    except rfx.client.ClientError as err:
-        errmsg = str(err)
-        if "already exists" in errmsg or "Duplicate entry" in errmsg:
-            print(" - already exists")
-            return False
-        else:
-            print(" - error:\n       " + errmsg)
-            if 'Unable to authorize session' in errmsg:
-                sys.exit(0)
-
-def do(func, *args):
-    """Wrapper to handle errors"""
-    try:
-        return func(*args)
-    except requests.exceptions.ConnectionError:
-        print("Server not available at " + rcs.cfg['REFLEX_URL'])
-        sys.exit(1)
+from .setup import create, do
 
 def setup():
     rcs = rfx.client.Session()
