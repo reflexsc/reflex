@@ -55,7 +55,6 @@ class App(rfx.Base):
     # pylint: disable=super-init-not-called
     def __init__(self, base=None):
         rfx.Base.__inherit__(self, base)
-        self.dbo = Engine(base=base)
         self.rcs = rfx.client.Session(base=base)
         self.get_my_nameip()
         self.launch_peers = dict()
@@ -146,7 +145,7 @@ class App(rfx.Base):
     # pylint: disable=unused-argument
     def _load_reflex_engine_config(self, target, commit=False):
         """get a from Reflex Engine"""
-        cproc = ConfigProcessor(base=self, engine=self.dbo, peers=self.launch_peers)
+        cproc = ConfigProcessor(base=self, rcs=self.rcs, peers=self.launch_peers)
         conf = cproc.flatten(self.launch_service['config'])
         if commit:
             cproc.commit(conf, dest=self.launch_cfgdir)
@@ -194,7 +193,7 @@ class App(rfx.Base):
         conf = self.launch_config
         conf.setenv = dictlib.union(conf.setenv,
                                     action.config.get('setenv', {}))
-        cproc = ConfigProcessor(base=self, engine=self.dbo)
+        cproc = ConfigProcessor(base=self, rcs=self.rcs)
         conf.setenv = cproc.macro_expand_dict(conf.setenv)
         for key, value in conf.setenv.items():
             value = self.sed_env(str(value), local_config, '')

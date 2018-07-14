@@ -111,18 +111,18 @@ class ConfigProcessor(VerboseBase):
     rx_var = re.compile(r"%\{([a-zA-Z0-9_.-]+)\}") # macro_expand
     rx_env = re.compile(r"\$(\{([a-zA-Z0-9_]+)\}|([a-zA-Z0-9_]+))") # environ_var
     expanded_vars = None
-    engine = None
+    rcs = None
     peers = None
 
     ############################################################################
-    def __init__(self, verbose=True, base=None, engine=None, peers=None):
+    def __init__(self, verbose=True, base=None, rcs=None, peers=None):
         super(ConfigProcessor, self).__init__(verbose=verbose)
         if not base: # sorry, we need rfx.Base
             raise ValueError("Missing Reflex Base (base=)")
-        if not engine: # and engine
-            raise ValueError("Missing Reflex Engine (engine=)")
+        if not rcs: # and rcs
+            raise ValueError("Missing Reflex Engine (rcs=)")
         rfx.Base.__inherit__(self, base)
-        self.engine = engine # allows for overriding during testing
+        self.rcs = rcs # allows for overriding during testing
         self.verbose = verbose
         self.did = dictlib.Obj(exp=dict(), imp=dict(), ext=dict())
         if peers:
@@ -144,7 +144,7 @@ class ConfigProcessor(VerboseBase):
         values, using the dict as the lookup table.
 
         >>> base = rfx.Base()
-        >>> test = ConfigProcessor(base=base, engine=base)
+        >>> test = ConfigProcessor(base=base, rcs=base)
         >>> test.macro_expand_dict({"a":"Hello",
         ...                         "b":"Not %{a}",
         ...                         "c":"c=%{c}",
@@ -163,7 +163,7 @@ class ConfigProcessor(VerboseBase):
         replacement values.  Value may contain multiple macros.
 
         >>> base = rfx.Base()
-        >>> test = ConfigProcessor(base=base, engine=base)
+        >>> test = ConfigProcessor(base=base, rcs=base)
         >>> test.macro_expand("hi %{VAR}", {"VAR":"there"})
         'hi there'
 
@@ -201,7 +201,7 @@ class ConfigProcessor(VerboseBase):
 
     ############################################################################
     def flatten(self, name, exported=False):
-        conf = Config(name, base=self, engine=self.engine, verbose=self.verbose).conf
+        conf = Config(name, base=self, rcs=self.rcs, verbose=self.verbose).conf
         conf = self._flatten(conf, name, exported=exported, toplevel=True)
         return self._process(conf)
 
@@ -251,7 +251,7 @@ class ConfigProcessor(VerboseBase):
             return conf
         self.did.ext[name] = True
 
-        new = Config(name, base=self, engine=self.engine, verbose=self.verbose).load()
+        new = Config(name, base=self, rcs=self.rcs, verbose=self.verbose).load()
 
         def dmerge_outer(conf, new, key):
             if key in new and new[key]:
@@ -277,7 +277,7 @@ class ConfigProcessor(VerboseBase):
                 if iname in self.did.imp:
                     continue
                 self.did.imp[iname] = True
-                iconf = Config(iname, base=self, engine=self.engine, verbose=self.verbose).load()
+                iconf = Config(iname, base=self, rcs=self.rcs, verbose=self.verbose).load()
 
                 # imports ignores `extends` and `imports`
                 dmerge_outer(conf, iconf, 'sensitive')
@@ -500,16 +500,16 @@ class Config(VerboseBase):
     """
 
     conf = None
-    engine = None
+    rcs = None
 
     ############################################################################
-    def __init__(self, name, base=None, engine=None, verbose=True):
+    def __init__(self, name, base=None, rcs=None, verbose=True):
         super(Config, self).__init__(verbose=verbose)
         if not base: # we need rfx.Base
             raise ValueError("Missing Reflex Base (base=)")
         rfx.Base.__inherit__(self, base)
-        if not engine: # and a rfx.Engine() object
-            raise ValueError("Missing Reflex Engine (engine=)")
+        if not rcs: # and a rfx.Engine() object
+            raise ValueError("Missing Reflex Engine (rcs=)")
 
         self.conf = dictlib.Obj(
             name=name,
@@ -527,7 +527,7 @@ class Config(VerboseBase):
             type='parameter'
         )
 
-        self.engine = engine
+        self.rcs = rcs
         self.peers = base.peers # should come in from ConfigProcessor
         if self.peers:
             self.conf['peers'] = self.peers
@@ -540,7 +540,7 @@ class Config(VerboseBase):
                 self.conf.setenv['LAUNCH_PEER' + iplabel + '_IPS'] = ",".join(list(peers.values()))
 
     def load(self):
-        obj = self.engine.get_object('config', self.conf.name)
+        obj = self.rcs.get('config', self.conf.name)
         if obj:
             dictlib.union(self.conf, obj)
 

@@ -33,6 +33,7 @@ import time
 import base64
 import requests
 import nacl.utils
+#import uuid
 import jwt
 import dictlib
 import rfx
@@ -82,6 +83,7 @@ class Session(rfx.Base):
 
         key_jwt = jwt.encode(dict(
             jti=self.apikey_name,
+            #seed=str(uuid.uuid4()), #base64.b64encode(nacl.utils.random(256)).decode(),
             seed=base64.b64encode(nacl.utils.random(256)).decode(),
             exp=time.time() + 300
         ), self.apikey_secret)
