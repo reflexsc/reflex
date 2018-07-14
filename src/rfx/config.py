@@ -253,16 +253,26 @@ class ConfigProcessor(VerboseBase):
 
         new = Config(name, base=self, rcs=self.rcs, verbose=self.verbose).load()
 
+        def vals_are_same(key, d1, d2):
+            if type(d1[key]) == type(d2[key]):
+                return True
+            else:
+                raise TypeError("Cannot merge {}: key={}, values are not the same!".format(name, key))
+
         def dmerge_outer(conf, new, key):
             if key in new and new[key]:
+                vals_are_same(key, new, conf)
                 conf[key] = dictlib.union(conf[key], new[key])
 
         def dmerge_inner(conf, new, key):
             if key in new and new[key]:
+                vals_are_same(key, new, conf)
                 conf[key] = dictlib.union(new[key], conf[key])
 
         def lmerge(conf, new, key):
             if key in new and new[key]:
+                vals_are_same(key, new, conf)
+
                 # sets are not ordered, so do it by hand; set-add old array to new
                 for item in conf[key]:
                     if not item in new[key]:

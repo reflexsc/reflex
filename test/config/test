@@ -53,16 +53,18 @@ class TestCP(rfx.Base):
         engine = TestDb(base=self)
         engine.load()
         os.environ['APP_CFG_BASE'] = '.'
-        conf = ConfigProcessor(base=self, engine=engine, verbose=True)
+        conf = ConfigProcessor(base=self, rcs=engine.session, verbose=True)
         cfg = conf.flatten("test-config-head")
         conf.commit(cfg, dest='./' + ctmp)
 
-        conf2 = ConfigProcessor(base=self, engine=engine, verbose=True)
+        conf2 = ConfigProcessor(base=self, rcs=engine.session, verbose=True)
         cfg = conf2.flatten("test2-self")
         conf2.commit(cfg, dest='./' + ctmp)
 
 ################################################################################
 def main():
+    sys.exit("Need to convert this to use my cold.org reflex engine live, instead of the mockup, now that I moved from Engine() to rcs")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action='append')
     parser.add_argument("--base", action='store_true') # do base tests
