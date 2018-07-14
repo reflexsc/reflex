@@ -97,7 +97,9 @@ class ControlCli(rfx.Base):
     ############################################################
     def apikey_cli(self, argv, args, cli):
         action = args.get('action')
-        target = argv[0] # " ".join(argv)
+        target = None
+        if argv:
+            target = argv[0]
 
         try:
             getattr(self, "apikey_cli__" + action)(target, cli)

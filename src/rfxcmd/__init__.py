@@ -139,7 +139,7 @@ class CliReflex(CliRoot):
             [
                 "scope", {
                     "type":"from-set",
-                    "set": ["setup", "apikey",
+                    "set": ["setup", "apikey", "policy",
                             "launch", "app", "engine|rxe", "action|act", "*"]
                 }
             ], [
@@ -163,6 +163,7 @@ Usage: """ + self.cmd + """ {scope} [...]
 => """ + self.cmd + """ setup {args}                   - setup local environ
 => """ + self.cmd + """ apikey {args}                  - manage apikeys
 => """ + self.cmd + """ password {args}                - manage group passwords
+=> """ + self.cmd + """ policy {args}                  - manage policies
 => """ + self.cmd + """ launch env|app|config {args}   *
 => """ + self.cmd + """ action|act run|verify {action} *
 => """ + self.cmd + """ action|act list|ls             *
@@ -314,6 +315,80 @@ Usage: """ + self.cmd + """ l?ist|ls
             get_input("This will populate your engine with basic a schema.\n" +
                       "Press [Enter/Return] to continue...")
         rfxcmd.setup_basic.setup()
+
+################################################################################
+class CliPolicy(CliRoot):
+    """app command"""
+
+    cfg = None
+
+    ############################################################################
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.args = Args(
+            [
+                "action", {
+                    "type": "from-set",
+                    "set": ["list"]
+                }
+            ]
+        )
+        super(CliPolicy, self).__init__(cmd)
+
+    ############################################################################
+    # pylint: disable=missing-docstring
+    def syntax(self):
+        return """
+Usage: """ + self.cmd + """ list
+
+List policies and scopes in one view
+
+"""
+
+    ############################################################################
+    # pylint: disable=missing-docstring
+    def start(self, argv=None, opts=None):
+        args = self.args.handle_parse(caller=self, argv=argv, opts=opts)
+        if not args or args.get('--help') and not self.args.argv:
+            self.fail()
+
+        self.base = rfx.Base().cfg_load()
+        self.engine = Engine(base=self.base)
+
+        cfg = self.engine.TRAP(self.engine.get_object, 'config', 'reflex', notify=False)
+        if not cfg:
+            self.fail("Missing config.reflex.  Try setting up demo data `reflex setup demo`")
+
+        self.cfg = dictlib.Obj(cfg['config'])
+
+#        if args.get('action') == 'list':
+        self._list(args)
+
+    ############################################################################
+    # pylint: disable=unused-argument
+    def _list(self, args):
+        policies = self.engine.session.list("policy", cols=["name", "order", "policy", "result", "id"])
+        scopes = dict()
+        for scope in self.engine.session.list("policyscope", cols=["name", "actions", "matches","policy_id","type", "objects"]):
+            policy_id = scope['policy_id']
+            if scopes.get(policy_id):
+                scopes[policy_id].append(scope)
+            else:
+                scopes[policy_id] = [scope]
+
+        results = list()
+        for policy in policies:
+            print("\n<POLICY={name}> order={order} result={result}".format(**policy))
+            count = 1
+            for scope in scopes.get(policy['id']) or []:
+                print("\n {count}: <SCOPE={name}> {type}:".format(count=count, **scope))
+
+                if scope['type'] == 'global' and scope['matches'] == 'True':
+                    print("  FOR:  ALL")
+                else:
+                    print("  FOR:  " + scope['matches'])
+                print(" {uaction}:  {policy}".format(uaction=scope['actions'].upper(), **policy))
+                count = count + 1
 
 ################################################################################
 class CliApp(CliRoot):

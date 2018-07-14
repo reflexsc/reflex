@@ -54,7 +54,8 @@ def setup():
                         "qa",
                         "prd",
                         "sbx"
-                    ]
+                    ],
+                    "nbr": 1
                 }
             },
             "lanes": {
@@ -209,12 +210,12 @@ def setup():
 
     #
     create(rcs.create, "policy", {
-        "name": "read-sensitive-prod",
-        "policy": "sensitive == True and (token_name in groups['" + service + "-prod']) and rx(r'^10\.', ip)",
+        "name": "read-sensitive-prd",
+        "policy": "sensitive == True and (token_name in groups['" + service + "-prd']) and rx(r'^10\.', ip)",
     })
     create(rcs.create, "policyscope", {
-        "name": "read-sensitive-prod",
-        "policy": "read-sensitive-prod",
+        "name": "read-sensitive-prd",
+        "policy": "read-sensitive-prd",
         "actions": "read",
         "type": "targeted",
         "matches": "obj_type == 'Config'"
@@ -222,7 +223,7 @@ def setup():
 
     create(rcs.create, "policyscope", {
         "name": service + "-read-prd",
-        "policy": "read-sensitive-prod",
+        "policy": "read-sensitive-prd",
         "actions": "read",
         "type": 'targeted',
         "description": "this is a redundant policy, to demonstrate object scoping by service",
