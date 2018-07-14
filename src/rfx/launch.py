@@ -296,7 +296,8 @@ class App(rfx.Base):
             self.rcs.instance_ping(myname, {
                 "status": "ok",
                 "service": self.launch_service['name'],
-                "name": myname,
+                "name": self.launch_service['name'] + "-" + myname,
+                #"name": myname,
                 "address": addrs
             })
         except Exception as err: # pylint: disable=broad-except

@@ -48,6 +48,7 @@ from rfx.control import ControlCli
 from rfx.launch import LaunchCli
 from rfx.optarg import Args
 from rfx.action import Action
+from rfxcmd.setup import create, do
 import rfxcmd.setup_demo
 import rfxcmd.setup_basic
 
@@ -406,7 +407,7 @@ class CliApp(CliRoot):
                     "set": ["del?ete|rm", "cre?ate|add"]
                 }
             ], [
-                "app/pipeline", {
+                "pipeline", {
                     "type":"set-value",
                 }
             ], [
@@ -433,10 +434,10 @@ class CliApp(CliRoot):
     # pylint: disable=missing-docstring
     def syntax(self):
         return """
-Usage: """ + self.cmd + """ {action} {app/pipeline} [options]
+Usage: """ + self.cmd + """ {action} {pipeline} [options]
 
   {action} is one of del?ete|rm|cre?ate|add
-  {app/pipeline} is the top level pipeline
+  {pipeline} is the top level pipeline
 
 Options:
 
@@ -509,31 +510,150 @@ Regions and Lanes are configured in the config:reflex object.
                       ", ".join(self.cfg.regions.keys()) + "\n\n" +
                       "Change options with: `engine config edit reflex`")
 
+        pipeline = args.get('pipeline').lower()
+
+        # create prod apikey and policies
+        rcs = self.engine.session
+        read_grps = []
+        if "prd" in lanes:
+            name_p = pipeline + "-prd"
+            apikey_p = self._tcreate('apikey', name_p, { "name": name_p })
+            print("apikey {}.{}".format(apikey_p['name'], apikey_p['secrets'][0]))
+            self._tcreate('group', 'svc-' + name_p, {
+                "name": 'svc-' + name_p,
+                "group": [apikey_p['name']],
+                "type": "Apikey"
+            })
+            read_grps.append("token_name in groups['svc-" + name_p + "']")
+
+            name_sp = pipeline + "-sensitive-prd"
+            policy_d = self._tcreate('policy', name_sp, {
+                "name": name_sp,
+                "order": 1000,
+                "policy": "sensitive and token_name in groups['svc-" + name_p + "']",
+                "result": "pass"
+            })
+            lane_rx_p = '-[' + ''.join([self.cfg.lanes[lane]['short'] for lane in self.cfg.lanes if lane == 'prd']) + '][0-9]'
+            scope_d = self._tcreate('policyscope', name_sp, {
+                "name": name_sp,
+                "policy": name_sp,
+                "actions": 'read',
+                "type": "targeted",
+                "matches": "obj_type in ('Config', 'Pipeline', 'Service') and rx(r'^" + pipeline + "(-[a-z]+)?(" + lane_rx_p + ")?$', obj['name'])",
+            })
+
+        # create non-prod apikey and policies
+        if lanes != ["prd"]: # if there is more than just prd
+            name_d = pipeline + "-nonprd"
+            apikey_d = self._tcreate('apikey', name_d, { "name": name_d })
+            print("apikey {}.{}".format(apikey_d['name'], apikey_d['secrets'][0]))
+
+            self._tcreate('group', 'svc-' + name_d, {
+                "name": 'svc-' + name_d,
+                "group": [apikey_d['name']],
+                "type": "Apikey"
+            })
+            read_grps.append("token_name in groups['svc-" + name_d + "']")
+
+            name_snp = pipeline + "-sensitive-nonprd"
+            policy_d = self._tcreate('policy', name_snp, {
+                "name": name_snp,
+                "order": 1000,
+                "policy": "sensitive and token_name in groups['svc-" + name_d + "']",
+                "result": "pass"
+            })
+            lane_rx_np = '-[' + ''.join([self.cfg.lanes[lane]['short'] for lane in self.cfg.lanes if lane != 'prd']) + '][0-9]'
+            scope_d = self._tcreate('policyscope', name_snp, {
+                "name": name_snp,
+                "policy": name_snp,
+                "actions": 'read',
+                "type": "targeted",
+                "matches": "obj_type in ('Config', 'Pipeline', 'Service') and rx(r'^" + pipeline + "(-[a-z]+)?(" + lane_rx_np + ")?$', obj['name'])",
+            })
+
+        # create a non-sensitive reading policy
+        name_pall = pipeline + "-non-sensitive-all"
+        policy_d = self._tcreate('policy', name_pall, {
+            "name": name_pall,
+            "order": 1000,
+            "policy": "not sensitive and (" + " or ".join(read_grps) + ")",
+            "result": "pass"
+        })
+        name_len = str(len(pipeline))
+        scope_d = self._tcreate('policyscope', name_pall, {
+            "name": name_pall,
+            "policy": name_pall,
+            "actions": 'read',
+            "type": "targeted",
+            "matches": "obj_type in ('Config', 'Pipeline', 'Service') and obj['name'][:" + name_len + "] == '" + pipeline + "'",
+        })
+
+        # create an Instances read/write policy
+        name_inst = pipeline + "-instance-read"
+        policy_d = self._tcreate('policy', name_inst, {
+            "name": name_inst,
+            "order": 1000,
+            "policy": " or ".join(read_grps),
+            "result": "pass"
+        })
+        scope_d = self._tcreate('policyscope', name_inst, {
+            "name": name_inst,
+            "policy": name_inst,
+            "actions": 'read',
+            "type": "global",
+            "matches": "obj_type in ('Instance')"
+        })
+
+        name_inst = pipeline + "-instance-write"
+        # we move the object service check into the policy, out of the object, for auto-adding (but slower)
+        policy_d = self._tcreate('policy', name_inst, {
+            "name": name_inst,
+            "order": 1000,
+            "policy": "(" + " or ".join(read_grps) + ") and obj['service'][:" + name_len + "] == '" + pipeline + "'",
+            "result": "pass"
+        })
+        scope_d = self._tcreate('policyscope', name_inst, {
+            "name": name_inst,
+            "policy": name_inst,
+            "actions": 'write',
+            "type": "targeted",
+            "matches": "obj_type in ('Instance')",
+        })
+
         for region in regions:
             for lane in lanes:
                 if lane not in self.cfg.regions[region].lanes:
                     continue
-                self._create_for(args['app/pipeline'],
-                                 region, lane, args.get('--tenant', ''))
+                self._create_for(pipeline, region, lane, lanes, args.get('--tenant', ''))
 
+    ################################################################################
+    def _cget(self, otype, target):
+        return self.engine.cache_get_object(otype, target)
 
-################################################################################
-#def trap(func, *args, **kwargs):
-#    try:
-#        return func(*args, **kwargs)
-#    except Exception as err:
-#        traceback.print_exc()
-#        print(str(err))
-#        return None
-#
-################################################################################
+    ################################################################################
+    def _tcreate(self, otype, name, template):
+        obj = None
+        try:
+            obj = self.engine.session.get(otype, name)
+        except rfx.client.ClientError as err:
+            if str(err) == "Forbidden":
+                sys.exit("ABORT: You do not have permission to create or view APIkeys")
+            if "object not found" not in str(err): #[:28] != "Endpoint or object not found":
+                raise
+        if obj:
+            print("Keeping existing {} {}".format(otype, name))
+        else:
+            print("Creating {} {}".format(otype, name))
+            self.engine.session.create(otype, template)
+        return self.engine.TRAP(self.engine.session.get, otype, name)
 
+    ################################################################################
     def _template(self, otype, target, template, default):
-        obj = self.engine.cache_get_object(otype, target, raise_error=False)
+        obj = self._cget(otype, target)
         if obj:
             print("Using existing {} {}".format(otype, target))
         elif template:
-            obj = self.engine.cache_get_object(otype, template, raise_error=False)
+            obj = self._cget(otype, template)
             if obj:
                 print("Using template {} {}: {}".format(otype, target, template))
             else:
@@ -546,7 +666,7 @@ Regions and Lanes are configured in the config:reflex object.
     
     ################################################################################
     # todo: allow for templates in config
-    def _create_for(self, pipeline, region, lane, tenant):
+    def _create_for(self, pipeline, region, lane, lanes, tenant):
 
         shortlane = self.cfg.lanes[lane].short + str(self.cfg.regions[region].nbr)
 
@@ -605,7 +725,7 @@ Regions and Lanes are configured in the config:reflex object.
             "extends": [pipeline],
             "sensitive": {
                 "parameters": {
-                    "APP_GRP_SEED": grp_key,
+                    "SEED": grp_key,
                     "ENVIRON-NAME": lane.upper(),
                     "LANE": lane.lower(),
                     "LANE-SUFFIX": "-%{LANE}"

@@ -198,7 +198,7 @@ def setup():
     #
     create(rcs.create, "policy", {
         "name": "read-non-sensitive",
-        "policy": "sensitive == False and (token_name in groups.devs or token_name in groups.devops or token_name in groups['admin-super'])",
+        "policy": "not sensitive and (token_name in groups.devs or token_name in groups.devops or token_name in groups['admin-super'])",
     })
     create(rcs.create, "policyscope", {
         "name": "read-non-sensitive",
@@ -208,27 +208,7 @@ def setup():
         "matches": 'True'
     })
 
-    #
-    create(rcs.create, "policy", {
-        "name": "read-sensitive-prd",
-        "policy": "sensitive == True and (token_name in groups['" + service + "-prd']) and rx(r'^10\.', ip)",
-    })
-    create(rcs.create, "policyscope", {
-        "name": "read-sensitive-prd",
-        "policy": "read-sensitive-prd",
-        "actions": "read",
-        "type": "targeted",
-        "matches": "obj_type == 'Config'"
-    })
-
-    create(rcs.create, "policyscope", {
-        "name": service + "-read-prd",
-        "policy": "read-sensitive-prd",
-        "actions": "read",
-        "type": 'targeted',
-        "description": "this is a redundant policy, to demonstrate object scoping by service",
-        "matches": 'obj_type == "Config" and re.match(r"^' + service + '-", obj["name"])'
-    })
+    print("NOTE: use command: `reflex app create --region=name --lanes=a,b,c NAME` for application specific configs")
 
     get_input("press [enter] to continue adding mockup service/config objects")
 

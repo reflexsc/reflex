@@ -130,7 +130,7 @@ class Attributes(abac.AuthService): # gives us self.auth_fail
                     break
                 except jwt.exceptions.DecodeError:
                     continue
-                except jwt.exceptions.ExpiredSignatureError: # pylint: disabble=no-member
+                except jwt.exceptions.ExpiredSignatureError: # pylint: disable=no-member
                     self.auth_fail("JWT expired")
 
             if not jwt_data:
@@ -291,7 +291,7 @@ class Token(server.Rest, abac.AuthService):
                         break
                     except jwt.exceptions.DecodeError:
                         continue
-                    except jwt.exceptions.ExpiredSignatureError: # pylint: disabble=no-member
+                    except jwt.exceptions.ExpiredSignatureError: # pylint: disable=no-member
                         self.auth_fail("JWT expired")
                 if jwt_data:
                     break
@@ -500,6 +500,47 @@ class Object(server.Rest, Attributes):
             self.respond_failure({'status': 'failed', "message": str(err)}, status=404)
 
 ################################################################################
+#class FlatConfig(server.Rest, Attributes):
+#    """
+#    internally assemple config
+#    """
+#
+#    ############################################################################
+#    # pylint: disable=unused-argument,too-many-branches
+#    def rest_read(self, *args, **kwargs):
+#        """
+#        read
+#        """
+#        attrs = self.abac_gather()
+#        if not attrs.token_nbr: # check policy instead
+#            self.auth_fail("Unauthorized")
+#
+#        # get target; check for errors.
+#        target = args[0]
+#
+#        # load processor
+#        # flatten... but because it calls http; will this work right?
+#        # and not calling http, will abac work right?  i probably should clone the
+#        # code to the server side
+#        cproc = ConfigProcessor(base=self, engine=self.dbo, peers=self.launch_peers)
+#        conf = cproc.flatten(target)
+#        ### more like this:
+#        # data = obj.get(target, attrs, archive=archive).dump()
+#
+##        trace("READ: post create")
+#        target = args[0]
+#        try:
+##                trace("READ: obj.get")
+##                trace("READ: obj.get (done)")
+#        except dbo.ObjectNotFound as err:
+#            self.respond_failure({"status":"failed", "message": str(err)}, status=404)
+#        except dbo.InvalidParameter as err:
+#            self.respond_failure({"status":"failed", "message": str(err)}, status=400)
+#
+##        trace("READ: return data")
+#        return self.respond(data, status=200)
+
+################################################################################
 class InstancePing(Object):
     """
     Instance Ping - a service checkin for Instances
@@ -531,7 +572,8 @@ class InstancePing(Object):
 
         body = get_json_body()
         target = args[0]
-        if target and target[:1] in "0123456789":
+        # hostnames can be all digits
+        if target and re.sub('[^\d]', '', target) == target:
             body['id'] = int(target)
         else:
             body['name'] = target

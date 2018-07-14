@@ -453,7 +453,7 @@ class ConfigProcessor(VerboseBase):
 
         if conf.content.get('type', 'text/plain') == 'application/json':
             if isinstance(data, dictlib.Obj):
-                data = data.__export__()
+                data = data.__original__()
             data = json4store(data)
 
         # pylint: disable=line-too-long

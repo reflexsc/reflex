@@ -417,6 +417,9 @@ class Server(rfx.Base):
         cherrypy.tree.mount(endpoints.InstancePing(conf, server=self),
                             conf.server.route_base + "/instance-ping",
                             endpoint_conf)
+#        cherrypy.tree.mount(endpoints.Compose(conf, server=self),
+#                            conf.server.route_base + "/compose",
+#                            endpoint_conf)
 
         # setup our heartbeat monitor
         int_mon = cherrypy.process.plugins.Monitor(cherrypy.engine,
