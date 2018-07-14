@@ -287,25 +287,30 @@ class App(rfx.Base):
     ############################################################################
     def _launch_update_instance(self):
         try:
-            myname = socket.gethostname()
-            myips = socket.gethostbyname_ex(myname)[2]
+            self.get_my_nameip()
             addrs = {}
-            for idx, ipnbr in enumerate(myips):
+            for idx, ipnbr in enumerate(self.my_ips):
                 addrs["ip" + str(idx)] = ipnbr
-            self.NOTIFY("Instance Ping " + myname)
-            self.rcs.instance_ping(myname, {
+            instname = self.launch_service['name'] + "-"
+            if self.my_host:
+                instname = instname + self.my_host
+            else:
+                instname = instname + str(self.my_ips[0]).replace(".","-").replace(":","-")
+            self.NOTIFY("Instance Ping " + instname)
+            self.rcs.instance_ping(instname, {
                 "status": "ok",
                 "service": self.launch_service['name'],
-                "name": self.launch_service['name'] + "-" + myname,
-                #"name": myname,
+                "name": instname,
                 "address": addrs
             })
         except Exception as err: # pylint: disable=broad-except
+            print("ex={}".format(err))
             if self.do_DEBUG():
                 self.NOTIFY("Unable to update instance: " + str(err))
                 self.DEBUG(traceback.format_exc())
             else:
                 self.NOTIFY("Unable to update instance: " + str(err))
+        sys.exit(0)
 
 ################################################################################
 class LaunchCli(App):
