@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
 # vim modeline (put ":set modeline" into your ~/.vimrc)
 
-ECR = {
-    "prod": {
-        "host": "",
-        "last": "~/.ecr_last.prod",
-        "aws-region": "",
-        "aws-user": "",
+import os
+
+REPO = {
+    "prd": {
+        "host": "registry.example.com",
+        "login": {
+            "user": os.environ.get('DOCKER_USER'),
+            "pass": os.environ.get('DOCKER_PASS')
+        }
     },
-    "hub": {
-        "host": "",
-        "last": "",
-        "aws-region": "",
-        "aws-user": "",
-    },
-    "dev": {
-        "host": "",
-        "last": "~/.ecr_last.dev",
-        "aws-region": "",
-        "aws-user": "",
-    }
+   # "hub": {
+   #     "host": "",
+   # },
+   # "dev": {
+   #     "host": "",
+   # }
 }
 
 COLOR = True

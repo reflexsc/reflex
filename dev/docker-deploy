@@ -13,6 +13,7 @@ import rfx.optarg
 import rfx.client
 import re
 import requests
+import time
 from action import Action
 
 ################################################################################
@@ -23,7 +24,7 @@ Where arguments are:
 
     --l?ane|-l={lane}       -- which lane to deploy into?  (i.e. stg, prd)
   * --v?ersion|-v={version} -- references existing build.  If undefined,
-                               uses svc.target
+                               uses svc.release.future
   * --r?epo|-r={repo}       -- use which docker repo?  defaults to prod
   * --promote={lane}        -- promote to {lane} (i.e. stg, prd)
   * --build-info=JSON       -- add meta-data as JSON
@@ -31,10 +32,10 @@ Where arguments are:
 * Optional arguments
 
 Where repo can be one of :\n""")
-    print("    " + ", ".join(common.config.ECR.keys()))
+    print("    " + ", ".join(common.config.REPO.keys()))
 
     if msg:
-        print("\n" + msg)
+        self.log("\n" + msg + "\n\n", level=common.log_err)
 
     sys.exit(1)
 
@@ -49,9 +50,9 @@ class Core(common.Core):
 def get_services(rcs, pipeline, lane):
     svcs = dict()
     for svc in rcs.list('service',
-                        match="%" + pipeline + "%",
-                        cols=['name', 'disabled', 'lane', 'pipeline',
-                              'target', 'deploy-hook', 'actions']):
+                        match=pipeline,
+                        cols=['name', 'disabled', 'lane', 'pipeline', 'release',
+                              'deploy-hook', 'actions']):
 
         if svc.get("pipeline").split(".")[0] != pipeline:
             continue
@@ -64,6 +65,10 @@ def get_services(rcs, pipeline, lane):
             svcs[svc['name']] = svc
 
     return svcs
+
+def update_svcs(rcs, svcs, chg):
+    for svc in svcs:
+        rcs.patch('service', svc, chg)
 
 ################################################################################
 def main():
@@ -103,8 +108,11 @@ def main():
     # repository
     repo = args.get("--repo", "")
     if not repo:
-        repo = "prod"
-    if not common.config.ECR.get(repo.lower()):
+        rekeys = list(common.config.REPO.keys())
+        if len(rekeys) == 1:
+            repo = rekeys[0]
+
+    if not common.config.REPO.get(repo.lower()):
         syntax(core, "Invalid or missing docker image repo: " + repo)
 
     # lane
@@ -115,8 +123,8 @@ def main():
     # pipeline. assumption: pipeline and base image name are the same...
     try:
         pipe = rcs.get('pipeline', args.get("pipe"))
-    except:
-        syntax(core, "Unable to find pipeline: " + args.get("pipe"))
+    except Exception as err:
+        syntax(core, "Unable to find pipeline {} ({})".format(args.get("pipe"), err))
 
     # find services matching lane
     svcs = get_services(rcs, pipe['name'], lane)
@@ -135,7 +143,7 @@ def main():
     else:
         # assumption is all svcs use same version
         svc = list(svcs.keys())[0]
-        target = svcs[svc].get('target')
+        target = svcs[svc].get('release', {}).get('future', svcs[svc].get('target'))
         if not target:
             core.die("Unable to get target from service:" + svc)
 
@@ -145,16 +153,24 @@ def main():
     except:
         core.die("Unable to find build: " + target)
 
-    # make sure they all match
-    for svc in svcs:
-        rcs.patch('service', svc, {"target": target})
+    ########
+    # meta could be: approved by, pushed_by, links(jira, gitlab?), CR's
+    meta = dict()
 
     ver = buildobj.get("version")
     if not ver:
         core.die("Unable to find build:" + target + ".version")
 
     ######## for build object updates
-    rcsbuild = build.Obj(rcs, pipe['name'], ver, core=core)
+    rcsbuild = build.Obj(rcs, app=pipe['name'], version=ver)
+
+    # verify this release is ready for the next lane... how...
+
+        # do something smart here...
+        # cross-reference lane map on reflex.config; lookup previous lane on build object
+
+    # set the future release on all svcs to match
+    rcsbuild.release(lane, "release", target="future", meta=meta, svcs=svcs)
 
     # build-info
     info = args.get("--build-info", "")
@@ -163,13 +179,11 @@ def main():
             rcsbuild.add_info(json.loads(info))
         except Exception as err:
             syntax("Unable to load build info: " + str(err))
-        print(info)
-        print(rcsbuild.obj)
         rcsbuild.commit()
 
     ######## pull and retag in repo
-    core.ecr_login(repo) # because aws/ecr is a pita
-    repofull = common.config.ECR[repo]['host']
+    core.docker_login(repo)
+    repofull = common.config.REPO[repo]['host']
     if repofull:
         repofull += "/"
 
@@ -194,10 +208,17 @@ def main():
     core.do(["docker", "rmi", repofull + ":" + ver])
     core.do(["docker", "rmi", repofull + ":" + lane])
 
-    ######## run action
+    ######## update version tracking bits
+    rcsbuild.release(lane, "release", target="current", meta=meta, svcs=svcs)
+
+    ######## do the actual trigger
     core.log("Deploy Actions...")
     for svc_name in svcs:
         svc = svcs[svc_name]
+        rcs.patch('service', svc_name, {
+            "statuses": {"deploy-hook": int(time.time())},
+            "status": "deploy-hook"
+        })
         Action().run_svc_action('deploy', svc=svc, replace={"version": ver})
 
     ######### promote

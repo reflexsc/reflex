@@ -24,7 +24,7 @@ Optional arguments:
     --tag={tag}         -- add {tag} to resulting docker image
 
 Where repos can be:\n""")
-    print("    " + ", ".join(common.config.ECR.keys()))
+    print("    " + ", ".join(common.config.REPO.keys()))
 
     if msg:
         print("\n" + msg)
@@ -84,9 +84,9 @@ def main():
     if not repos:
         syntax(core, "Missing --repos")
     for repo in repos:
-        if not common.config.ECR.get(repo.lower()):
+        if not common.config.REPO.get(repo.lower()):
             syntax(core, "Invalid repo: " + repo)
-        core.ecr_login(repo) # because aws/ecr is a pita
+        core.docker_login(repo) # login to docker
     img = args.get("image")
     ver = args.get("version")
     imgver = img + ":" + ver
@@ -111,7 +111,7 @@ def main():
     cmd += ["."]
 
     # Get a reflex build object for status and other metadata tracking
-    rcsbuild = build.Obj(rcs, img, ver, core=core)
+    rcsbuild = build.Obj(rcs, app=img, version=ver)
     rcsbuild.status("build", "started").commit()
 
     # run the build
@@ -126,7 +126,7 @@ def main():
 
     # push to each repo
     for repo in repos:
-        full = common.config.ECR[repo]['host']
+        full = common.config.REPO[repo]['host']
         if full:
             full += "/"
 
@@ -158,11 +158,13 @@ def main():
             core.do(["docker", "rmi", imgtag])
 
     if args.get('--promote'):
-        core.log("Promote\n")
+        promote_to = args.get('--promote')
+        core.log("Promote {}\n".format(promote_to))
         try:
             rcsbuild.state("done")
-            for lane in re.split(r'\s*,\s*', args.get("--promote", "")):
-                rcsbuild.promote(lane).commit()
+            for lane in re.split(r'\s*,\s*', promote_to):
+                if lane:
+                    rcsbuild.promote(lane).commit()
         except ValueError as err:
             sys.exit(str(err))
 

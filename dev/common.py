@@ -163,16 +163,44 @@ class Core(object):
             sys.exit(1)
 
     ############################################################################
-    def ecr_login(self, profile):
-        age = 365 * 24 # random default age, 1 year old
-        ecr_cfg = config.ECR.get(profile)
-        if not ecr_cfg:
+    def docker_login(self, profile):
+        repo_cfg = config.REPO.get(profile)
+        if not repo_cfg:
             raise ValueError("profile {} not found".format(profile))
 
-        # are we doing last-login tracking?
+        # are we doing aws ecr?
+        if repo_cfg.get('ecr'):
+            return self._ecr_login(profile, repo_cfg)
+
+        if repo_cfg.get('login'):
+            return self._docker_login(profile, repo_cfg)
+
+    ############################################################################
+    def _docker_login(self, profile, repo_cfg):
+        login = repo_cfg.get('login')
+        if not login['user']:
+            self.log("No user defined for docker login!\n", level=log_err)
+            sys.exit(1)
+        if not login['pass']:
+            self.log("No pass defined for docker login!\n", level=log_err)
+            sys.exit(1)
+
+        self.log("Docker Login...\n")
+        status, output = self.sys_out([
+            "docker", "login",
+                "--username=" + login['user'],
+                "--password=" + login['pass'],
+                repo_cfg['host']
+        ])
+
+    ############################################################################
+    # aws repo
+    def _ecr_login(self, profile, repo_cfg):
+        ecr_cfg = repo['ecr']
         if not ecr_cfg.get('last'):
             return
 
+        age = 365 * 24 # random default age, 1 year old
         ecr_last = os.path.expanduser(ecr_cfg['last'])
 
         if os.path.exists(ecr_last):
@@ -193,5 +221,24 @@ class Core(object):
                     with open(ecr_last, "w") as out:
                         out.write("\n")
 
-MY_IPADDR = socket.gethostbyname(socket.gethostname())
+def get_my_ips():
+    """highly os specific - works only in modern linux kernels"""
+    ips = list()
+    for ifdev in os.listdir("/sys/class/net"):
+        if ifdev == "lo":
+            continue
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ips.append(socket.inet_ntoa(fcntl.ioctl(
+                sock.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifdev[:15].encode())
+            )[20:24]))
+        except OSError:
+            pass
+    return ips
+
+MY_IPADDR = get_my_ips()[0]
+
+#MY_IPADDR = socket.gethostbyname(socket.gethostname())
 MY_HOSTNAME = socket.gethostname()

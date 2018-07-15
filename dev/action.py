@@ -96,7 +96,11 @@ class Action(common.Core):
         base = kwargs.get("base")
         if not base:
             base = rfx.Base() # no .cfg_load() -- we don't need it
-        self.rfxcfg = rfx.config.ConfigProcessor(base=base, engine=base)
+        rcs = kwargs.get('rcs')
+        if not rcs:
+            rcs = rfx.client.Session(base=base)
+
+        self.rfxcfg = rfx.config.ConfigProcessor(base=base, rcs=rcs)
 
     ############################################################################
     def run_svc_action(self, name, replace=None, svc=None):

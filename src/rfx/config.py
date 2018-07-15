@@ -115,12 +115,18 @@ class ConfigProcessor(VerboseBase):
     peers = None
 
     ############################################################################
-    def __init__(self, verbose=True, base=None, rcs=None, peers=None):
+    def __init__(self, verbose=True, base=None, rcs=None, peers=None, engine=None):
         super(ConfigProcessor, self).__init__(verbose=verbose)
         if not base: # sorry, we need rfx.Base
             raise ValueError("Missing Reflex Base (base=)")
         if not rcs: # and rcs
-            raise ValueError("Missing Reflex Engine (rcs=)")
+            if engine:
+                if engine.session:
+                    self.rcs = engine.session
+                else:
+                    raise ValueError("Missing Reflex Engine (rcs or engine)")
+            else:
+                raise ValueError("Missing Reflex Engine (rcs=)")
         rfx.Base.__inherit__(self, base)
         self.rcs = rcs # allows for overriding during testing
         self.verbose = verbose
