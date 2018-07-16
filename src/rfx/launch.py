@@ -32,7 +32,7 @@ import rfx
 from rfx.config import ConfigProcessor
 from rfx import json4human, json4store
 from rfx.backend import Engine
-from rfx.action import Action
+from rfx.action import Action, get_executable
 
 ################################################################################
 # pylint: disable=too-many-instance-attributes
@@ -253,6 +253,7 @@ class App(rfx.Base):
             self.ABORT("Unable to find launch rundir (" +
                        self.launch_rundir + "), cannot launch!")
         os.chdir(self.launch_rundir)
+        self.launch_exec = get_executable(self.launch_exec)
         if not os.path.isfile(self.launch_exec[0]):
             self.NOTIFY("Unable to find launch program: " +
                         self.launch_exec[0])
@@ -304,13 +305,11 @@ class App(rfx.Base):
                 "address": addrs
             })
         except Exception as err: # pylint: disable=broad-except
-            print("ex={}".format(err))
             if self.do_DEBUG():
                 self.NOTIFY("Unable to update instance: " + str(err))
                 self.DEBUG(traceback.format_exc())
             else:
                 self.NOTIFY("Unable to update instance: " + str(err))
-        sys.exit(0)
 
 ################################################################################
 class LaunchCli(App):

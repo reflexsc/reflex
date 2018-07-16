@@ -35,6 +35,22 @@ from rfx import json4store
 from rfx.backend import Engine
 
 ################################################################################
+# evaluate to fully qualified exe, incase env={} and default PATH
+def get_executable(exe, path=None): # allow path override
+    """logic wrapper to simplify finding execuable"""
+    if exe[0][:1] != "/" and exe[0][:2] != "./":
+        if path is None:
+            path = os.environ.get('PATH', '')
+        for path in path.split(os.pathsep):
+            fqpath = os.path.join(path, exe[0])
+            if os.access(fqpath, os.X_OK):
+                exe[0] = fqpath
+                return exe
+    elif os.access(exe[0], os.X_OK):
+        return exe
+    raise ValueError("Cannot find executable: {}".format(exe[0]))
+
+################################################################################
 # pylint: disable=too-many-instance-attributes
 class Action(rfx.Base):
     """
@@ -431,20 +447,8 @@ class Action(rfx.Base):
 
     ################################################################################
     # evaluate to fully qualified exe, incase env={} and default PATH
-    def _executable(self, exe):
-        """logic wrapper to simplify finding execuable"""
-        if exe[0][:1] != "/" and exe[0][:2] != "./":
-            path = self.env.get('PATH', None)
-            if path is None:
-                return False
-            for path in os.environ.get('PATH', '').split(os.pathsep):
-                fqpath = os.path.join(path, exe[0])
-                if os.access(fqpath, os.X_OK):
-                    exe[0] = fqpath
-                    return exe
-        elif os.access(exe[0], os.X_OK):
-            return exe
-        return False
+    def _executable(self, exe, path):
+        return get_executable(exe, self.env.get('PATH', None))
 
     ############################################################################
     # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches,inconsistent-return-statements

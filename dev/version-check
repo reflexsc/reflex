@@ -3,6 +3,7 @@
 # vim:set expandtab ts=4 sw=4 ai ft=python:
 # This is work extracted, drived or from Reflex, and is licensed using the GNU AFFERO License, Copyright Brandon Gillespie
 
+
 import sys
 import os
 import re
@@ -15,9 +16,11 @@ from requests.models import InvalidURL
 import traceback
 import dictlib
 import rfx
+import rfx.client
 from rfx import json2data, json4store, json4human, NotFoundError
 import rfx.backend
 import dns.resolver
+import build
 
 ################################################################################
 # Our monitor definition is borken
@@ -52,6 +55,7 @@ Additional:
 
 """
 
+    # common, inherited from build, ganks sys.argv
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--help", action='store_true')
     parser.add_argument("--debug", action='append')
@@ -65,6 +69,7 @@ Additional:
     parser.add_argument("--deployable", "--deploy", action='store_true')
     parser.add_argument("--disabled", "--not-disabled", "--disable", action='store_true')
     parser.add_argument("--instance-refresh", default=30)
+    parser.add_argument("--update-build", action='store_true')
     parser.add_argument("--retry-delay", default=1)
     parser.add_argument("--total-wait", default=900)
     parser.add_argument("--expect")
@@ -92,9 +97,9 @@ Additional:
     services = list()
     if args.pipeline:
         pipe = Pipeline(args.pipeline, rcs)
-        services = pipe.list_cached(args.region, args.lanes,
-                                    disabled=args.disabled,
-                                    deployable=args.deployable)
+        services = pipe.list(args.region, args.lanes,
+                             disabled=args.disabled,
+                             deployable=args.deployable)
 
     elif args.service:
         services = [args.service]
@@ -109,11 +114,38 @@ Additional:
     failed = 0
     for svc in services:
         svco = Service(svc, rcs, counter, args)
+        lane = svco.obj.get('lane')
+        if not lane:
+            base.ABORT("{}.lane is not defined!".format(svc))
         svco.test(report=args.report)
-        for url, status in svco.status.items():
-            if not status:
+        svc_failed = 0
+        report = []
+        for url in svco.status:
+            report.append(svco.fmt_report(svco.status[url]))
+            if svco.status[url].status != 'ok':
+                svc_failed += 1
                 failed += 1
+        if not args.report:
+            status = "ok"
+            if svc_failed:
+                status = "unstable"
+            if args.update_build:
+                try:
+                    rcsbuild = build.Obj(rcs, svcobj=svco.obj)
+                except ValueError as err:
+                    base.ABORT(str(err))
+                rcsbuild.release(lane, status, meta={'report': report}, svcs={svc: svco.obj})
 
+            try:
+                if svco.obj.get('status' != status):
+                    base.NOTIFY("Updating {}.status={}".format(svc, status))
+                    rcs.patch('service', svc, {
+                        "statuses": {status: int(time.time())},
+                        "status": status
+                    })
+            except rfx.client.ClientError as err:
+                if "Forbidden" in str(err):
+                    base.NOTIFY("Unable to update service (Forbidden)", color='fgred')
     sys.exit(failed)
 
 ################################################################################
@@ -172,7 +204,7 @@ class Pipeline(rfx.Base):
 
         matched = set()
         for svc in self.rcs.cache_list('service',
-                                       match="%" + self.name + "%",
+                                       match=self.name,
                                        cols=['region','deploy','disabled','lane','name']):
             if region and svc.get('region', region).lower() != region:
                 continue
@@ -230,7 +262,7 @@ class Service(rfx.Base):
             rcs.ABORT("Missing pipeline({}.monitor[].name=version-check) definition"
                       .format(self.obj['pipeline'].split(".")[0]))
 
-        target = self.obj.get('target', '')
+        target = self.obj.get('release', {}).get('current', self.obj.get('target', ''))
         if target:
             try:
                 expect = self.check['expect']
@@ -266,7 +298,7 @@ class Service(rfx.Base):
         print(msg)
 
     ############################################################################
-    def report(self, res):
+    def fmt_report(self, res):
         # need to get the version into this
         rep = {
           "service":self.name,
@@ -279,6 +311,10 @@ class Service(rfx.Base):
             rep['reason'] = res.get('message')
         else:
             rep['reason'] = 'ok'
+        return rep
+
+    def report(self, res):
+        rep = self.fmt_report(res)
         self.log(**rep)
 
     ############################################################################
@@ -300,6 +336,8 @@ class Service(rfx.Base):
         try:
             last = 'unknown'
             target = self.next_target()
+            if not target:
+                self.ABORT(self.name + ": no targets?")
             while target is not None:
                 self.DEBUG("Checking target={}".format(target))
                 self.counter.time_left("waiting for instances")
@@ -404,14 +442,16 @@ class Service(rfx.Base):
 
         try:
             self.last_result = res = httpmon.check(monitor)
+#            self.status['result'] = res
+            self.status[res['nodesvc']] = dictlib.Obj(res)
             if res['status'] != 'ok':
-                self.status[res['nodesvc']] = False
+#                self.status[res['nodesvc']] = False
                 if report:
                     self.report(res)
                     return True
                 self.increment(report)
             else:
-                self.status[res['nodesvc']] = True
+#                self.status[res['nodesvc']] = True
                 self.report(res)
                 return True
         except KeyboardInterrupt:
@@ -607,4 +647,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         sys.exit(1)
-

@@ -28,11 +28,12 @@ colors = {
 
 class Core(object):
     outfd = sys.stdout
-    _cmd = sys.argv.pop(0)
+    _cmd = None
     _syntax = None
     _debug = False
 
     def __init__(self, syntax=None, debug=False):
+        self._cmd = sys.argv.pop(0)
         self._debug = debug
 
         if syntax:
