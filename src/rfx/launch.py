@@ -26,12 +26,10 @@ Launch Control
 
 import os
 import traceback
-import socket
 import dictlib
 import rfx
 from rfx.config import ConfigProcessor
 from rfx import json4human, json4store
-from rfx.backend import Engine
 from rfx.action import Action, get_executable
 
 ################################################################################
@@ -276,27 +274,30 @@ class App(rfx.Base):
                                   match=self.launch_service['name'],
                                   cols=['address', 'status', 'name'],
                                   raise_error=False):
-            if inst['name'] == self.my_host:
+            peer_name = inst.get('internal-name', self.get('name'))
+            if peer_name == self.my_host:
                 continue
             for iplabel in self.launch_peers:
                 if inst.get('status', 'failed') != 'ok':
                     continue
                 ipnbr = inst['address'].get(iplabel, '')
                 if ipnbr:
-                    self.launch_peers[iplabel][inst['name']] = ipnbr
+                    self.launch_peers[iplabel][peer_name] = ipnbr
 
     ############################################################################
     def _launch_update_instance(self):
         try:
             self.get_my_nameip()
-            addrs = {}
+            addrs = {
+                "internal-name": self.my_host
+            }
             for idx, ipnbr in enumerate(self.my_ips):
                 addrs["ip" + str(idx)] = ipnbr
             instname = self.launch_service['name'] + "-"
             if self.my_host:
                 instname = instname + self.my_host
             else:
-                instname = instname + str(self.my_ips[0]).replace(".","-").replace(":","-")
+                instname = instname + str(self.my_ips[0]).replace(".", "-").replace(":", "-")
             self.NOTIFY("Instance Ping " + instname)
             self.rcs.instance_ping(instname, {
                 "status": "ok",
