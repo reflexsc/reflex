@@ -87,7 +87,7 @@ def threadlock(func):
 def get_my_ips():
     """highly os specific - works only in modern linux kernels"""
     ips = list()
-    for ifdev in os.listdir("/sys/class/net"):
+    for ifdev in sorted(os.listdir("/sys/class/net")):
         if ifdev == "lo":
             continue
         try:

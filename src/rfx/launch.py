@@ -274,7 +274,7 @@ class App(rfx.Base):
                                   match=self.launch_service['name'],
                                   cols=['address', 'status', 'name'],
                                   raise_error=False):
-            peer_name = inst.get('internal-name', self.get('name'))
+            peer_name = inst.get('internal-name', inst.get('name'))
             if peer_name == self.my_host:
                 continue
             for iplabel in self.launch_peers:

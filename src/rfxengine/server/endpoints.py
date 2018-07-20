@@ -573,7 +573,7 @@ class InstancePing(Object):
         body = get_json_body()
         target = args[0]
         # hostnames can be all digits
-        if target and re.sub('[^\d]', '', target) == target:
+        if target and re.sub('[^\\d]', '', target) == target:
             body['id'] = int(target)
         else:
             body['name'] = target

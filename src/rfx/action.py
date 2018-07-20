@@ -40,9 +40,9 @@ def get_executable(exe, path=None): # allow path override
     """logic wrapper to simplify finding execuable"""
     if exe[0][:1] != "/" and exe[0][:2] != "./":
         if path is None:
-            path = os.environ.get('PATH', '')
-        for path in path.split(os.pathsep):
-            fqpath = os.path.join(path, exe[0])
+            path = str(os.environ.get('PATH', ''))
+        for part in path.split(os.pathsep):
+            fqpath = os.path.join(part, exe[0])
             if os.access(fqpath, os.X_OK):
                 exe[0] = fqpath
                 return exe
@@ -447,8 +447,8 @@ class Action(rfx.Base):
 
     ################################################################################
     # evaluate to fully qualified exe, incase env={} and default PATH
-    def _executable(self, exe, path):
-        return get_executable(exe, self.env.get('PATH', None))
+    def _executable(self, exe):
+        return get_executable(exe, path=self.env.get('PATH', None))
 
     ############################################################################
     # pylint: disable=too-many-arguments,dangerous-default-value,too-many-branches,inconsistent-return-statements

@@ -115,6 +115,7 @@ class ConfigProcessor(VerboseBase):
     peers = None
 
     ############################################################################
+    # pylint: disable=too-many-arguments
     def __init__(self, verbose=True, base=None, rcs=None, peers=None, engine=None):
         super(ConfigProcessor, self).__init__(verbose=verbose)
         if not base: # sorry, we need rfx.Base
@@ -260,10 +261,11 @@ class ConfigProcessor(VerboseBase):
         new = Config(name, base=self, rcs=self.rcs, verbose=self.verbose).load()
 
         def vals_are_same(key, d1, d2):
-            if type(d1[key]) == type(d2[key]):
+            if type(d1[key]) == type(d2[key]): # pylint: disable=unidiomatic-typecheck
                 return True
             else:
-                raise TypeError("Cannot merge {}: key={}, values are not the same!".format(name, key))
+                raise TypeError("Cannot merge {}: key={}, values are not the same!"
+                                .format(name, key))
 
         def dmerge_outer(conf, new, key):
             if key in new and new[key]:
