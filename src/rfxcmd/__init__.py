@@ -443,7 +443,7 @@ Options:
 
   --r?egions={region(s)} - comma list of regions <required>
   --l?anes={lanes}       - list of service environments (i.e. prd, stg) <required>
-  --t?enant={name}       - name of tenanant (a-z only) <optional>
+  --t?enants={name}      - name of tenanant (a-z only) <optional> - as list allowed
 
 Regions and Lanes are configured in the config:reflex object.
 
@@ -492,6 +492,14 @@ Regions and Lanes are configured in the config:reflex object.
                         self.fail("Invalid region: {}, Must be one of: {}"
                                   .format(region, ", ".join(self.cfg.regions.keys())))
                 regions.append(region)
+
+        tenants = []
+        if args.get('--tenants'):
+            for tenant in re.split(r'\s*,\s*', args['--tenants']):
+                tenant = tenant.lower().strip()
+                tenants.append(tenant)
+        if not tenants:
+            tenants = ['']
 
         if args.get('--lanes'):
             for lane in re.split(r'\s*,\s*', args['--lanes']):
@@ -624,7 +632,8 @@ Regions and Lanes are configured in the config:reflex object.
             for lane in lanes:
                 if lane not in self.cfg.regions[region].lanes:
                     continue
-                self._create_for(pipeline, region, lane, lanes, args.get('--tenant', ''))
+                for tenant in tenants:
+                    self._create_for(pipeline, region, lane, lanes, tenant)
 
     ################################################################################
     def _cget(self, otype, target):
@@ -738,6 +747,11 @@ Regions and Lanes are configured in the config:reflex object.
         ######################################
         ## define the service
         svc_o = self._template('service', svc_name, '', {
+            "actions":{
+              "deploy":{
+                "type":"noop"
+              }
+            },
             "name": svc_name,
             "region": region,
             "region-nbr": self.cfg.regions[region].nbr,

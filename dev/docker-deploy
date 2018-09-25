@@ -41,6 +41,10 @@ Where repo can be one of :\n""")
 
 # define our fail method
 class Core(common.Core):
+    def __init__(self, *args, **kwargs):
+        super(common.Core, self).__init__(*args, **kwargs)
+        self.get_cmd()
+
     def fail(self, *reason):
         if reason:
             syntax(self, *reason)

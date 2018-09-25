@@ -10,20 +10,17 @@ Commonly we pull the config from Reflex service objects, but this is not a requi
 
 Easy usage:
 
-    >>> from action import Action
-    >>> Action().run("hello", actions={
-    >>>     "hello": {
-    >>>         "type": "exec",
-    >>>         "cmd": "echo version=%{version}"
-    >>> }}, replace={
-    >>>     "version": "1712.10"
-    >>> })
 
 The current actions: noop, exec, hook and http/https:
 
 # noop: No Operation
 
 It is there, but nothing happens.  An easy way to disable an action is to set it as noop.
+
+# group: run more than one action
+
+    "type": "group",
+    "actions": ["one", "two", "three"],
 
 # exec: Run a command
 
@@ -78,6 +75,7 @@ import re
 import traceback
 import requests
 import common
+import json
 import rfx
 import rfx.config
 import rfx.client
@@ -88,6 +86,7 @@ class Action(common.Core):
     """
 
     rfxcfg = None
+    actions = None
 
     ############################################################################
     def __init__(self, **kwargs):
@@ -126,9 +125,12 @@ class Action(common.Core):
         """
         Do an action.
 
+
         If `replace` is provided as a dictionary, do a search/replace using
         %{} templates on content of action (unique to action type)
         """
+        self.actions = actions # incase we use group
+
         action = actions.get(name)
         if not action:
             self.die("Action not found: {}", name)
@@ -147,6 +149,33 @@ class Action(common.Core):
                      name, action_type, err)
 
     ############################################################################
+    def _run__group(self, action, replace):
+        """
+        Run a group of actions in sequence.
+
+        >>> Action().run("several", actions={
+        ...     "several": {
+        ...         "type": "group",
+        ...         "actions": ["hello","call","then"]
+        ...     }, "hello": {
+        ...         "type": "exec",
+        ...         "cmd": "echo version=%{version}"
+        ...     }, "call": {
+        ...         "type": "hook",
+        ...         "url": "http://reflex.cold.org"
+        ...     }, "then": {
+        ...         "type": "exec",
+        ...         "cmd": "echo finished"
+        ... }}, replace={
+        ...     "version": "1712.10"
+        ... })
+        version=1712.10
+        """
+
+        for target in action.get('actions', []):
+            Action().run(target, actions=self.actions, replace=replace)
+
+    ############################################################################
     def _run__hook(self, action, replace):
         """Simple webhook"""
         url = action.get("url")
@@ -159,7 +188,7 @@ class Action(common.Core):
         self.debug("Result={}\n", result.status_code)
         if result.status_code not in expected:
             self.die("Hook failed name={} result={}", action['name'], result.status_code)
-        self.logf("Success\n", level=common.log_msg)
+        self.logf("Success\n", level=common.log_good)
 
     ############################################################################
     def _run__noop(self, action, replace):
@@ -169,7 +198,18 @@ class Action(common.Core):
 
     ############################################################################
     def _run__exec(self, action, replace):
-        """Run a command"""
+        """
+        Run a system command
+
+        >>> Action().run("hello", actions={
+        ...     "hello": {
+        ...         "type": "exec",
+        ...         "cmd": "echo version=%{version}"
+        ... }}, replace={
+        ...     "version": "1712.10"
+        ... })
+        version=1712.10
+        """
 
         cmd = action.get('cmd')
         shell = False
@@ -185,8 +225,9 @@ class Action(common.Core):
         self.logf("Action {} exec\n", action['name'])
         self.logf("{}\n", cmd, level=common.log_cmd)
         if self.sys(cmd):
-            self.logf("Success\n", level=common.log_msg)
-        self.die("Failure\n")
+            self.logf("Success\n", level=common.log_good)
+            return
+        self.die("Failure\n", level=common.log_err)
 
     ############################################################################
     def _run__https(self, action, replace):
@@ -196,6 +237,7 @@ class Action(common.Core):
         """More complex HTTP query."""
 
         query = action['query']
+#        self._debug = True
         url = '{type}://{host}{path}'.format(path=query['path'], **action)
         content = None
         method = query.get('method', "get").lower()
@@ -212,15 +254,20 @@ class Action(common.Core):
                         content[key] = self.rfxcfg.macro_expand(value, replace)
                 else:
                     content = self.rfxcfg.macro_expand(content, replace)
+
+            newhdrs = dict()
             for key, value in headers.items():
-                headers[key] = self.rfxcfg.macro_expand(value, replace)
+                newhdrs[key.lower()] = self.rfxcfg.macro_expand(value, replace)
+            headers = newhdrs
 
         self.debug("{} headers={}\n", action['type'], headers)
         self.debug("{} content={}\n", action['type'], content)
 
+        if content and isinstance(content, dict):
+            content = json.dumps(content)
+
         self.logf("Action {name} {type}\n", **action)
-        self.logf("{}\n", url, level=common.log_msg)
-        result = getattr(requests, method)(url, headers=headers, timeout=action.get('timeout', 5))
+        result = getattr(requests, method)(url, headers=headers, data=content, timeout=action.get('timeout', 5))
         expect = action.get('expect', {})
         expected_codes = expect.get("response-codes", (200, 201, 202, 204))
         self.debug("{} expect codes={}\n", action['type'], expected_codes)
@@ -235,12 +282,13 @@ class Action(common.Core):
                 self.die("{} call to {} failed\nExpected: {}\nReceived:\n{}",
                          action['type'], url, expect['content'], result.text)
 
-
         if 'regex' in expect:
             self.debug("{} expect regex={}\n", action['type'], expect['regex'])
             if not re.search(expect['regex'], result.text):
                 self.die("{} call to {} failed\nRegex: {}\nDid not match:\n{}",
                          action['type'], url, expect['regex'], result.text)
 
-        self.logf("Success, status={}\n", result.status_code, level=common.log_msg)
+        self.log(result.text, level=common.log_msg)
+
+        self.logf("Success, status={}\n", result.status_code, level=common.log_good)
         return True

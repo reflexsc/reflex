@@ -18,6 +18,7 @@ log_cmd = 1
 log_msg = 2
 log_dbg = 3
 log_err = 4
+log_good = 5
 colors = {
     "fgblue":"\033[34m",
     "fgred":"\033[31m",
@@ -27,23 +28,34 @@ colors = {
 }
 
 class Core(object):
-    outfd = sys.stdout
     _cmd = None
     _syntax = None
     _debug = False
 
     def __init__(self, syntax=None, debug=False):
-        self._cmd = sys.argv.pop(0)
         self._debug = debug
 
         if syntax:
             self._syntax = syntax
 
     ############################################################
+    def _out(self, *args):
+        """output wrapper"""
+        sys.stdout.write(*args)
+
+    ############################################################
+    def _flush(self, *args):
+        sys.stdout.flush()
+
+    ############################################################
+    def get_cmd(self):
+        self._cmd = sys.argv.pop(0)
+
+    ############################################################
     def die(self, msg, *args, **kwargs):
         kwargs['level'] = log_err
         self.logf(msg, *args, **kwargs)
-        self.outfd.write("\n\n")
+        self._out("\n\n")
         sys.exit(1)
 
     ############################################################
@@ -66,6 +78,10 @@ class Core(object):
                 coloron = colors['fgred']
         elif level == log_msg:
             fmt = "{msg}"
+        elif level == log_good:
+            fmt = "{msg}"
+            if config.COLOR:
+                coloron = colors['fggrn']
         elif level == log_cmd:
             if msg[0] == ' ':
                 fmt = ">>>{msg}"
@@ -86,24 +102,24 @@ class Core(object):
         if coloron:
             coloroff = colors['reset']
         if linebreak:
-            self.outfd.write("\n")
-        self.outfd.write(coloron +
-                         fmt.format(msg=msg,
-                                    host=MY_HOSTNAME,
-                                    ip=MY_IPADDR,
-                                    time=time.strftime("%FT%T")) +
-                         coloroff)
-        self.outfd.flush()
+            self._out("\n")
+        self._out(coloron +
+                  fmt.format(msg=msg,
+                             host=MY_HOSTNAME,
+                             ip=MY_IPADDR,
+                             time=time.strftime("%FT%T")) +
+                  coloroff)
+        self._flush()
 
     ############################################################
     def sys(self, cmd, abort=False):
-        self.outfd.flush()
+        self._flush()
         if isinstance(cmd, list):
             shell = False
         else:
             shell = True
         sub = subprocess.call(cmd, shell=shell)
-        self.outfd.flush()
+        self._flush()
         if sub:
             if abort:
                 sys.exit(sub)
@@ -112,14 +128,14 @@ class Core(object):
 
     ############################################################
     def sys_out(self, cmd, abort=False):
-        self.outfd.flush()
+        self._flush()
         if isinstance(cmd, list):
             shell = False
         else:
             shell = True
         sub = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=shell)
         output, err = sub.communicate()
-        self.outfd.flush()
+        self._flush()
         output = output.decode() # grr bytes object
         if sub.returncode > 0:
             if abort:
@@ -225,6 +241,8 @@ class Core(object):
 def get_my_ips():
     """highly os specific - works only in modern linux kernels"""
     ips = list()
+    if not os.path.exists("/sys/class/net"): # not linux
+        return ['127.0.0.1']
     for ifdev in os.listdir("/sys/class/net"):
         if ifdev == "lo":
             continue

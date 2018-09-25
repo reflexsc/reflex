@@ -376,6 +376,21 @@ class Service(rfx.Base):
             self.instance_list.append(addr)
 
     ############################################################################
+    def update_instances__static(self, force=False, discovery=None):
+        host = discovery.get('host')
+        port = discovery.get('port')
+        if host and port:
+            port = str(port)
+            self.instances[host] = dict(
+                host=host,
+                port=port,
+                hostport=host + ":" + port
+            )
+            self.instance_list.append(host)
+        else:
+            self.log("static update-instances strategy, but no host+port defined in strategy")
+
+    ############################################################################
     def update_instances__mapped(self, force=False, discovery=None):
         for inst in self.obj.get('active-instances', []):
             self.rcs.cache_drop('instance', inst)
@@ -535,7 +550,7 @@ class HttpMonitor(rfx.Base):
 
             # a default target
             if not url:
-                url = 'http://{host}:{port}{path}'.format(path=query['path'], **target)
+                url = '{proto}://{host}:{port}{path}'.format(path=query['path'], proto=monitor['type'], **target)
 
             response = {
                 'url': url,

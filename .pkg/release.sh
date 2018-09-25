@@ -42,15 +42,24 @@ if ! ./clean.sh ; then
 fi
 popd
 
-lastmonth=$(cat version|cut -d. -f1)
-lastbuild=$(cat version|cut -d. -f2)
-vmonth=$(date +%y%m)
-if [[ $vmonth != $lastmonth ]]; then
-	vbuild=0001
-else
-	vbuild=$(expr $lastbuild + 1)
-fi
-VERSION=$(printf "%04d.%04d" $vmonth $vbuild)
+echo "Last Version:"
+cat version
+
+echo "Which version to publish? "
+read VERSION
+echo "Using version '$VERSION' OK?"
+read OK
+
+#lastmonth=$(cat version|cut -d. -f1)
+#lastbuild=$(cat version|cut -d. -f2)
+#vmonth=$(date +%y%m)
+#if [[ $vmonth != $lastmonth ]]; then
+#	vbuild=0001
+#else
+#	vbuild=$(expr $lastbuild + 1)
+#fi
+#VERSION=$(printf "%04d.%04d" $vmonth $vbuild)
+
 echo $VERSION > version
 
 echo "RELEASE # $VERSION"
