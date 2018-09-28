@@ -554,7 +554,7 @@ Regions and Lanes are configured in the config:reflex object.
         if lanes != ["prd"]: # if there is more than just prd
             name_d = pipeline + "-nonprd"
             apikey_d = self._tcreate('apikey', name_d, { "name": name_d })
-            print("apikey {}.{}".format(apikey_d['name'], apikey_d['secrets'][0]))
+            print("  apikey {}.{}".format(apikey_d['name'], apikey_d['secrets'][0]))
 
             self._tcreate('group', 'svc-' + name_d, {
                 "name": 'svc-' + name_d,
