@@ -419,7 +419,7 @@ class CliApp(CliRoot):
                     "type": "set-value",
                 }
             ], [
-                "--t?enant|-t", {
+                "--t?enants|-t", {
                     "type": "set-value",
                 }
             ], [
@@ -526,7 +526,7 @@ Regions and Lanes are configured in the config:reflex object.
         if "prd" in lanes:
             name_p = pipeline + "-prd"
             apikey_p = self._tcreate('apikey', name_p, { "name": name_p })
-            print("apikey {}.{}".format(apikey_p['name'], apikey_p['secrets'][0]))
+            print("  apikey {}.{}".format(apikey_p['name'], apikey_p['secrets'][0]))
             self._tcreate('group', 'svc-' + name_p, {
                 "name": 'svc-' + name_p,
                 "group": [apikey_p['name']],
@@ -660,16 +660,16 @@ Regions and Lanes are configured in the config:reflex object.
     def _template(self, otype, target, template, default):
         obj = self._cget(otype, target)
         if obj:
-            print("Using existing {} {}".format(otype, target))
+            print("Keeping existing {} {}".format(otype, target))
         elif template:
             obj = self._cget(otype, template)
             if obj:
-                print("Using template {} {}: {}".format(otype, target, template))
+                print("Creating from template {} {}: {}".format(otype, target, template))
             else:
-                print("Using defaults for {} {}".format(otype, target))
+                print("Creating from defaults for {} {}".format(otype, target))
                 obj = default
         else:
-            print("Using defaults for {} {}".format(otype, target))
+            print("Creating from defaults for {} {}".format(otype, target))
             obj = default
         return obj
     
@@ -683,8 +683,6 @@ Regions and Lanes are configured in the config:reflex object.
         env_name = svc_name
         common_name = pipeline + '-' + lane.lower()
 
-        print("Populate {} {} {} {} {}".format(pipeline, lane, svc_name, common_name, tenant))
-    
         tenant = tenant.lower()
         top_config = ''
         if not tenant:
