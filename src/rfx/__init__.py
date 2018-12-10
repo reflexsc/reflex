@@ -444,8 +444,8 @@ class Base(Colorize):
     def ABORT(self, msg, err=None): # pylint: disable=invalid-name
         """Abort and fail nicely"""
         if err:
-            self.DEBUG("Error", err=err, color='red')
-        self.NOTIFY("ABORT: " + msg, color='red')
+            self.DEBUG("Reflex Error", err=err, color='red')
+        self.NOTIFY("Reflex ABORT: " + msg, color='red')
         if err and err.strerror:
             self.NOTIFY(str(err), color='red')
 

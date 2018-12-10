@@ -48,6 +48,7 @@ class App(rfx.Base):
     launch_cfgdir = ''
     launch_type = 'exec'
     launch_peers = None
+    launch_args = None
 
     ############################################################################
     # pylint: disable=super-init-not-called
@@ -87,8 +88,10 @@ class App(rfx.Base):
         return obj
 
     ############################################################################
-    def launch_service_prep(self, name, commit=True):
+    def launch_service_prep(self, name, argv=None, commit=True):
         """Prepare a service for launching"""
+        if argv:
+            self.launch_args = list(argv)
         name_parts = name.split(":")
         action = None
         service = name_parts[0]
@@ -252,6 +255,8 @@ class App(rfx.Base):
                        self.launch_rundir + "), cannot launch!")
         os.chdir(self.launch_rundir)
         self.launch_exec = get_executable(self.launch_exec)
+        if self.launch_args:
+            self.launch_exec = self.launch_exec + self.launch_args
         if not os.path.isfile(self.launch_exec[0]):
             self.NOTIFY("Unable to find launch program: " +
                         self.launch_exec[0])
@@ -313,6 +318,19 @@ class App(rfx.Base):
                 self.NOTIFY("Unable to update instance: " + str(err))
 
 ################################################################################
+def split_argv_delim(*argv):
+    try:
+        split = argv.index("--")
+        svc = ''
+        if split > 0:
+            return argv[0], argv[split+1:]
+        return '', argv[1:]
+    except ValueError:
+        pass
+    if argv:
+        return argv[0], argv[1:]
+    return '', ()
+
 class LaunchCli(App):
     """CLI interface to Launch"""
 
@@ -322,13 +340,14 @@ class LaunchCli(App):
         """
         Pull the target from either the first arg, environment, or abort.
         """
+        svc, argv = split_argv_delim(*argv)
+        if svc:
+            return svc, argv
         env_service = os.environ.get("REFLEX_SERVICE")
-        if argv and argv[0]:
-            return argv[0]
-        elif not env_service:
+        if not env_service:
             self.ABORT("No target defined (either as argument or set as REFLEX_SERVICE)")
         else:
-            return env_service
+            return env_service, argv
 
     ############################################################################
     # pylint: disable=unused-argument
@@ -339,7 +358,7 @@ class LaunchCli(App):
         ```eval $(launch env name)```
         """
 
-        name = self.get_target(*argv)
+        name, argv = self.get_target(*argv)
         export = "export "
         if args.get('--noexport', False):
             export = ""
@@ -361,12 +380,12 @@ class LaunchCli(App):
         process with new process (exec).
         Supports two types: exec and action
         """
-        service = self.get_target(*argv)
+        service, argv = self.get_target(*argv)
         debug = self.do_DEBUG()
         rfx.unbuffer(self.notifyfd)
         rfx.unbuffer(self.outputfd)
         try:
-            self.launch_service_prep(service, commit=True)
+            self.launch_service_prep(service, argv=argv, commit=True)
             for key in sorted(self.launch_config.setenv): # .items():
                 value = self.launch_config.setenv[key]
                 os.environ[key] = value
@@ -381,7 +400,7 @@ class LaunchCli(App):
     ############################################################################
     def config_cli(self, argv, args, cli):
         """Show just our config"""
-        target = self.get_target(*argv)
+        target, argv = self.get_target(*argv)
         try:
             self.launch_service_prep(target, commit=args.get('--commit', False))
             self.OUTPUT(json4human(self.export()))
